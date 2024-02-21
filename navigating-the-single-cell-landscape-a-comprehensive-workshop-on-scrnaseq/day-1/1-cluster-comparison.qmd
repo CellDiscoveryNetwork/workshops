@@ -1,0 +1,344 @@
+---
+title: "1 - Cluster comparisons"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+In this notebook we are going to look at how to interpret and visualize gene-level statistics obtained from differential expression analysis.
+
+## Libraries
+
+```{r message=FALSE, warning=FALSE}
+library(Seurat)
+library(tidyverse)
+library(SingleCellExperiment)
+# BiocManager::install("scran")
+library(scran)
+# BiocManager::install("scater")
+# library(scater)
+library(colorBlindness)
+library(RColorBrewer)
+library(here)
+library(DT)
+```
+
+## Load data
+
+```{r}
+# Download the data in data/ directory
+# wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
+
+se <- readRDS(here("data/d8e35450-de43-451a-9979-276eac688bce.rds"))
+```
+
+Generate a color palette for our cell types
+
+```{r}
+# https://www.datanovia.com/en/blog/easy-way-to-expand-color-palettes-in-r/
+# nb.cols <- length(unique(se$Celltype))
+# mycolors <- colorRampPalette(paletteMartin)(nb.cols)
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
+```
+
+## Analysis 
+### Set gene symbols
+
+```{r}
+library(AnnotationDbi)
+# BiocManager::install("org.Hs.eg.db")
+library(org.Hs.eg.db)
+symbol_id <- mapIds(
+    org.Hs.eg.db,
+    keys = rownames(se), 
+    column = "SYMBOL",
+    keytype = "ENSEMBL",
+    multiVals = "first")
+
+# df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
+all(rownames(se) == names(symbol_id))
+
+# re-create seurat object
+mtx <- se@assays$RNA@data
+rownames(mtx) <- symbol_id
+
+# Remove NAs
+sum(is.na(rownames(mtx)))
+dim(mtx)
+mtx <- mtx[!is.na(rownames(mtx)), ]
+dim(mtx)
+
+rownames(mtx) <- make.unique(rownames(mtx))
+se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+
+sum(is.na(rownames(se)))
+```
+
+### Quick processing
+
+```{r}
+se <- se %>%
+    NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
+    RunPCA(verbose = FALSE) %>%
+    RunUMAP(dims = 1:30, verbose = FALSE)
+
+ElbowPlot(se, ndims = 50)
+```
+
+```{r fig.width=10, fig.height=10}
+DimPlot(
+    se,
+    group.by = c("Celltype"),
+    label = TRUE,
+    cols = pal)
+```
+
+### Seurat DGE
+
+The different implementations Seurat incorporates provides in `FindAllMarkers` compare the gene expression between 2 groups of cells. This one vs all strategy is very quick and returns the `avg_log2FC`. This `avg_log2FC` is computed as detailed [here](https://github.com/satijalab/seurat/issues/741) & [here](https://github.com/satijalab/seurat/issues/467). Since we're working with normalized data the log2FC can be directly computed by subtracting the average expression between both groups - $log(\frac{exp1}{exp2})=log(exp1)-log(exp2)$
+
+```{r}
+Idents(se) <- "Celltype"
+mgs <- FindAllMarkers(
+    se,
+    test.use = "wilcox",
+    only.pos = TRUE,
+    logfc.threshold = 0.25,
+    min.pct = 0.25)
+```
+
+Look at the results in a dynamic table:
+
+```{r}
+DT::datatable(mgs, filter = "top")
+```
+
+See below how the `avg_log2FC` calculation is done! Code extracted from [Seurat's codebase](https://github.com/satijalab/seurat/blob/41d19a8a55350bff444340d6ae7d7e03417d4173/R/differential_expression.R#L1114-L1117).
+
+```{r}
+features <- rownames(se) == "MS4A1"
+cells.1 <- se$Celltype == "B cell, IgG+"
+cells.2 <- se$Celltype != "B cell, IgG+"
+data.use <- GetAssayData(object = se, assay.type = "RNA", slot = "data")
+pseudocount.use <- 1
+base <- 2
+
+# Calculate fold change
+mean.fxn <- function(x) {
+    return(log(x = (rowSums(x = expm1(x = x)) + pseudocount.use)/NCOL(x), base = base))
+  }
+
+data.1 <- mean.fxn(data.use[features, cells.1, drop = FALSE])
+data.2 <- mean.fxn(data.use[features, cells.2, drop = FALSE])
+
+# Look at log2FC
+(fc <- (data.1 - data.2))
+```
+
+Check if its equal to the `avg_log2FC` obtained from `FindAllMarkers`:
+
+```{r}
+fc == mgs[mgs$cluster == "B cell, IgG+" & mgs$gene == "MS4A1", "avg_log2FC"]
+```
+
+##### Looking into the P-values
+
+More details can be obtained in [OSCA](https://bioconductor.org/books/3.17/OSCA.advanced/marker-detection-redux.html#p-value-invalidity).
+
+P values obtained from DGE analysis are inflated and, therefore invalid in their interpretation. We can't use p-values to reject the Null Hypothesis since we are carrying out **data snooping**. This means that we are dividing the clusters based on their gene expression, and then computing p-values from the genes that are differentially expressed, even though we already know these genes are differentially expressed since we clustered the data based on them being different.
+
+A way to show this is by looking at how skewed the distributions of the p-values obtained is:
+
+```{r fig.width=9, fig.width=9}
+# Compute the p-values without he thresholds
+mgs2 <- FindAllMarkers(
+    se,
+    test.use = "wilcox",
+    only.pos = TRUE,
+    logfc.threshold = 0,
+    min.pct = 0,
+    return.thresh = 1,
+    max.cells.per.ident = 100 # use 100 cells per cell type for speed
+    )
+
+ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
+    # geom_histogram(alpha = 0.3, position = "identity") +
+    geom_density(alpha = 0.3) +
+    theme_minimal()
+
+ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
+    geom_histogram(alpha = 0.3, position = "identity") +
+    facet_wrap(~cluster, scales = "free") +
+    theme_minimal()
+```
+
+### Scran DGE
+
+Dig deeper in Orchestrating Single Cell Analysis with Bioconductor book [here](https://bioconductor.org/books/3.17/OSCA.advanced/marker-detection-redux.html) & [here](https://bioconductor.org/books/3.17/OSCA.basic/marker-detection.html)
+
+`scoreMarkers` - **p-values for these types of comparisons are largely meaningless**; individual cells are not meaningful units of experimental replication, while the groups themselves are defined from the data. Thus, by discarding the p-values, we can simplify our marker selection by focusing only on the effect sizes between groups.
+
+Here, the strategy is to perform pairwise comparisons between each pair of groups to obtain various effect sizes. For each group X, we summarize the effect sizes across all pairwise comparisons involving that group, e.g., mean, min, max and so on. This yields a `DataFrame` for each group where each column contains a different summarized effect and each row corresponds to a gene in x.
+
+```{r}
+# Convert to single cell experiment
+(sce <- as.SingleCellExperiment(se))
+
+markers <- scoreMarkers(sce, groups = sce$Celltype)
+```
+
+```{r}
+markers[["B cell, IgG+"]] %>%
+    data.frame() %>%
+    filter(self.detected > 0.25) %>%
+    DT::datatable(filter = "top")
+```
+
+```{r}
+markers_sub <- lapply(names(markers), function(i) {
+    m <- markers[[i]]
+    m$celltype <- i
+    m$gene <- rownames(m)
+    
+    m %>%
+        as_tibble() %>%
+        filter(self.detected > 0.25) %>% 
+        dplyr::select(gene, celltype, everything())
+}) %>% bind_rows()
+```
+
+##### Example: B cell, IgG+
+
+Let's look at *CD79A* and *CD74* as example genes obtained for **B cell, IgG+**:
+```{r}
+markers_sub %>%
+    dplyr::filter(
+        celltype == "B cell, IgG+" & gene %in% c("CD79A", "CD74")) %>%
+    DT::datatable()
+```
+
+Right away we can see how *CD79A* and *CD74* are highly expressed `(self.average)` and have ubiquitous expression across all cells in **B cell, IgG+** cells `(self.detected)`. Differences occur in the *other* groups. *CD74* is pretty much expressed at varying degrees across all other cell types at lower intensity, except in DCs, `other.average = 2.2` & `other.detected = 0.76`. *CD79A*, in turn is pretty much only expressed in the **Uncategorized2** and **B cell, IgG-** populations `other.average = 0.4` & `other.detected = 0.18`. These patterns of expression lead to differences at the gene-level statistics such as AUC and logFC. In this case, AUC similar between both groups affected due to both their higher relative expressions when compared to the other populations. *CD74* has a mean AUC of 0.88 and *CD79A*'s is 0.94. However, big differences arise in terms of logFC since they have a mean.logFC of 0.6 and 4.25 respectively. Therefore, by looking at these 2 parameters simultaneously we can get a good understanding at how specifically that marker is expressed in that population.
+
+Look at the expression of *CD79A* and *CD74* expression across groups with a violin plot:
+```{r fig.width=10, fig.height=5}
+VlnPlot(
+    se,
+    features = c("CD79A", "CD74"),
+    group.by = "Celltype",
+    cols = pal)
+```
+
+We can also plot all the genes as a function of their `mean.AUC` and `mean.logFC` for a quick view:
+```{r fig.width=8, fig.height=6}
+markers[["B cell, IgG+"]] %>%
+    data.frame() %>% 
+    tibble::rownames_to_column("gene") %>% 
+    mutate(txt = case_when(
+        abs(mean.AUC) > 0.75 & abs(mean.logFC.detected) > 3 ~ gene,
+        TRUE ~ NA_character_
+    )) %>% 
+    ggplot(aes(
+        x = mean.AUC,
+        y = mean.logFC.detected,
+        size = self.average,
+        color = mean.logFC.detected,
+        label = txt)) +
+    geom_point() +
+    ggrepel::geom_text_repel(color = "black") +
+    labs(
+        title = "Differential expression gene-level statistics",
+        x = "mean AUC",
+        y = "mean logFC",
+        color = "mean logFC",
+        size = "Average expression\nin self") +
+    theme_classic() +
+    scale_color_distiller(palette = "Spectral")
+```
+
+##### Example : CD4, EM-like
+
+Next we'll look at some key genes for **CD4, EM-like**:
+```{r}
+markers_sub %>%
+    dplyr::filter(
+        celltype == "CD4, EM-like" & gene %in% c("CD4", "TRBC1", "TRBC2")) %>%
+    DT::datatable()
+```
+
+```{r fig.width=15, fig.height=5}
+VlnPlot(
+    se,
+    features = c("CD4", "TRBC1", "TRBC2"),
+    group.by = "Celltype",
+    cols = pal)
+```
+
+
+*CD4* and *TRBC1/2* have similar statistics but they come from comparing against very different subpopulations. - *CD4* has been identified as a lowly expressed gene, which makes it hard to capture with scRNAseq. We see how it has a mean AUC of 0.55 and mean logFC of 2.12. These statistics are due to its simultaneous expression in monocytes as reported by [Filion et al](https://pubmed.ncbi.nlm.nih.gov/1703191/) and DCs [Patterson et al](https://www.microbiologyresearch.org/content/journal/jgv/10.1099/0022-1317-76-5-1155). *TRBC1/2* in turn, show similar statistics, in this case because of their ubiquitous expression across T cell populatoins.
+
+
+```{r}
+markers[["CD4, EM-like"]] %>%
+    data.frame() %>% 
+    tibble::rownames_to_column("gene") %>% 
+    mutate(txt = case_when(
+        abs(mean.AUC) > 0.65 & abs(mean.logFC.detected) > 1.5 ~ gene,
+        TRUE ~ NA_character_
+    )) %>% 
+    ggplot(aes(
+        x = mean.AUC,
+        y = mean.logFC.detected,
+        size = self.average,
+        color = mean.logFC.detected,
+        label = txt)) +
+    geom_point() +
+    ggrepel::geom_text_repel(color = "black") +
+    labs(
+        title = "Differential expression gene-level statistics",
+        x = "mean AUC",
+        y = "mean logFC",
+        color = "mean logFC",
+        size = "Average expression\nin self") +
+    theme_classic() +
+    scale_color_distiller(palette = "Spectral")
+
+```
+
+We can also compute the AUCs in Seurat as follows:
+```{r eval=FALSE}
+mgs_roc <- FindAllMarkers(
+    se,
+    test.use = "roc",
+    only.pos = TRUE,
+    logfc.threshold = 0.25,
+    min.pct = 0.25)
+mgs_roc
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
