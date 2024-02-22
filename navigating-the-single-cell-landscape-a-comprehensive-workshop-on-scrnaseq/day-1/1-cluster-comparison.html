@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="CDN team">
-<meta name="dcterms.date" content="2024-02-21">
+<meta name="dcterms.date" content="2024-02-22">
 
 <title>1 - Cluster comparisons</title>
 <style>
@@ -148,7 +148,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">February 21, 2024</p>
+      <p class="date">February 22, 2024</p>
     </div>
   </div>
   
@@ -160,7 +160,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="introduction" class="level2">
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<p>In this notebook we are going to look at how to interpret and visualize gene-level statistics obtained from differential expression analysis.</p>
+<p>In this notebook we are going to look at how to interpret and visualize gene-level statistics obtained from differential expression analysis. We are not going to go into which method should be used to carry out differential gene expression analysis but we highly recommend giving a read to <a href="https://doi.org/10.1101/2022.05.09.490241">A comparison of marker gene selection methods for single-cell RNA sequencing data</a> by Jeffrey M. Pullin &amp; Davis J. McCarthy if you’re interested in digging deeper!</p>
+<p>Some other interesting papers and twitter discussions can be found here:</p>
+<ul>
+<li><p>Why Seurat and Scanpy’s log fold change calculations are discordant - https://twitter.com/lpachter/status/1694387749967847874?s=46</p></li>
+<li><p>Discrepancies between Seurat and Scanpy’s logFC - https://twitter.com/slavov_n/status/1582347828818456576</p></li>
+<li><p>Differences in wilcoxon rank sum test p-value calculations between Seurat and Scanpy - https://twitter.com/Sanbomics/status/1693995213298266515 &nbsp;</p></li>
+</ul>
 </section>
 <section id="libraries" class="level2">
 <h2 class="anchored" data-anchor-id="libraries">Libraries</h2>
