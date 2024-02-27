@@ -8,7 +8,6 @@ format:
     toc_float: true
     toc-location: left
     toc-depth: 4
-    html-math-method: katex
     embed-resources: true
     self-contained-math: true
 editor_options: 
@@ -32,19 +31,17 @@ Some associated literature which is a must read are:
 
 **Key Takeaways**
 
--   Different L-R resources covered varying proportions of the collective prior knowledge.
+-   The Ligand-Receptor (L-R) database used gather the collective prior knowledge and has a great impact on the results obtained.
 
--   The choice of method and resource is likely to have a major impact on the results.
+-   Different CCC tools have varying assumptions, therefore, the tool of choise will also have a major impact on the results.
 
--   CCC methods are generally able to capture relevant biological signals, and that leveraging information from additional modalities and analyses could help to refine the predictions.
+    -   `CellChat` and `CellPhoneDB` make a point of modelling CCC events taking into account heteromeric complexes. This ensures all the subunits of a protein complex are expressed to consider a cell-cell interaction feasible. This assumption reduces false positive predictions.
 
--   Some tools like CellChat and CellPhoneDB make a point of modelling CCC events taking into account heteromeric complexes. Ensuring that all subunits of a protein complex are expressed to consider a cell-cell interaction valid --\> reduces false positive predictions.
+    -   `CellChat`, additionally, accounts for interaction mediator proteins such as agonists.
 
-    -   CellChat additionally accounts for interaction mediator proteins.
+-   Broadly, CCC tools are generally able to capture relevant biological signals. However, predicted interactions tend to have false positives, if available leveraging information from additional modalities and analyses could help to refine the predictions.
 
--   CCC inference from scRNA-Seq data assumes that gene expression of a transmitter and a receiver is a good proxy for their joint activity, without considering any of the processes preceding transmitter-receiver interactions, including protein translation and processing, secretion, and diffusion.
-
--   CCC tools use gene expression as a proxy of protein levels.
+-   CCC inference from scRNAseq data makes the assumption that gene expression is a proxy for protein levels. Moreover, they don't (and can't) account for other intermediate steps between translation and protein function such as post-translational modifications, secretion, diffusion...
 
 ## Library
 
@@ -99,11 +96,11 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 
 ```{r message=FALSE, warning=FALSE, output=FALSE}
 # Download the data in data/ directory
-download.file(
-    url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
-    destfile = "../data/workshop-data.rds",
-    method = "wget",
-    extra = "-r -p --random-wait")
+# download.file(
+#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+#     destfile = "../data/workshop-data.rds",
+#     method = "wget",
+#     extra = "-r -p --random-wait")
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
