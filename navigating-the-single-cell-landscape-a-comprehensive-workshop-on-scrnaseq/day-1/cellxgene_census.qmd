@@ -222,5 +222,7 @@ The following dataset isn't actually included in cellxgene_census yet. I've open
 Finally, we must close the census.
 ```{r}
 census$close()
+
+sessionInfo()
 ```
 
