@@ -31,6 +31,10 @@ Some associated literature which is a must read are:
 
 -   [Evaluation of cell-cell interaction methods by integrating single-cell RNA sequencing data with spatial information](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02783-y)
 
+-   Why use NMF instead of PCA - This [stats.StackExchange](https://stats.stackexchange.com/questions/502072/what-is-the-main-difference-between-pca-and-nmf-and-why-to-choose-one-rather-tha) summarises quite well what the differences are between NMF and PCA. It uses the image below to visually represent the differences - see the *free* book [An Introduction to Statistical Learning](https://www.statlearning.com/) for more details!
+
+![NMF vs PCA](../img/nmf-pca.png)
+
 **Key Takeaways**
 
 -   NMF identifies sets of genes "metagenes" representing the main characteristics of the data.
@@ -128,6 +132,7 @@ head(rownames(se))
 ```
 
 Convert to gene symbols
+
 ```{r}
 gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
 
@@ -408,7 +413,6 @@ pheatmap::pheatmap(
     color = my_color,
     breaks = my_breaks)
 ```
-
 
 #### Carry out GSEA
 
