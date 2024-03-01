@@ -1,0 +1,489 @@
+---
+title: "5 - Factor analysis"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    embed-resources: true
+    self-contained-math: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+```
+
+## Introduction
+
+In this notebooks we are going to carry out `Factor Analysis` analysis using [`RcppML`](https://www.biorxiv.org/content/10.1101/2021.09.01.458620v1). You can see the GitHub repository [here](https://github.com/zdebruine/RcppML). This implementation of NMF is extremely fast and enables us to use large dataset since it works well with sparse matrices. The author is currently implementing it within the [Singlet](https://zdebruine.github.io/singlet/) package to work nicely with single cell and soon it will be available!
+
+[here](https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html) and the differential communication analysis vignette [here](https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/Comparison_analysis_of_multiple_datasets.html). The goal of the notebook is to identify which communication pathways are altered between flu and covid infection!
+
+Some associated literature which is a must read are:
+
+-   [Comparison of methods and resources for cell-cell communication inference from single-cell RNA-Seq data](https://www.nature.com/articles/s41467-022-30755-0)
+
+-   [Evaluation of cell-cell interaction methods by integrating single-cell RNA sequencing data with spatial information](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02783-y)
+
+**Key Takeaways**
+
+-   NMF identifies sets of genes "metagenes" representing the main characteristics of the data.
+
+-   Choosing the rank (K) of the matrix is an important step since it will determine how many "metagenes" are present in our dataset. We can use cross validation to find the best K.
+
+-   Whe can visualize how important each genes is for each factor (aka - metagene) and how important is each factor for each cell. This way we can determine which metagenes are explaining each cell's transcriptome.
+
+-   When looking at metagenes learned across multiple patients and conditions it is imperative to check that the signal is not being provided just by one replicate of our experiment. Not checking this could lead to incorrect interpretation of the data!
+
+## Library
+
+```{r}
+options(future.globals.maxSize= 891289600)
+### Make sure all the packages are installed
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages("Seurat")
+
+if (!requireNamespace("dplyr", quietly = TRUE))
+    install.packages("dplyr")
+
+if (!requireNamespace("devtools", quietly = TRUE))
+    install.packages("devtools")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!requireNamespace("RcppML", quietly = TRUE)) {
+    # BiocManager::install("fgsea", update = FALSE)
+    # BiocManager::install("limma", update = FALSE)
+    # devtools::install_github("zdebruine/singlet", upgrade = FALSE)
+    devtools::install_github("zdebruine/RcppML")
+    devtools::install_github("zdebruine/RcppSparse")
+}
+
+if (!requireNamespace("sparseMatrixStats", quietly = TRUE)) {
+    install.packages("sparseMatrixStats")
+}
+
+if (!requireNamespace("inflection", quietly = TRUE)) {
+    install.packages("inflection")
+}
+
+if (!requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
+    BiocManager::install("org.Hs.eg.db")
+}
+
+if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
+    BiocManager::install("clusterProfiler")
+
+}
+
+
+### Load all the necessary libraries
+library(Seurat)
+library(dplyr)
+library(RcppML)
+library(RcppSparse)
+library(ggplot2)
+library(sparseMatrixStats)
+library(inflection)
+library(glue)
+library(tidyr)
+library(org.Hs.eg.db)
+library(clusterProfiler)
+
+set.seed(687)
+```
+
+## Load data
+
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
+
+```{r message=FALSE, warning=FALSE, output=FALSE}
+# Download the data in data/ directory
+# download.file(
+#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+#     destfile = "../data/workshop-data.rds",
+#     method = "wget",
+#     extra = "-r -p --random-wait")
+# We can also use the CLI with the wget command below
+# wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
+
+se <- readRDS("../data/workshop-data.rds")
+```
+
+## Analysis
+
+### Convert ENSEMBL IDs to Gene Symbols
+
+Right away we can see how ensembl ids are used in the rownames. Let's transform them into their matched symbols to make them human-readable:
+
+```{r}
+head(rownames(se))
+```
+
+Convert to gene symbols
+```{r}
+gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
+
+symbol_id <- data.frame(index = rownames(se)) %>%
+    left_join(gene_df) %>%
+    pull(feature_name)
+
+# re-create seurat object
+mtx <- se@assays$RNA@data
+rownames(mtx) <- symbol_id
+se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+```
+
+```{r}
+# symbol_id <- mapIds(
+#     org.Hs.eg.db,
+#     keys = rownames(se), 
+#     column = "SYMBOL",
+#     keytype = "ENSEMBL",
+#     multiVals = "first")
+# 
+# # df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
+# all(rownames(se) == names(symbol_id))
+# 
+# # re-create seurat object
+# mtx <- se@assays$RNA@data
+# rownames(mtx) <- symbol_id
+# 
+# # Remove NAs
+# sum(is.na(rownames(mtx)))
+# dim(mtx)
+# mtx <- mtx[!is.na(rownames(mtx)), ]
+# dim(mtx)
+# 
+# rownames(mtx) <- make.unique(rownames(mtx))
+# se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+# 
+# sum(is.na(rownames(se)))
+```
+
+## Factor Analysis
+
+For the purpose of this vignette we're going to focus on CD8 and NK cells this object to pull out interferon signalling program:
+
+```{r}
+se <- se[, se$Celltype %in% c("CD8, non-EM-like", "CD8, EM-like", "NK cell")]
+```
+
+First we need to normalize the data
+
+```{r fig.width=12, fig.height=10}
+se <- NormalizeData(se, verbose = FALSE) %>%
+    FindVariableFeatures(nfeatures = 3000, verbose = FALSE) %>%
+    ScaleData(verbose = FALSE) %>%
+    RunPCA(verbose = FALSE)
+
+VlnPlot(
+    se,
+    features = c("CD3D", "CD3E", "CD8B", "NKG7", "FCGR3A"),
+    group.by = "Celltype",
+    pt.size = 0,
+    split.by = "disease") + theme(legend.position = "bottom")
+```
+
+Extract the normalized expression matrix and remove genes that are all 0s
+
+```{r}
+library(Matrix)
+mtx <- se@assays$RNA@layers$data
+colnames(mtx) <- colnames(se)
+rownames(mtx) <- rownames(se)
+
+# Remove genes that are all 0s
+mtx <- mtx[sparseMatrixStats::rowSums2(mtx) > 0, ]
+```
+
+### Cross-validation for rank determination
+
+The first step is to determine the rank of our matrix - by this we mean, which is the optimal number of factors we need to decompose our matrix. Here we run cross-validation 3 times across a range of different ranks (k).
+
+```{r}
+start <- Sys.time()
+cv_data <- crossValidate(mtx, k = seq(1, 36, 5), reps = 2, verbose = TRUE, tol = 1e-04)
+Sys.time() - start
+```
+
+Now let's visualize the crossvalidation results
+
+```{r}
+ggplot(cv_data, aes(x = k, y = value, color = rep, group = rep)) +
+    geom_point() +
+    geom_line() +
+    theme_minimal()
+```
+
+We can see how it starts to plateau at \~k=20 so we will use that in this script.
+
+### Run NMF
+
+-   **k**: Number of factors we want to identify
+
+-   **tol**: Stands for tolerance and is how small we want the error to be, the smaller the number the better the decomposition but the longer its gonna take to converge. Values in the 10\^-5 and 10\^-6 return very good results.
+
+-   **L1**: Introduces sparsity into the factors and loadings with the aim of removing noisy genes from factors and noisy cells contributing to factors. L1 normalization uses Lasso regularization to increase sparsity and remove the unimportant features.
+
+```{r}
+set.seed(7)
+nmf_ls <- RcppML::nmf(
+    data = mtx,
+    k = 20,
+    tol = 1e-06,
+    L1 = c(0.05, 0.1), # l1 for c(w, h)
+    verbose = TRUE)
+```
+
+### Explore the NMF results
+
+W - contains which genes are relevant for each factor. H - contains how important each factor for each cell.
+
+```{r}
+w <- nmf_ls@w
+w[1:5, 1:5]
+h <- nmf_ls@h
+h[1:5, 1:5]
+```
+
+#### Add NMF to Seurat object
+
+```{r}
+se[["FA"]] <- Seurat::CreateDimReducObject(
+  embeddings = t(nmf_ls$h),
+  loadings = nmf_ls$w,
+  assay = "RNA",
+  key = "Factor_")
+
+se[["FA"]]
+```
+
+Examine and visualize NMF loadings a few different ways
+
+```{r}
+print(se[["FA"]], dims = 1:20, nfeatures = 5)
+```
+
+Violin plots for the loadings
+
+```{r fig.width=24, fig.height=18}
+VlnPlot(
+  se,
+  features = glue::glue("Factor_{1:ncol(nmf_ls$w)}"),
+  ncol = 4,
+  group.by = "Celltype")
+```
+
+We can also visualize this by cell type, condition and patient!
+
+```{r fig.width=12, fig.height=5}
+disease_pal <- c("#41AE76", "#225EA8", "#E31A1C")
+names(disease_pal) <- c("normal", "influenza", "COVID-19")
+# flu <- RColorBrewer::brewer.pal(12, name = "YlGnBu")
+# normal <- RColorBrewer::brewer.pal(12, name = "BuGn")
+# covid <- RColorBrewer::brewer.pal(12, name = "YlOrRd")
+donor_pal <- c(
+    "#66C2A4", "#41AE76", "#238B45", "#006D2C",
+    "#41B6C4", "#1D91C0", "#225EA8", "#253494", "#081D58",
+    "#FFFFCC", "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C",
+    "#FC4E2A", "#E31A1C", "#BD0026", "#800026")
+
+names(donor_pal) <- c(
+    "Normal 1", "Normal 2", "Normal 3", "Normal 4",
+    "Flu 1", "Flu 2", "Flu 3", "Flu 4", "Flu 5",
+    "nCoV 1", "nCoV 2", "nCoV 3_4", "nCoV 5",
+    "nCoV 6", "nCoV 7_8", "nCoV 9_10", "nCoV 11"  
+)
+
+# Preprocess dataset
+dd <- bind_cols(se@meta.data, se@reductions$FA@cell.embeddings) %>%
+        tidyr::pivot_longer(
+            cols = glue::glue("Factor_{1:ncol(nmf_ls$w)}"),
+            names_to = "k",
+            values_to = "loading") %>%
+        group_by(Celltype, disease, donor_id, k) %>%
+        summarise(median_loading = median(loading))
+
+lapply(glue::glue("Factor_{1:ncol(nmf_ls$w)}"), function(i) {
+    dd %>%
+        filter(k == i) %>%
+        ggplot(aes(x = disease, y = median_loading, fill = disease)) +
+        geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+        geom_jitter(aes(color = donor_id), height = 0) +
+        facet_wrap(~ Celltype) +
+        scale_fill_manual(values = disease_pal) +
+        scale_color_manual(values = donor_pal) +
+        scale_x_discrete(limits = names(disease_pal)) +
+        theme_classic() +
+        labs(title = glue::glue("Factors by condition in {i}"))
+})
+```
+
+Factors 4 & 6 seem interesting, lets explore them a bit more in depth!
+
+```{r fig.width=6, fig.height=6}
+w[1:5, c("nmf5", "nmf7")]
+
+# Extract top genes from factors 4 & 6 using Unit Invariant Knee
+FA_genes <- lapply(c("nmf5", "nmf7"), function(i) {
+    y_vec <- sort(w[, i], decreasing = TRUE)
+    # Define inflecion point
+    n <- uik(x = seq_len(length(y_vec)), y = y_vec)
+    # Define top 10 genes
+    df <- data.frame(gene = names(y_vec), value = y_vec, rank = 1:length(y_vec)) %>%
+        mutate(lab = if_else(rank < 15, gene, NA_character_))
+    print(ggplot(df, aes(x = rank, y = y_vec)) +
+        geom_point() +
+        geom_vline(xintercept = n) +
+        ggrepel::geom_text_repel(aes(label = lab)) +
+        labs(title = glue("Factor-{i}")) +
+        theme_classic())
+    y_vec[1:n]
+})
+```
+
+```{r}
+names(FA_genes) <- c("nmf5", "nmf7")
+
+dd <- lapply(names(FA_genes), function(i){
+    data.frame(
+        value = FA_genes[[i]],
+        gene = names(FA_genes[[i]]),
+        factor = i)
+}) %>%
+    bind_rows() %>%
+    pivot_wider(names_from = factor, values_from = value, values_fill = 0)
+
+DT::datatable(dd)
+```
+
+By looking at these genes we can get a sense of which are the major processes captures by each factor.
+
+-   **NMF-5** seems to be capturing cytotoxic and activation signals since it contains genes encoding for chemokines (CCL4, CCL3), granzymes (GZMB, GNLY, NKG7) and other immune related processes (NFKBIA, CD69...).
+
+-   **NMF-7** contains a wide array of myeloid cell markers, such as S100A8, S100A9, LYZ and genes encoding for MHC-II (CD74, HLA-DRB1, HLA-DRA) as well as cytotoxic genes (GZMA, GZMH, NKG7...). The most straight forward explanation is that these could be doublets or have a high amount of ambient RNA in the soup.
+
+We can take a look at how these genes are expressed across the patients since like `Flu-1` patient has an etremely high score and we want to make sure it is not driving this by itself.
+
+```{r fig.width=9, fig.height=6}
+# We'll take a look at the top 25 genes
+names(head(FA_genes[["nmf7"]], 25))
+
+# Scale their expression
+se <- ScaleData(se, features = names(head(FA_genes[["nmf7"]], 25)))
+
+# Check scale.data
+mtx <- se@assays$RNA@layers$scale.data
+rownames(mtx) <- names(head(FA_genes[["nmf7"]], 25))
+colnames(mtx) <- colnames(se)
+
+# Choose color palette
+palette_length <- 100
+my_color <- colorRampPalette(c("Darkblue", "white","red"))(palette_length)
+
+# set color breaks
+my_breaks <- c(seq(quantile(mtx, .01), 0, length.out=ceiling(palette_length/2) + 1),
+               seq(0.05, quantile(mtx, .99), length.out=floor(palette_length/2)))
+# Note that we are setting the min and max of the scale to .01 and .99 so we exclude extreme values from dampening our signal
+# We can see how the max value of the matrix is +10 but q99 is 2
+Hmisc::describe(as.vector(mtx))
+
+pheatmap::pheatmap(
+    mtx,
+    cluster_rows = TRUE,
+    cluster_cols = TRUE,
+    show_rownames = TRUE,
+    show_colnames = FALSE,
+    treeheight_col = 0,
+    annotation_col = se@meta.data[, c("disease", "donor_id", "Celltype")], 
+    annotation_colors = list("disease" = disease_pal, "donor_id" = donor_pal),
+    color = my_color,
+    breaks = my_breaks)
+```
+
+
+#### Carry out GSEA
+
+```{r}
+# read GSEA markers
+gsea_ls <- lapply(FA_genes, function(i) {
+    
+    # http://yulab-smu.top/clusterProfiler-book/chapter5.html#go-gene-set-enrichment-analysis
+    gsea_results <- clusterProfiler::gseGO(
+        geneList = i,
+        ont = "BP",
+        OrgDb = org.Hs.eg.db,
+        keyType = "SYMBOL",
+        minGSSize = 10,
+        maxGSSize = 300,
+        pvalueCutoff = 0.1,
+        pAdjustMethod = "BH",
+        seed = TRUE)
+    
+    gsea_results
+})
+
+names(gsea_ls) <- names(FA_genes)
+```
+
+Visualize top enriched gene sets per cluster
+
+```{r fig.width=15, fig.height=6}
+lapply(names(gsea_ls), function(i) {
+    # Extract gsea
+    gsea <- gsea_ls[[i]]
+    gsea <- clusterProfiler::simplify(gsea, cutoff = 0.7)
+    gsea@result <- gsea@result %>%
+        dplyr::arrange(dplyr::desc(NES)) %>%
+        dplyr::filter(p.adjust < 0.1)
+    
+    tmp_plt <- gsea@result %>%
+        dplyr::top_n(n = 20, wt = enrichmentScore) %>%
+        ggplot2::ggplot(.,
+                        ggplot2::aes(
+                            x = NES,
+                            y = forcats::fct_reorder(Description, NES),
+                            size = setSize,
+                            color = p.adjust)) +
+        ggplot2::geom_point() +
+        # ggplot2::geom_vline(
+        #     xintercept = 0,
+        #     linetype = "dashed",
+        #     color = "red") +
+        scale_color_viridis_c(option = "plasma") +
+        ggplot2::theme_minimal() +
+        ggplot2::labs(title = i)
+    
+
+  }) %>% patchwork::wrap_plots(ncol = 2)
+```
+
+And lastly we will save GSEA to a spreadsheet so we can take a look:
+
+```{r}
+gsea_xlsx <- lapply(names(gsea_ls), function(i) {
+  print(i)
+  # Extract gsea
+  gsea <- gsea_ls[[i]]
+  gsea <- clusterProfiler::simplify(gsea, cutoff = 0.7)
+  gsea@result <- gsea@result %>%
+    dplyr::arrange(dplyr::desc(NES)) %>%
+    dplyr::filter(p.adjust < 0.1)
+  })
+names(gsea_xlsx) <- names(gsea_ls)
+openxlsx::write.xlsx(gsea_xlsx, file = "../data/GSEA.xlsx")
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
