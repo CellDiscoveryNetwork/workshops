@@ -118,32 +118,44 @@ head(rownames(se))
 ```
 
 Convert to gene symbols
-
 ```{r}
-symbol_id <- mapIds(
-    org.Hs.eg.db,
-    keys = rownames(se), 
-    column = "SYMBOL",
-    keytype = "ENSEMBL",
-    multiVals = "first")
+gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
 
-# df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
-all(rownames(se) == names(symbol_id))
+symbol_id <- data.frame(index = rownames(se)) %>%
+    left_join(gene_df) %>%
+    pull(feature_name)
 
 # re-create seurat object
 mtx <- se@assays$RNA@data
 rownames(mtx) <- symbol_id
-
-# Remove NAs
-sum(is.na(rownames(mtx)))
-dim(mtx)
-mtx <- mtx[!is.na(rownames(mtx)), ]
-dim(mtx)
-
-rownames(mtx) <- make.unique(rownames(mtx))
 se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+```
 
-sum(is.na(rownames(se)))
+```{r}
+# symbol_id <- mapIds(
+#     org.Hs.eg.db,
+#     keys = rownames(se), 
+#     column = "SYMBOL",
+#     keytype = "ENSEMBL",
+#     multiVals = "first")
+# 
+# # df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
+# all(rownames(se) == names(symbol_id))
+# 
+# # re-create seurat object
+# mtx <- se@assays$RNA@data
+# rownames(mtx) <- symbol_id
+# 
+# # Remove NAs
+# sum(is.na(rownames(mtx)))
+# dim(mtx)
+# mtx <- mtx[!is.na(rownames(mtx)), ]
+# dim(mtx)
+# 
+# rownames(mtx) <- make.unique(rownames(mtx))
+# se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+# 
+# sum(is.na(rownames(se)))
 ```
 
 ### Split dataset
