@@ -374,13 +374,141 @@ gg1 + gg2
 We can also assess how much the outgoing and incoming signal changes between conditions by looking at their absolute signals. Dot size is proportional to the number of inferred links (both outgoing and incoming) associated with each cell group.
 
 ```{r fig.width=12, fig.height=6}
-num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
-weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
-gg <- list()
-for (i in 1:length(object.list)) {
-  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax)
+# num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+# weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+# gg <- list()
+# for (i in 1:length(object.list)) {
+#   gg[[i]] <- netAnalysis_signalingRole_scatter(
+#       object.list[[i]],
+#       title = names(object.list)[i],
+#       weight.MinMax = weight.MinMax)
+# }
+# patchwork::wrap_plots(plots = gg)
+```
+
+Prepare the data
+```{r}
+slot.name <- "netP"
+x.measure <- "outdeg"
+y.measure <- "indeg"
+signaling <- NULL
+
+df_ls <- lapply(names(object.list), function(nm) {
+    object <- object.list[[nm]]
+    centr <- slot(object, slot.name)$centr
+    outgoing <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+    incoming <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+    dimnames(outgoing) <- list(levels(object@idents), names(centr))
+    dimnames(incoming) <- dimnames(outgoing)
+    for (i in 1:length(centr)) {
+        outgoing[, i] <- centr[[i]][[x.measure]]
+        incoming[, i] <- centr[[i]][[y.measure]]
+    }
+    outgoing.cells <- rowSums(outgoing)
+    incoming.cells <- rowSums(incoming)
+    num.link <- aggregateNet(object, signaling = signaling, return.object = FALSE, 
+                             remove.isolate = FALSE)$count
+    num.link <- rowSums(num.link) + colSums(num.link) - diag(num.link)
+    df <- data.frame(
+        outgoing.cells,
+        incoming.cells, 
+        names(incoming.cells),
+        num.link,
+        nm)
+    colnames(df) <- c(paste0("outgoing_", nm), paste0("incoming_", nm), "labels", paste0("count_", nm))
+    df$labels <- factor(df$labels, levels = names(incoming.cells))
+    
+    df
+})
+```
+
+Visualize how the interactions changed
+```{r fig.width=6, fig.height=6}
+require(gridExtra)
+library(colorBlindness)
+library(RColorBrewer)
+# Define the number of colors you want
+nb.cols <- length(unique(se$Celltype))
+col_pal <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
+names(col_pal) <- sort(unique(se$Celltype))
+# Create a ggplot with 18 colors 
+df_ls[[1]] %>%
+    left_join(df_ls[[2]], by = "labels") %>%
+    
+    ggplot() +
+    geom_point(aes(x = outgoing_flu, y = incoming_flu, color = labels,
+                   fill = "Flu", size = count_flu), alpha = 0.5) +
+    geom_point(aes(x = outgoing_covid, y = incoming_covid, color = labels,
+                   fill = "Covid", size = count_covid), size = 3, pch = 21) +
+    geom_segment(aes(
+        x = outgoing_covid,
+        y = incoming_covid,
+        xend = outgoing_flu,
+        yend = incoming_flu,
+        color = labels),
+        arrow = arrow(angle = 40, length = grid::unit(.35, "cm")),
+        show.legend = FALSE) +
+    theme_classic() +
+    guides(
+        size = FALSE,
+        shape = FALSE,
+        colour = guide_legend(override.aes = list(size = 5))) +
+    scale_color_manual(values = col_pal) +
+    labs(
+        title = "Cell-Cell interaction strength shifts from Covid to Flu",
+       # x = "Outgoing strength",
+      #  y = "Incoming strength",
+      y = NULL, x = NULL,
+        color = "Cell Type",
+        fill = "Disease")  +
+        scale_fill_manual(values = c("white", "black")) +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_line()) +
+    scale_y_continuous(labels = function(x) {
+        case_when(x == 25 ~ "25 Incoming\nStrength",
+                  TRUE ~ as.character(round(x)))
+    })  +
+    scale_x_continuous(labels = function(x) {
+        case_when(x == 10 ~ "10\nOutgoing\nStrength",
+                  TRUE ~ as.character(round(x)))
+    }) +
+    coord_fixed()
+```
+
+
+```{r}
+object <- object.list[[1]]
+slot.name <- "netP"
+x.measure <- "outdeg"
+y.measure <- "indeg"
+signaling <- NULL
+centr <- slot(object, "netP")$centr
+outgoing <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+incoming <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+
+dimnames(outgoing) <- list(levels(object@idents), names(centr))
+dimnames(incoming) <- dimnames(outgoing)
+for (i in 1:length(centr)) {
+    outgoing[, i] <- centr[[i]][[x.measure]]
+    incoming[, i] <- centr[[i]][[y.measure]]
 }
-patchwork::wrap_plots(plots = gg)
+
+signaling <- signaling[signaling %in% object@netP$pathways]
+
+outgoing <- outgoing[, signaling, drop = FALSE]
+incoming <- incoming[, signaling, drop = FALSE]
+
+outgoing.cells <- rowSums(outgoing)
+incoming.cells <- rowSums(incoming)
+num.link <- aggregateNet(object, signaling = signaling, return.object = FALSE, 
+                         remove.isolate = FALSE)$count
+num.link <- rowSums(num.link) + colSums(num.link) - diag(num.link)
+df <- data.frame(x = outgoing.cells, y = incoming.cells, 
+                 labels = names(incoming.cells), Count = num.link)
+df$labels <- factor(df$labels, levels = names(incoming.cells))
+
+
+
 ```
 
 In this case we can see how CD8 T cells greatly increase their incoming signal as well as intermediate monocytes. NKs and CD4 EM-like, in turn, greatly increase their outgoing signal while not increasing their incoming signal.
