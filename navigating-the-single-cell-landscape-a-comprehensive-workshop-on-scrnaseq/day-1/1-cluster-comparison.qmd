@@ -9,8 +9,8 @@ format:
     toc-location: left
     toc-depth: 4
     html-math-method: katex
-    embed-resources: true
     self-contained-math: true
+    embed-resources: true
 editor_options: 
   chunk_output_type: console
 ---
