@@ -121,11 +121,11 @@ Convert to gene symbols
 gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
 
 symbol_id <- data.frame(index = rownames(se)) %>%
-    left_join(gene_df) %>%
+    left_join(gene_df, by = "index") %>%
     pull(feature_name)
 
 # re-create seurat object
-mtx <- se@assays$RNA@data
+mtx <- se@assays$RNA$data
 rownames(mtx) <- symbol_id
 se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
 ```
