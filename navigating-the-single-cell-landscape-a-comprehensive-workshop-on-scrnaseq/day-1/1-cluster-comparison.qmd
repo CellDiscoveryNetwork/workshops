@@ -81,15 +81,14 @@ library(DT)
 ```
 
 ## Load data
-We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554)
-Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
-```{r}
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
+```{r message=FALSE, warning=FALSE, output=FALSE}
 # Download the data in data/ directory
-download.file(
-    url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
-    destfile = "../data/workshop-data.rds",
-    method = "wget",
-    extra = "-r -p --random-wait")
+# download.file(
+#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+#     destfile = "../data/workshop-data.rds",
+#     method = "wget",
+#     extra = "-r -p --random-wait")
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
@@ -108,37 +107,29 @@ names(pal) <- sort(unique(se$Celltype))
 
 ## Analysis
 
-### Set gene symbols
+### Convert ENSEMBL IDs to Gene Symbols
+
+Right away we can see how ensembl ids are used in the rownames. Let's transform them into their matched symbols to make them human-readable:
 
 ```{r}
-library(AnnotationDbi)
-# BiocManager::install("org.Hs.eg.db")
-library(org.Hs.eg.db)
-symbol_id <- mapIds(
-    org.Hs.eg.db,
-    keys = rownames(se), 
-    column = "SYMBOL",
-    keytype = "ENSEMBL",
-    multiVals = "first")
+head(rownames(se))
+```
 
-# df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
-all(rownames(se) == names(symbol_id))
+Convert to gene symbols
+
+```{r}
+gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
+
+symbol_id <- data.frame(index = rownames(se)) %>%
+    left_join(gene_df) %>%
+    pull(feature_name)
 
 # re-create seurat object
 mtx <- se@assays$RNA@data
 rownames(mtx) <- symbol_id
-
-# Remove NAs
-sum(is.na(rownames(mtx)))
-dim(mtx)
-mtx <- mtx[!is.na(rownames(mtx)), ]
-dim(mtx)
-
-rownames(mtx) <- make.unique(rownames(mtx))
 se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
-
-sum(is.na(rownames(se)))
 ```
+
 
 ### Quick processing
 
