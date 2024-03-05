@@ -28,13 +28,21 @@ Welcome! welcome neighbors, welcome newcomers, welcome experts and enthusiasts, 
 In this first analysis notebook of our workshop, we will download an example dataset from a public repository of single cell data to give us common ground as we explore methods for understanding single cells. Cellxgene Census is a package run by the Chan Zuckerberg Initiative in collaboration with tileDB, making it the fastest way to download single-cell data from the web. 
 
 ## Libraries
-```{r, eval=FALSE}
-install.packages(
-  "cellxgene.census",
-  repos=c('https://chanzuckerberg.r-universe.dev', 'https://cloud.r-project.org')
-)
-devtools::install_github("jespermaag/gganatogram")
-install.packages('gridExtra')
+```{r echo=FALSE}
+if (!requireNamespace("cellxgene.census", quietly = TRUE))
+    install.packages(
+      "cellxgene.census",
+      repos=c('https://chanzuckerberg.r-universe.dev', 'https://cloud.r-project.org')
+    )
+    
+if (!requireNamespace("gganatogram", quietly = TRUE))
+    devtools::install_github("jespermaag/gganatogram")
+
+if (!requireNamespace("gridExtra", quietly = TRUE))
+    install.packages('gridExtra')
+
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages('tidyverse')
 ```
 
 ```{r}
@@ -218,11 +226,13 @@ The following dataset isn't actually included in cellxgene_census yet. I've open
 
 [Workshop Dataset](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed)
 
-
 Finally, we must close the census.
 ```{r}
 census$close()
+```
 
+## Session Info
+```{r}
 sessionInfo()
 ```
 

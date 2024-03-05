@@ -36,26 +36,64 @@ Some other interesting papers and twitter discussions can be found here:
 ## Libraries
 
 ```{r message=FALSE, warning=FALSE}
+### Make sure all the packages are installed
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages("Seurat")
+
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages("tidyverse")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!requireNamespace("SingleCellExperiment", quietly = TRUE))
+    BiocManager::install("SingleCellExperiment", update = FALSE)
+    
+
+if (!requireNamespace("scran", quietly = TRUE))
+    BiocManager::install("scran")
+
+if (!requireNamespace("AnnotationDbi", quietly = TRUE))
+    BiocManager::install("AnnotationDbi")
+
+if (!requireNamespace("org.Hs.eg.db", quietly = TRUE))
+    BiocManager::install("org.Hs.eg.db")
+
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages("colorBlindness")
+
+if (!requireNamespace("RColorBrewer", quietly = TRUE))
+    install.packages("RColorBrewer")
+
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages("DT")
+
+### Load all the necessary libraries
 library(Seurat)
 library(tidyverse)
 library(SingleCellExperiment)
-# BiocManager::install("scran")
 library(scran)
-# BiocManager::install("scater")
-# library(scater)
+library(AnnotationDbi)
+library(org.Hs.eg.db)
 library(colorBlindness)
 library(RColorBrewer)
-library(here)
 library(DT)
 ```
 
 ## Load data
-
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554)
+Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
 ```{r}
 # Download the data in data/ directory
+download.file(
+    url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+    destfile = "../data/workshop-data.rds",
+    method = "wget",
+    extra = "-r -p --random-wait")
+# We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS(here("data/d8e35450-de43-451a-9979-276eac688bce.rds"))
+se <- readRDS("../data/workshop-data.rds")
 ```
 
 Generate a color palette for our cell types
