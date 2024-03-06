@@ -92,6 +92,8 @@ srobj <- srobj %>%
         verbose = FALSE) %>%
     ScaleData(verbose = FALSE) %>%
     RunPCA(verbose = FALSE) %>%
+    FindNeighbors %>%
+    FindClusters(resolution = 0.5) %>%
     RunUMAP(dims = 1:30, verbose = FALSE, n.components=3L)
 ```
 
@@ -106,30 +108,45 @@ DimPlot(srobj,
         group.by='Celltype',
         cols = pal)
 ```
+
+```{r,fig.width=8,fig.height=5}
+DimPlot(srobj, 
+        reduction='umap', 
+        group.by='seurat_clusters')
+```
+
+```{r,fig.width=8,fig.height=5}
+DimPlot(srobj, 
+        reduction='umap', 
+        group.by='Sample ID')
+```
+
 ```{r, fig.width=16,fig.height=20}
 DimPlot(srobj, 
         reduction='umap', 
-        group.by='Celltype', 
+        group.by='seurat_clusters', 
         split.by='Sample ID',
-        ncol=4,
-        cols = pal)
+        ncol=4)
 ```
 For example, we can see the sample from flu patient 5 is dominated by erythrocytes, and these erythrocytes aren't reliably found across samples, whether diseased or normal. But that doesn't tell us much about the clusters themselves. 
 
 And these celltypes are often validated by plotting heatmaps, dotplots, or violin plots of genes that are most important to each cluster, found by 1 v all differential expression.
 ```{r,fig.width=12,fig.height=10}
-Idents(srobj) <- srobj@meta.data$Celltype
+Idents(srobj) <- srobj@meta.data$seurat_clusters
 celltype_markers <- FindAllMarkers(srobj, 
                         only.pos=TRUE, 
                         logfc.threshold=0.25,
                         min.diff.pct=0.05,
+                        max.cells.per.ident = 200
                         )
 
 top_cluster_features <- celltype_markers %>% group_by(cluster) %>% 
-                                        filter(p_val_adj==0) %>%
-                                        slice_max(avg_log2FC,n=10)
+                                        filter(p_val_adj < 0.01) %>%
+                                        slice_max(avg_log2FC, n=10)
 
-DoHeatmap(srobj, features=top_cluster_features$gene)
+hm <- DoHeatmap(srobj, features=top_cluster_features$gene, raster = TRUE, )
+
+hm
 ```
 
 And there are quite a few methods for displaying genes across clusters detailed in [Seurat vignettes](https://satijalab.org/seurat/articles/visualization_vignette)
@@ -145,11 +162,10 @@ left_join(srobj@meta.data %>% rownames_to_column("CellID"))
 
 suppressMessages({
 p <- plot_ly(emb, type='scatter3d', 
-                color = ~Celltype, 
+                color = ~seurat_clusters, 
                 x = ~umap_1, 
                 y = ~umap_2, 
-                z = ~umap_3,
-                colors = pal)
+                z = ~umap_3)
 p
     })
 ```    
@@ -192,12 +208,12 @@ diversityPerGroup <- function(df, species, group, diversity_metric = 'simpson') 
 
 # Calculate simpson's diversity per cluster
 clusterMetrics <- diversityPerGroup(srobj@meta.data,
-                        species = 'Celltype',
+                        species = 'seurat_clusters',
                         group = 'Sample ID',
                         diversity_metric = 'simpson')
 
 # Calculate number of cells per cluster and join to metrics table
-clusterMetrics <- clusterMetrics %>% left_join(srobj@meta.data %>% count(Celltype))
+clusterMetrics <- clusterMetrics %>% left_join(srobj@meta.data %>% count(seurat_clusters))
 
 # clusterMetrics
 
@@ -208,12 +224,12 @@ clusterMetrics <- clusterMetrics %>% left_join(srobj@meta.data %>% count(Celltyp
 #   theme_minimal() +
 #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-p2 <- ggplot(clusterMetrics, aes(y=Celltype, fill=`Sample ID_diversity`, x = 1, label = n)) +
+p2 <- ggplot(clusterMetrics, aes(y=seurat_clusters, fill=`Sample ID_diversity`, x = 1, label = n)) +
   geom_tile(colour = "white") +
   geom_text(nudge_x = 1.5, size = 5) +
   geom_text(aes(label = signif(`Sample ID_diversity`, 2)),size = 5) +
   scale_fill_distiller(palette = "Spectral", limits = c(0,1)) + theme_classic() +
-  coord_fixed(ratio = 1) + 
+  coord_fixed(ratio = 3) + 
   expand_limits(x = c(0.5,3)) +
   labs(x = "") +
   theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 16),
@@ -233,26 +249,38 @@ So in this paper it looks like our clusters are in fact well represented among e
 
 In addition to cell numbers and sample representation, it can be useful to get an idea of how tightly clustered cells are in each cluster, and how distant each cluster is to the others. This way we can quantify how fuzzy the borders are between clusters. Many clustering metrics exist to answer this question [@lim_quantifying_2024] - one popular metric is the average silhouette distance. 
 
-In silhouette analysis, the distance to all cells within a cluster - the distance to all cells outside a cluster is calculated for each cell. For each cell, this metric, the "silhouette width" can be positive or negative - a positive value represents a cell that is closer to cells within its own cluster than to those outside, while a negative number means that cell is closer to other clusters than to its own. 
+In silhouette analysis, for each cell, the average distance between cells in the same cluster is subtracted from the minimum average distance between that cell and cells from the other clusters, minimized across clusters. This value is then divided by the maximum of the two values to scale it to (-1,1) across cells. 
+
+In other words,
+$$
+s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}}
+$$
+
+where:
+
+- \(a(i)\) is the average distance from the \(i^{th}\) point to the other points in the same cluster,
+- \(b(i)\) is the smallest average distance from the \(i^{th}\) point to points in a different cluster, minimized over all clusters,
+- \(s(i)\) is the silhouette score for the \(i^{th}\) point, ranging from -1 to 1.
+
 
 ```{r}
-Celltypes <- srobj@meta.data$Celltype
+seurat_clusters <- srobj@meta.data$seurat_clusters
 pca_embeddings <- Embeddings(srobj, reduction = 'pca')
 
 # Calculate silhouette widths
 # sil_widths <- silhouette(x = cluster_assignments, dist = dist(pca_embeddings))
-sil_scores <- silhouette(x = as.numeric(Celltypes), dist = dist(pca_embeddings))
+sil_scores <- silhouette(x = as.numeric(seurat_clusters), dist = dist(pca_embeddings))
 
 # Extract silhouette scores
 silhouette_data <- as.data.frame(sil_scores)
 # Recover cell type names
-silhouette_data$Celltype <- as.character(Celltypes)
+silhouette_data$seurat_clusters <- as.character(seurat_clusters)
 
-silhouette_arranged <- silhouette_data %>% group_by(Celltype) %>% arrange(-sil_width)
+silhouette_arranged <- silhouette_data %>% group_by(seurat_clusters) %>% arrange(-sil_width)
 
 silhouette_averages <- silhouette_arranged %>% summarize(avg = mean(sil_width))
 
-avg_silhouettes_plot <- ggplot(silhouette_averages, aes(y = Celltype, x = avg, fill = Celltype, group = Celltype)) +
+avg_silhouettes_plot <- ggplot(silhouette_averages, aes(y = seurat_clusters, x = avg, fill = seurat_clusters, group = seurat_clusters)) +
     geom_bar(stat = "identity", position = 'dodge2') +
     theme_minimal() +
     labs(title = "Average Silhouettes",
@@ -263,14 +291,13 @@ avg_silhouettes_plot <- ggplot(silhouette_averages, aes(y = Celltype, x = avg, f
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.y = element_text(size = 20),
-        legend.position = "None") +
-    scale_fill_manual(values = pal)
+        legend.position = "None")
 
 avg_silhouettes_plot
 
 overall_average <- silhouette_arranged %>% ungroup %>% summarize(ave = as.numeric(mean(sil_width))) %>% pull(ave)
 
-full_silhouettes_plot <- ggplot(silhouette_arranged, aes(y = Celltype, x = sil_width, fill = Celltype, group = Celltype)) +
+full_silhouettes_plot <- ggplot(silhouette_arranged, aes(y = seurat_clusters, x = sil_width, fill = seurat_clusters, group = seurat_clusters)) +
     geom_bar(stat = "identity", position = 'dodge2') +
     geom_vline(xintercept = overall_average,
                color = 'red',
@@ -284,14 +311,13 @@ full_silhouettes_plot <- ggplot(silhouette_arranged, aes(y = Celltype, x = sil_w
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.y = element_text(size = 20),
-        legend.position = "None") +
-    scale_fill_manual(values = pal)
+        legend.position = "None")
 
 full_silhouettes_plot
 
 ```
 
-The red dotted line here represents the overall average silhouette - in clustering optimization this value can be optimized for to find the "best possible" resolution for a dataset. But sub-clustering can also increase the overall average silhouette distance in ways that changing the resolution cannot. Here, we can inspect each cluster individually and make these calls cluster by cluster. From our silhouette analysis, it looks like the classical monocyte cluster, which has so many cells, might have additional heterogeneity hiding within. Additionally, our analysis shows that some cells from the RBC, CD8, and Uncategorized clusters may be better clustered than what's provided by the paper. 
+The red dotted line here represents the overall average silhouette - in clustering optimization this value can be optimized for to find the "best possible" resolution for a dataset. But sub-clustering can also increase the overall average silhouette distance in ways that changing the resolution cannot. Here, we can inspect each cluster individually and make these calls cluster by cluster. 
 
 ### Cluster taxonomy
 
@@ -300,7 +326,7 @@ Taking the concept of distances between clusters one step further, our lab wrote
 With ARBOL, we can build a dendrogram of cluster centroid distances based on gene expression or some dimensionality reduction in the data. This can be useful for plotting cluster metrics
 ```{r, message = FALSE, warning = FALSE, fig.width=16, fig.height=5}
 # ARBOL requires 3 metadata entries
-srobj@meta.data$tierNident <- srobj@meta.data$Celltype
+srobj@meta.data$tierNident <- paste0('Cluster ',srobj@meta.data$seurat_clusters)
 srobj@meta.data$CellID <- row.names(srobj@meta.data)
 srobj@meta.data$sample <- srobj@meta.data$`Sample ID`
 
@@ -310,8 +336,7 @@ srobj <- ARBOLcentroidTaxonomy(srobj,
 
 ggraph(srobj@misc$tax_ggraph, layout = 'dendrogram', height=plotHeight) +
   geom_edge_elbow() +
-  geom_node_text(aes(filter = leaf, label = name, color = name), nudge_y=4,vjust=0.5,hjust=0,size=7) +
-  scale_color_manual(values = pal) +
+  geom_node_text(aes(filter = leaf, label = name, color = name), nudge_y=8,vjust=0.5,hjust=0,size=8) +
   geom_node_text(aes(filter = leaf, label = n),color='grey30',nudge_y=1,vjust=0.5,hjust=0,size=7) + 
   theme_void() +
   new_scale('color') +
@@ -320,5 +345,3 @@ ggraph(srobj@misc$tax_ggraph, layout = 'dendrogram', height=plotHeight) +
   coord_flip() + scale_y_reverse() +
   expand_limits(y=-20)
 ```
-
-We could see from the UMAP as well that Uncategorized1 looked like some kind of T-lymphocyte while Uncategorized2 was some kind of a B-lymphocyte, but with the silhouette and dendrogram we get a better picture of what's going on with Uncategorized1 - it is neither a well-defined cluster nor closely related to any other cluster. 
