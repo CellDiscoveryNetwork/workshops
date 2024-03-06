@@ -33,6 +33,8 @@ Some other interesting papers and twitter discussions can be found here:
 
 -   Differences in wilcoxon rank sum test p-value calculations between Seurat and Scanpy - https://twitter.com/Sanbomics/status/1693995213298266515
 
+-   [A comparison of marker gene selection methods for single-cell RNA sequencing data](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-024-03183-0) - "*Overall, our results suggest that methods based on logistic regression, Student’s t-test and the Wilcoxon rank-sum test all have strong performance.*"
+
 ## Libraries
 
 ```{r message=FALSE, warning=FALSE}
