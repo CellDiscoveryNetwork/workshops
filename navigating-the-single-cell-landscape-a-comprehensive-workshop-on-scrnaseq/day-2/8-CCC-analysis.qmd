@@ -8,7 +8,6 @@ format:
     toc_float: true
     toc-location: left
     toc-depth: 4
-    html-math-method: katex
     embed-resources: true
     self-contained-math: true
 editor_options: 
@@ -21,9 +20,31 @@ knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center',
 ```
 
 ## Introduction
+
 In this notebooks we are going to carry out a cell-cell communication analysis using [`CellChat`](https://www.nature.com/articles/s41467-021-21246-9). You can see the GitHub repository [here](https://github.com/jinworks/CellChat), the CellChat vignette [here](https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html) and the differential communication analysis vignette [here](https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/Comparison_analysis_of_multiple_datasets.html). The goal of the notebook is to identify which communication pathways are altered between flu and covid infection!
 
+Some associated literature which is a must read are:
+
+-   [Comparison of methods and resources for cell-cell communication inference from single-cell RNA-Seq data](https://www.nature.com/articles/s41467-022-30755-0)
+
+-   [Evaluation of cell-cell interaction methods by integrating single-cell RNA sequencing data with spatial information](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02783-y)
+
+**Key Takeaways**
+
+-   The Ligand-Receptor (L-R) database used gather the collective prior knowledge and has a great impact on the results obtained.
+
+-   Different CCC tools have varying assumptions, therefore, the tool of choise will also have a major impact on the results.
+
+    -   `CellChat` and `CellPhoneDB` make a point of modelling CCC events taking into account heteromeric complexes. This ensures all the subunits of a protein complex are expressed to consider a cell-cell interaction feasible. This assumption reduces false positive predictions.
+
+    -   `CellChat`, additionally, accounts for interaction mediator proteins such as agonists.
+
+-   Broadly, CCC tools are generally able to capture relevant biological signals. However, predicted interactions tend to have false positives, if available leveraging information from additional modalities and analyses could help to refine the predictions.
+
+-   CCC inference from scRNAseq data makes the assumption that gene expression is a proxy for protein levels. Moreover, they don't (and can't) account for other intermediate steps between translation and protein function such as post-translational modifications, secretion, diffusion...
+
 ## Library
+
 ```{r}
 options(future.globals.maxSize= 891289600)
 ### Make sure all the packages are installed
@@ -46,13 +67,16 @@ if (!requireNamespace("AnnotationDbi", quietly = TRUE))
 if (!requireNamespace("org.Hs.eg.db", quietly = TRUE))
     BiocManager::install("org.Hs.eg.db")
 
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+    BiocManager::install("ComplexHeatmap")
+
 ### Load all the necessary libraries
 library(Seurat)
 library(dplyr)
 library(CellChat)
 library(AnnotationDbi)
 library(org.Hs.eg.db)
-
+library(ComplexHeatmap)
 # if (!requireNamespace("cowplot", quietly = TRUE))
 #     install.packages("cowplot")
 # library(cowplot) 
@@ -67,15 +91,16 @@ library(org.Hs.eg.db)
 ```
 
 ## Load data
-We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554)
-Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
-```{r}
+
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
+
+```{r message=FALSE, warning=FALSE, output=FALSE}
 # Download the data in data/ directory
-download.file(
-    url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
-    destfile = "../data/workshop-data.rds",
-    method = "wget",
-    extra = "-r -p --random-wait")
+# download.file(
+#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+#     destfile = "../data/workshop-data.rds",
+#     method = "wget",
+#     extra = "-r -p --random-wait")
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
@@ -85,37 +110,52 @@ se <- readRDS("../data/workshop-data.rds")
 ## Analysis
 
 ### Convert ENSEMBL IDs to Gene Symbols
+
 Right away we can see how ensembl ids are used in the rownames. Let's transform them into their matched symbols to make them human-readable:
+
 ```{r}
 head(rownames(se))
 ```
 
 Convert to gene symbols
 ```{r}
-symbol_id <- mapIds(
-    org.Hs.eg.db,
-    keys = rownames(se), 
-    column = "SYMBOL",
-    keytype = "ENSEMBL",
-    multiVals = "first")
+gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
 
-# df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
-all(rownames(se) == names(symbol_id))
+symbol_id <- data.frame(index = rownames(se)) %>%
+    left_join(gene_df) %>%
+    pull(feature_name)
 
 # re-create seurat object
 mtx <- se@assays$RNA@data
 rownames(mtx) <- symbol_id
-
-# Remove NAs
-sum(is.na(rownames(mtx)))
-dim(mtx)
-mtx <- mtx[!is.na(rownames(mtx)), ]
-dim(mtx)
-
-rownames(mtx) <- make.unique(rownames(mtx))
 se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+```
 
-sum(is.na(rownames(se)))
+```{r}
+# symbol_id <- mapIds(
+#     org.Hs.eg.db,
+#     keys = rownames(se), 
+#     column = "SYMBOL",
+#     keytype = "ENSEMBL",
+#     multiVals = "first")
+# 
+# # df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
+# all(rownames(se) == names(symbol_id))
+# 
+# # re-create seurat object
+# mtx <- se@assays$RNA@data
+# rownames(mtx) <- symbol_id
+# 
+# # Remove NAs
+# sum(is.na(rownames(mtx)))
+# dim(mtx)
+# mtx <- mtx[!is.na(rownames(mtx)), ]
+# dim(mtx)
+# 
+# rownames(mtx) <- make.unique(rownames(mtx))
+# se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+# 
+# sum(is.na(rownames(se)))
 ```
 
 ### Split dataset
@@ -139,12 +179,14 @@ flu <- se[, se$disease == "influenza"]
 ```
 
 Let's visualize the cell type populations between these 2 datasets:
+
 ```{r}
 prop.table(table(covid$Celltype))
 prop.table(table(flu$Celltype))
 ```
 
 Carry out pre-processing steps on covid data and create the cellchat object
+
 ```{r}
 # Normalize data
 covid <- NormalizeData(covid, verbose = FALSE)
@@ -157,6 +199,7 @@ cc_covid <- createCellChat(
 ```
 
 Same for the flu
+
 ```{r}
 # Normalize data
 flu <- NormalizeData(flu, verbose = FALSE)
@@ -170,7 +213,26 @@ cc_flu <- createCellChat(
 
 ### CellChat CCC analysis
 
+#### Cellchat intuition
+
+How is the communication probability computed? See the methods section in the [CellChat paper](https://www.nature.com/articles/s41467-021-21246-9#Sec12).
+
+The communication probability *P*~i,j~ from cell groups *i* to *j* for a particular ligand-receptor pair *k* was modeled by
+
+$$
+P_{i,j}^k =     \frac{{L_iR_j}}{{K_h + L_iR_j}} \times \left( {1 + \frac{{AG_i}}{{K_h + AG_i}}} \right) \cdot \left( {1 + \frac{{AG_j}}{{K_h + AG_j}}} \right) \\    \times \frac{{K_h}}{{K_h + AN_i}} \cdot \frac{{K_h}}{{K_h + AN_j}} \times \frac{{n_in_j}}{{n^2}}, \\    {L_i = \root {{m1}} \of {{L_{i,1} \cdots L_{i,m1}}},\,R_j = \root {{m2}} \of {{R_{j,1} \cdots R_{j,m2}}} \cdot \frac{{1 + RA_j}}{{1 + RI_j}}.}
+$$
+
+-   *L~i~* and *R~j~* represent the expression level of ligand *L* and receptor *R* in cell group *i* and cell group *j*, respectively
+
+-   *K~h~* whose default value was set to be 0.5
+
+-   AG is the average expression of the L-R agonists
+
+#### CellChat Database
+
 Define the use of the human L-R database
+
 ```{r}
 CellChatDB <- CellChatDB.human
 showDatabaseCategory(CellChatDB)
@@ -187,7 +249,6 @@ CellChatDB$interaction %>%
     tail()
 ```
 
-
 #### Preprocess expression data
 
 To infer the cell state-specific communications, CellChat identifies over-expressed ligands or receptors in one cell group and then identifies over-expressed ligand-receptor interactions if either ligand or receptor are over-expressed.
@@ -203,6 +264,7 @@ cc_covid <- identifyOverExpressedInteractions(cc_covid)
 ```
 
 Same for the flu
+
 ```{r}
 # subset the expression data of signaling genes for saving computation cost
 cc_flu@DB <- CellChatDB
@@ -215,8 +277,7 @@ cc_flu <- identifyOverExpressedInteractions(cc_flu)
 
 #### Inference of cell-cell communication network
 
-From the CellChat [vignette](https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html#preprocessing-the-expression-data-for-cell-cell-communication-analysis):
-*CellChat infers the biologically significant cell-cell communication by assigning each interaction with a probability value and peforming a permutation test. CellChat models the probability of cell-cell communication by integrating gene expression with prior known knowledge of the interactions between signaling ligands, receptors and their cofactors using the law of mass action.*
+From the CellChat [vignette](https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/CellChat-vignette.html#preprocessing-the-expression-data-for-cell-cell-communication-analysis): *CellChat infers the biologically significant cell-cell communication by assigning each interaction with a probability value and peforming a permutation test. CellChat models the probability of cell-cell communication by integrating gene expression with prior known knowledge of the interactions between signaling ligands, receptors and their cofactors using the law of mass action.*
 
 *The number of inferred ligand-receptor pairs clearly depends on the method for calculating the average gene expression per cell group. `trimean` approximates 25% truncated mean, implying that the average gene expression is zero if the percent of expressed cells in one group is less than 25%.*
 
@@ -240,12 +301,14 @@ cc_covid@netP$pathways
 ```
 
 Calculate the aggregated cell-cell communication network by counting the number of links or summarizing the communication probability.
+
 ```{r}
 cc_covid <- aggregateNet(cc_covid)
 cc_flu <- aggregateNet(cc_flu)
 ```
 
 Lastly we can compute the network centrality scores of the cell types identifying key senders, receivers, mediators...
+
 ```{r}
 # the slot 'netP' means the inferred intercellular communication network of signaling pathways
 cc_covid <- netAnalysis_computeCentrality(cc_covid, slot.name = "netP") 
@@ -254,7 +317,13 @@ cc_flu <- netAnalysis_computeCentrality(cc_flu, slot.name = "netP")
 
 #### Visualize inferred IFN-II signaling network
 
+```{r}
+123+123
+245+245
+```
+
 With Heatmap
+
 ```{r fig.width=8,fig.height=4}
 object.list <- list(covid = cc_covid, flu = cc_flu)
 
@@ -274,19 +343,21 @@ draw(plt_ls[[1]] + plt_ls[[2]], ht_gap = unit(.5, "cm"))
 #### Merge Covid and Flue objects
 
 Now we can merge the `CellChat` objects and work with them together. The rest of the analysis follows the comparison [vignette](https://htmlpreview.github.io/?https://github.com/jinworks/CellChat/blob/master/tutorial/Comparison_analysis_of_multiple_datasets.html#create-a-directory-to-save-figures).
+
 ```{r}
 cellchat <- mergeCellChat(object.list, add.names = names(object.list), cell.prefix = TRUE)
-rm(object.list); gc()
 ```
 
 Save objects in case we need them for later use
+
 ```{r}
 saveRDS(object.list, file = "../data/cellchat_ls.rds")
+# rm(object.list); gc()
 ```
 
 ### Differential interaction analysis
 
-Let's start by comparing the  the total number of interactions
+Let's start by comparing the the total number of interactions
 
 ```{r}
 gg1 <- compareInteractions(
@@ -304,6 +375,7 @@ gg1 + gg2
 With this plot we can visualize how the covid dataset has a slightly larger number of interactions but the interaction strength within the flu dataset are stronger.
 
 We can also take a look at how these interactions are different between covid and flu. In the colorbar, red (or blue) represents increased (or decreased) signaling in the second dataset compared to the first one. In our case red is stronger in Flu and blue in covid
+
 ```{r fig.width=12, fig.height=6}
 gg1 <- netVisual_heatmap(cellchat)
 gg2 <- netVisual_heatmap(cellchat, measure = "weight")
@@ -312,19 +384,149 @@ gg1 + gg2
 ```
 
 We can also assess how much the outgoing and incoming signal changes between conditions by looking at their absolute signals. Dot size is proportional to the number of inferred links (both outgoing and incoming) associated with each cell group.
+
 ```{r fig.width=12, fig.height=6}
-num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
-weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
-gg <- list()
-for (i in 1:length(object.list)) {
-  gg[[i]] <- netAnalysis_signalingRole_scatter(object.list[[i]], title = names(object.list)[i], weight.MinMax = weight.MinMax)
+# num.link <- sapply(object.list, function(x) {rowSums(x@net$count) + colSums(x@net$count)-diag(x@net$count)})
+# weight.MinMax <- c(min(num.link), max(num.link)) # control the dot size in the different datasets
+# gg <- list()
+# for (i in 1:length(object.list)) {
+#   gg[[i]] <- netAnalysis_signalingRole_scatter(
+#       object.list[[i]],
+#       title = names(object.list)[i],
+#       weight.MinMax = weight.MinMax)
+# }
+# patchwork::wrap_plots(plots = gg)
+```
+
+Prepare the data
+```{r}
+slot.name <- "netP"
+x.measure <- "outdeg"
+y.measure <- "indeg"
+signaling <- NULL
+
+df_ls <- lapply(names(object.list), function(nm) {
+    object <- object.list[[nm]]
+    centr <- slot(object, slot.name)$centr
+    outgoing <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+    incoming <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+    dimnames(outgoing) <- list(levels(object@idents), names(centr))
+    dimnames(incoming) <- dimnames(outgoing)
+    for (i in 1:length(centr)) {
+        outgoing[, i] <- centr[[i]][[x.measure]]
+        incoming[, i] <- centr[[i]][[y.measure]]
+    }
+    outgoing.cells <- rowSums(outgoing)
+    incoming.cells <- rowSums(incoming)
+    num.link <- aggregateNet(object, signaling = signaling, return.object = FALSE, 
+                             remove.isolate = FALSE)$count
+    num.link <- rowSums(num.link) + colSums(num.link) - diag(num.link)
+    df <- data.frame(
+        outgoing.cells,
+        incoming.cells, 
+        names(incoming.cells),
+        num.link,
+        nm)
+    colnames(df) <- c(paste0("outgoing_", nm), paste0("incoming_", nm), "labels", paste0("count_", nm))
+    df$labels <- factor(df$labels, levels = names(incoming.cells))
+    
+    df
+})
+```
+
+Visualize how the interactions changed
+```{r fig.width=6, fig.height=6}
+require(gridExtra)
+library(colorBlindness)
+library(RColorBrewer)
+# Define the number of colors you want
+nb.cols <- length(unique(se$Celltype))
+col_pal <- colorRampPalette(brewer.pal(8, "Set2"))(nb.cols)
+names(col_pal) <- sort(unique(se$Celltype))
+# Create a ggplot with 18 colors 
+df_ls[[1]] %>%
+    left_join(df_ls[[2]], by = "labels") %>%
+    
+    ggplot() +
+    geom_point(aes(x = outgoing_flu, y = incoming_flu, color = labels,
+                   fill = "Flu", size = count_flu), alpha = 0.5) +
+    geom_point(aes(x = outgoing_covid, y = incoming_covid, color = labels,
+                   fill = "Covid", size = count_covid), size = 3, pch = 21) +
+    geom_segment(aes(
+        x = outgoing_covid,
+        y = incoming_covid,
+        xend = outgoing_flu,
+        yend = incoming_flu,
+        color = labels),
+        arrow = arrow(angle = 40, length = grid::unit(.35, "cm")),
+        show.legend = FALSE) +
+    theme_classic() +
+    guides(
+        size = FALSE,
+        shape = FALSE,
+        colour = guide_legend(override.aes = list(size = 5))) +
+    scale_color_manual(values = col_pal) +
+    labs(
+        title = "Cell-Cell interaction strength shifts from Covid to Flu",
+       # x = "Outgoing strength",
+      #  y = "Incoming strength",
+      y = NULL, x = NULL,
+        color = "Cell Type",
+        fill = "Disease")  +
+        scale_fill_manual(values = c("white", "black")) +
+    theme(panel.grid.minor = element_blank(),
+          panel.grid.major = element_line()) +
+    scale_y_continuous(labels = function(x) {
+        case_when(x == 25 ~ "25 Incoming\nStrength",
+                  TRUE ~ as.character(round(x)))
+    })  +
+    scale_x_continuous(labels = function(x) {
+        case_when(x == 10 ~ "10\nOutgoing\nStrength",
+                  TRUE ~ as.character(round(x)))
+    }) +
+    coord_fixed()
+```
+
+
+```{r}
+object <- object.list[[1]]
+slot.name <- "netP"
+x.measure <- "outdeg"
+y.measure <- "indeg"
+signaling <- NULL
+centr <- slot(object, "netP")$centr
+outgoing <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+incoming <- matrix(0, nrow = nlevels(object@idents), ncol = length(centr))
+
+dimnames(outgoing) <- list(levels(object@idents), names(centr))
+dimnames(incoming) <- dimnames(outgoing)
+for (i in 1:length(centr)) {
+    outgoing[, i] <- centr[[i]][[x.measure]]
+    incoming[, i] <- centr[[i]][[y.measure]]
 }
-patchwork::wrap_plots(plots = gg)
+
+signaling <- signaling[signaling %in% object@netP$pathways]
+
+outgoing <- outgoing[, signaling, drop = FALSE]
+incoming <- incoming[, signaling, drop = FALSE]
+
+outgoing.cells <- rowSums(outgoing)
+incoming.cells <- rowSums(incoming)
+num.link <- aggregateNet(object, signaling = signaling, return.object = FALSE, 
+                         remove.isolate = FALSE)$count
+num.link <- rowSums(num.link) + colSums(num.link) - diag(num.link)
+df <- data.frame(x = outgoing.cells, y = incoming.cells, 
+                 labels = names(incoming.cells), Count = num.link)
+df$labels <- factor(df$labels, levels = names(incoming.cells))
+
+
+
 ```
 
 In this case we can see how CD8 T cells greatly increase their incoming signal as well as intermediate monocytes. NKs and CD4 EM-like, in turn, greatly increase their outgoing signal while not increasing their incoming signal.
 
 CellChat allows us to explore signalling changes within one specific population between both conditions. Positive values highlight increases in the second group (Flu) while negative values are increases in the first group (covid).
+
 ```{r}
 netAnalysis_signalingChanges_scatter(cellchat, idents.use = "CD4, EM-like")
 ```
@@ -332,6 +534,7 @@ netAnalysis_signalingChanges_scatter(cellchat, idents.use = "CD4, EM-like")
 #### Differential pathway signalling
 
 Look at broad changes in pathway signalling across the entire dataset
+
 ```{r fig.width=9, fig.height=9}
 gg1 <- rankNet(cellchat, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = T, do.stat = TRUE)
 gg2 <- rankNet(cellchat, mode = "comparison", measure = "weight", sources.use = NULL, targets.use = NULL, stacked = F, do.stat = TRUE)
@@ -340,7 +543,9 @@ gg1 + gg2
 ```
 
 ## TKTK not sure about this
+
 We can also take a look at these changes by cell type:
+
 ```{r fig.width=8, fig.height=8}
 library(ComplexHeatmap)
 
@@ -366,6 +571,7 @@ draw(ht1 + ht2, ht_gap = unit(.5, "cm"))
 ```
 
 ## TKTK not sure about this
+
 ```{r fig.width=8, fig.height=8}
 # combining all the identified signaling pathways from different datasets 
 pathway.union <- union(object.list[["covid"]]@netP$pathways, object.list[["flu"]]@netP$pathways)
@@ -388,7 +594,6 @@ ht2 <- netAnalysis_signalingRole_heatmap(
 draw(ht1 + ht2, ht_gap = unit(.5, "cm"))
 ```
 
-
 ```{r fig.width=8, fig.height=8}
 levels(cellchat@idents$joint)
 netVisual_bubble(
@@ -400,7 +605,7 @@ netVisual_bubble(
 ```
 
 ## Session Info
+
 ```{r}
 sessionInfo()
 ```
-
