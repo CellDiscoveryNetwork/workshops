@@ -1,10 +1,6 @@
-<<<<<<< HEAD
-.Rproj.user
-.Rhistory
+# DOn't push local files
 .RData
 .Ruserdata
-.DS_Store
-=======
 .Rbuildignore
 .Rhistory
 .Rproj.user/
@@ -65,4 +61,4 @@ rsconnect/
 
 # ignore python notebook checkpoints
 .ipynb_checkpoints/
->>>>>>> 9ea284ca462c17bedc040dcb06737a39f82c090f
+
