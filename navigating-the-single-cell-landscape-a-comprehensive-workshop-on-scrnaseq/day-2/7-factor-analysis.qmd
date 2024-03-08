@@ -32,13 +32,13 @@ Here are some papers that nicely present applicabilities of NMF:
 -   To identify transcriptional programs in our data
 
     -   [The spatial transcriptomic landscape of the healing mouse intestine following damage](https://doi.org/10.1038/s41467-022-28497-0)
-    
-    -   [Multicellular factor analysis of single-cell data for a tissue-centric understanding of disease]( https://doi.org/10.7554/eLife.93161)
 
-To identify shared transcriptional programs across tumors:
+    -   [Multicellular factor analysis of single-cell data for a tissue-centric understanding of disease](https://doi.org/10.7554/eLife.93161)
+
+-   To identify shared transcriptional programs across tumors:
 
     -   [Hallmarks of transcriptional intratumour heterogeneity across a thousand tumours](10.1038/s41586-023-06130-4)
-    
+
     -   [Cancer cell states recur across tumor types and form specific interactions with the tumor microenvironment](10.1038/s41588-022-01141-9)
 
 ![NMF vs PCA](../img/nmf-pca.png)
@@ -130,6 +130,7 @@ se <- readRDS("../data/workshop-data.rds")
 ```
 
 Set color palettes
+
 ```{r}
 disease_pal <- c("#41AE76", "#225EA8", "#E31A1C")
 names(disease_pal) <- c("normal", "influenza", "COVID-19")
