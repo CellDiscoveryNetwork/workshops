@@ -1,0 +1,383 @@
+---
+title: "4 - Compositional Analysis"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    self-contained-math: true
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+bibliography: /Users/kylekimler/gitHub/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/bibliographies/compositional_analysis.bib
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+
+# Define a custom hook for code chunks
+# knit_hooks$set(chunk_timing = function(before, options, envir) {
+#   if (before) {
+#     # Before chunk execution, record start time in the environment
+#     envir$chunk_start_time <- Sys.time()
+#   } else {
+#     # After chunk execution, calculate and print execution time
+#     execution_time <- Sys.time() - envir$chunk_start_time
+#     print("Execution time: ", execution_time)
+#   }
+# })
+
+# # set timing hook to execute for each cell
+# opts_chunk$set(chunk_timing = TRUE)
+
+# set figure centering hook for each cell
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+In this notebook we will study which cell types compose different samples in single-cell data. We will do this using a subset of statistics called compositional data analysis (or CoDA for short), because single-cell experiments are samples of a larger tissue, and the cells we obtain represents the proportions of cell types in the tissue, but does not reflect their true abundance. 
+
+CoDA relativizes proportions by comparing them to a stable population, comparing them to each other, or to a mean across samples, all resulting in a table of relative abundances of cell types per sample. This sample x species matrix is a natural foundation for conducting case-control analysis, as we have a single vector of variables per sample. Here, we can scrutinize variances between conditions and between samples.
+
+### Useful Resources
+
+* John Aitchison's Compositional Data Analysis [@aitchison_statistical_1982]
+* scCODA, a python + scanpy package for ALR compositional analysis [@buttner_sccoda_2021]
+* Cacoa, an R package for case-control analysis that uses ILR 
+* [compositions](https://cran.r-project.org/web/packages/compositions/index.html), an R package for CoDA 
+* A paper describing the compositionality problem in terms of microbiome studies [@morton_establishing_2019]
+
+### Key Takeaways
+
+* Compositions provide a good foundation for comparing individual samples
+* The compositional nature of scRNAseq means only conclusions about relative values can be made, and overall cell density can bias results
+* Compositional transforms allow quantitative assessment of scRNA abundances
+
+## Libraries
+
+### Installation
+
+```{r}
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages('tidyverse')
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages('Seurat')
+if (!requireNamespace("compositions", quietly = TRUE))
+    install.packages('compositions')
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages('colorBlindness')
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+if (!requireNamespace("EnhancedVolcano", quietly = TRUE))
+    BiocManager::install("EnhancedVolcano")
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+    BiocManager::install("ComplexHeatmap")
+if (!requireNamespace("scales", quietly = TRUE))
+    install.packages('scales')
+if (!requireNamespace("viridis", quietly = TRUE))
+    install.packages('viridis')
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages('DT')
+if (!requireNamespace("reshape2", quietly = TRUE))
+    install.packages('reshape2')
+        
+```
+
+### Load Libraries
+```{r}
+library(colorBlindness)
+library(tidyverse)
+library(EnhancedVolcano)
+library(viridis)
+library(scales)
+library(DT)
+library(Seurat)
+library(compositions)
+library(reshape2)
+library(ComplexHeatmap)
+```
+
+## Load data
+```{r}
+srobj <- readRDS('/Users/kylekimler/Downloads/d8e35450-de43-451a-9979-276eac688bce.rds')
+genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
+
+# Need to remake seurat object
+mtx <- srobj@assays$RNA@data
+rownames(mtx) <- genes[match(row.names(mtx),genes$index),]$feature_name
+
+srobj <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
+
+srobj
+
+set.seed(687)
+```
+
+### Other setup
+Generate a color palette for plotting
+```{r}
+# https://www.datanovia.com/en/blog/easy-way-to-expand-color-palettes-in-r/
+# nb.cols <- length(unique(se$Celltype))
+# mycolors <- colorRampPalette(paletteMartin)(nb.cols)
+pal <- paletteMartin
+names(pal) <- sort(unique(srobj$Celltype))
+```
+
+## Composition of clusters per sample
+
+In papers we often see percentages of clusters per sample or of subclusters in a larger celltype. These are done using stacked bar plots as follows.
+
+```{r}
+celltypePercentagesDF <- srobj@meta.data %>% count(`Sample ID`,Celltype) %>% group_by(`Sample ID`) %>% reframe(Celltype, celltype_n = n, total_n_cells = sum(n)) %>% mutate(pct_celltype = celltype_n / total_n_cells)
+
+datatable(celltypePercentagesDF)
+
+celltypePercentagesDF %>% ggplot(aes(x=`Sample ID`, y=pct_celltype, fill = Celltype), color='white') + 
+    geom_bar(position='stack', stat='identity') + 
+    scale_fill_manual(values = pal) + 
+    ggtitle('Composition of each sample by celltype') +
+    theme_linedraw(base_size = 20) +
+    theme(axis.text.x = element_text(angle=45,hjust=1,vjust=1))
+```
+
+
+### Comparing compositions with Wilcoxon tests
+
+And often these compositions are compared using rank sum tests, which Morton et al [@morton_establishing_2019] show is a great way to avoid the compositionality problem. The most common rank sum test is the Wilcoxon test, the default test Seurat uses for comparisons of genes across clusters with FindAllMarkers. 
+
+If we use the Wilcoxon test here in a comparison of compositions across samples Flu vs. Normal, we will see that the result depends on proper normalization of the data.
+
+```{r, fig.width = 9, fig.height = 7}
+# Create a function to perform Wilcoxon rank-sum tests and return p-values
+perform_wilcox_test <- function(data, group_col, group1, group2, species_col) {
+  group1_data <- data[data[[group_col]] == group1, species_col]
+  group2_data <- data[data[[group_col]] == group2, species_col]
+  
+  test_result <- wilcox.test(group1_data, group2_data)
+  return(data.frame(p.val = test_result$p.value, statistic = test_result$statistic, species = species_col, test = paste(group1,'vs',group2)))
+}
+
+rawTb <- celltypePercentagesDF %>% dplyr::select(sample=`Sample ID`, Celltype, celltype_n) %>% pivot_wider(names_from=Celltype, 
+values_from= celltype_n, values_fill=0) %>% separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% column_to_rownames("sample") %>% select(-sample_n)
+
+# Create a long dataframe of raw values for comparisons
+raw_long <- rawTb %>% 
+  pivot_longer(-group, names_to="species", values_to="counts") %>%
+  mutate(transform = "Raw Counts")
+
+species_col_names <- colnames(rawTb)[2:ncol(rawTb)]
+
+wilcoxon_raw <- lapply(species_col_names, function(species) perform_wilcox_test(rawTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species))
+
+wilcoxon_raw <- wilcoxon_raw %>% bind_rows %>% data.frame %>% mutate(transform = "Raw")
+
+pctTb <- celltypePercentagesDF %>% dplyr::select(sample=`Sample ID`, Celltype, pct_celltype) %>% pivot_wider(names_from=Celltype, 
+values_from=pct_celltype, values_fill=0) %>% separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% column_to_rownames("sample") %>% select(-sample_n) # reorganize dataframe for wilcoxon tests
+
+# Create a long dataframe of percent values for comparisons
+pct_long <- pctTb %>% 
+  pivot_longer(-group, names_to="species", values_to="counts") %>%
+  mutate(transform = "Percentages")
+
+wilcoxon_pct <- lapply(species_col_names, function(species) perform_wilcox_test(pctTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species)) 
+
+wilcoxon_pct <- wilcoxon_pct %>% bind_rows %>% data.frame %>% mutate(transform = "Percent")
+
+combined_data <- bind_rows(raw_long, pct_long)
+
+ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), aes(x = species, y=counts, fill = group)) +
+  geom_boxplot() +
+  facet_wrap(~ transform, scales = "free_y") +
+  labs(title = "Comparison of Species Counts per Group",
+       x = "Species",
+       y = "Counts / Percentages") +
+  theme_minimal(base_size = 20) +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.title = element_blank()) +
+  scale_fill_manual(values = unname(pal[c(1,4)]))
+
+wilcoxon_comparisons <- bind_rows(wilcoxon_raw,wilcoxon_pct)
+
+ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color = p.val < 0.05)) +
+  geom_point() + # Use geom_bar() for bar plots
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue"), name = "p-val < 0.05") +
+  facet_wrap(~ transform, scales = "free_x") +
+  labs(x = "Species", title = "Comparison of P-Values Across Species and Transformations") +
+  theme_minimal(base_size = 20) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top") +
+  guides(fill = guide_legend(title = "P-value < 0.05"))
+
+```
+
+### Compositional transforms
+
+The compositions package provides compositional transforms that allow quantitative comparisons of compositional data. In the most popular package for compositional analysis in scRNA, scCODA, the additive-log-ratio is used, where compositions are transformed to log-ratios of the cluster with the least dispersion that is present across 95% of all samples. 
+
+$$
+\text{ALR}(x_i) = \log\left(\frac{x_i}{x_D}\right)
+$$
+
+where:
+
+- \(\log\) denotes the natural logarithm,
+- \(x_i\) is the value of component \(i\) in the composition,
+- \(x_D\) is the chosen reference component from the compositional dataset.
+
+$$
+\text{CLR}(x_i) = \log\left(\frac{x_i}{g(x)}\right)
+$$
+
+where:
+
+- $\log$ denotes the natural logarithm,
+- $x_i$ is the value of component $i$ in the composition,
+- $g(x)$ is the geometric mean of all components in the composition, calculated as $g(x) = \left(\prod_{i=1}^{D} x_i\right)^{\frac{1}{D}}$, with $D$ being the total number of components in the composition.
+
+
+The CLR is very easy to use because it does not require a reference. We can calculate the ALR in a similar way to what scCODA does by choosing the reference cluster based on minimal dispersion and at least 95% presence across samples
+```{r, fig.width = 12, fig.height = 7}
+compTb <- pctTb
+
+clrTb <- compositions::clr(compTb[,-1]) %>% data.frame
+colnames(clrTb) <- species_col_names
+clrTb$group <- compTb$group 
+
+# Create a long dataframe of raw values for comparisons
+clr_long <- clrTb %>% 
+  pivot_longer(-group, names_to="species", values_to="counts") %>%
+  mutate(transform = "CLR")
+
+wilcoxon_clr <- lapply(species_col_names, function(species) perform_wilcox_test(clrTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species))
+
+wilcoxon_clr <- wilcoxon_clr %>% bind_rows %>% data.frame %>% mutate(transform = "CLR")
+
+presence_threshold <- 0.95
+presence <- apply(compTb > 0, 2, function(x) mean(x)) > presence_threshold
+# make sure group column isn't included
+presence[1] <- FALSE
+
+iqr_values <- apply(compTb[, presence], 2, IQR)
+denominator_index <- which.min(iqr_values)
+denominator_name <- names(iqr_values[denominator_index])
+
+alrTb <- compositions::alr(rawTb[,-1] + 1, #apply a tiny pseudocount to avoid logarithmizing a 0
+ivar = denominator_name) %>% data.frame
+alr_col_names <- species_col_names[species_col_names!=denominator_name]
+colnames(alrTb) <- alr_col_names
+alrTb$group <- compTb$group 
+
+alr_long <- alrTb %>% 
+  pivot_longer(-group, names_to="species", values_to="counts") %>%
+  mutate(transform = "ALR")
+
+combined_data <- bind_rows(combined_data, clr_long, alr_long)
+
+ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), aes(x = species, y=counts, fill = group)) +
+  geom_boxplot() +
+  labs(title = "Comparison of Species Counts per Group",
+       x = "Species",
+       y = "values") +
+  theme_minimal(base_size = 20) +
+  theme(axis.text.x = element_text(angle=45, hjust=1),
+        legend.title = element_blank()) +
+  scale_fill_manual(values = unname(pal[c(1,4)])) +
+  facet_wrap(~ transform, scales = "free_y")
+
+wilcoxon_alr <- lapply(alr_col_names, function(species) perform_wilcox_test(pctTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species))
+
+wilcoxon_alr <- wilcoxon_alr %>% bind_rows %>% data.frame %>% mutate(transform = "ALR")
+
+wilcoxon_comparisons <- bind_rows(wilcoxon_comparisons,wilcoxon_clr,wilcoxon_alr)
+
+ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color = p.val < 0.05)) +
+  geom_point() + # Use geom_bar() for bar plots
+  scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue"), name = "p-val < 0.05") +
+  facet_wrap(~ transform, scales = "free_x") +
+  labs(x = "Species", title = "Comparison of P-Values Across Species and Transformations") +
+  theme_minimal(base_size = 20) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "top") +
+  guides(fill = guide_legend(title = "P-value < 0.05"))
+
+```
+
+So we can see already that Wilcoxon results of the transforms are different than percentage and raw 
+
+## Comparing samples with compositions
+
+### PCA
+```{r}
+alrPCA <- prcomp(alrTb[,-15])
+clrPCA <- prcomp(clrTb[,-16])
+rawPCA <- prcomp(rawTb[,-1])
+pctPCA <- prcomp(pctTb[,-1])
+
+pca_alr <- data.frame(alrPCA$x, group = alrTb$group, transform = alr_long$transform %>% unique)
+pca_clr <- data.frame(clrPCA$x, group = clrTb$group, transform = clr_long$transform %>% unique)
+pca_pct <- data.frame(pctPCA$x, group = pctTb$group, transform = pct_long$transform %>% unique)
+pca_raw <- data.frame(rawPCA$x, group = rawTb$group, transform = raw_long$transform %>% unique)
+
+pcaDF <- bind_rows(pca_alr, pca_clr, pca_pct, pca_raw)
+
+pcaDF <- pcaDF %>% mutate(sample = row.names(pcaDF) %>% str_replace_all('\\.\\.\\.(.*)',''))
+
+ggplot(pcaDF, aes(x = PC1, y = PC2, color = group, label = sample)) +
+  geom_point(size=4) + # Use geom_bar() for bar plots 
+  geom_text_repel() +
+  facet_wrap(~ transform, scales = "free") +
+  labs(title = "PCA Across Transformations") +
+  theme_minimal(base_size = 20) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom") +
+  guides(fill = guide_legend(title = "P-value < 0.05")) +
+  scale_color_manual(values = unname(pal[c(4,6,9)]))
+
+loadings_alr <- data.frame(alrPCA$rotation, transform = alr_long$transform %>% unique)
+loadings_clr <- data.frame(clrPCA$rotation, transform = clr_long$transform %>% unique)
+loadings_pct <- data.frame(pctPCA$rotation, transform = pct_long$transform %>% unique)
+loadings_raw <- data.frame(rawPCA$rotation, transform = raw_long$transform %>% unique)
+
+loadingsDF <- bind_rows(loadings_alr, loadings_clr, loadings_pct, loadings_raw) %>% rownames_to_column('species') %>% group_by(transform) %>% arrange(PC1)
+
+
+loadingsDF %>% ggplot(aes(x=PC1, y=factor(species, levels=loadingsDF$species), fill = PC1 < 0)) + geom_bar(stat='identity') + facet_wrap(.~transform, scales = 'free') + theme_linedraw(base_size=20) + scale_fill_manual(values = unname(pal[c(6,11)]))# + scale_y_discrete(labels = loadingsDF$species %>% str_replace_all('\\.\\.\\.(.*)',''))
+```
+
+### Distances between samples
+
+We can also directly calculate distances between samples based on sample composition space. This can give us a better idea about outliers and how samples group together. We can also use any of the clustering metrics to test coherence of groups. 
+
+In compositional analysis, the method for calculating distances between samples proposed by John Aitchison [@aitchison_concise_2005] remains the a popular method. Termed Aitchison Distance, it is the Euclidean distance between samples based on CLR transformed counts of species. 
+
+```{r, fig.width=10,fig.height=6}
+clr_distances <- dist(clrTb[,-16], method = "euclidean")
+
+distdf <- reshape2::melt(as.matrix(clr_distances), varnames = c("from", "to"))
+
+datatable(distdf)
+
+distlong <- distdf %>% separate(from,c('group1','sample1'),sep=' ', remove=FALSE) %>% 
+            separate(to,c('group2','sample2'),sep=' ', remove=FALSE)
+            
+distlong %>% filter(sample1 !=sample2) %>% mutate(distance_group = ifelse(group1==group2,'between same disease individuals',ifelse(group1 == 'Normal' | group2 == 'Normal', 'between disease and healthy', 'between Covid and Flu'))) %>% 
+    ggplot(aes(x=value,fill=distance_group)) + geom_density(alpha=0.4) + 
+    ggtitle('COVID-Flu study distances\nAitchison Distances') +
+    theme_bw(base_size = 20) + scale_fill_manual(values = unname(pal[c(3,6,8)])) + xlab('euclidean distance')
+
+ComplexHeatmap::Heatmap(as.matrix(clr_distances))
+```
+
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
