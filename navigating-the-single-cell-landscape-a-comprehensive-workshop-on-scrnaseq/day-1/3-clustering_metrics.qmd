@@ -42,15 +42,35 @@ options(width = 1200)
 
 ## Introduction
 
-In scRNAseq, how do we know our clusters are good? Most of us go through a laundry list of tasks: \* Have we found expected populations? + Do gene markers or sets match our expectation? + Have we found our rare cell type of interest? \* Are there any doublets? \* Are there any low-quality clusters? \* Is there a batch effect?
+In scRNAseq, how do we know our clusters are good? Most of us go through a laundry list of tasks:
 
-And much of this is accomplished by checking qualitative aspects of our clusters \* Are the clusters separated on the UMAP? \* Do heatmaps show overlap of genes across clusters?
+-   Have we found expected populations?
 
-And the qualitative aspect of clustering causes us to cluster, annotate, cluster again, annotate again, and cluster again iteratively until we meet our expectations. Only rarely are quantitative methods used to determine cluster quality.
+    -   Do gene markers or sets match our expectation?
 
-In this notebook, I will introduce some intuitive quantitative clustering metrics that will help quantitatively describe how well formed our clusters are and where there might be batch effects.
+    -   Have we found our rare cell type of interest?
+
+    -   Are there any doublets?
+
+    -   Are there any low-quality clusters?
+
+    -   Is there a batch effect?
+
+And much of this is accomplished by checking qualitative aspects of our clusters:
+
+-   Are the clusters separated on the UMAP?
+
+-   Do heatmaps show overlap of genes across clusters?
+
+The qualitative aspect of clustering causes us to cluster, annotate, cluster again, annotate again, and cluster again iteratively until we meet our expectations. Only rarely are quantitative methods used to determine cluster quality.
+
+In this notebook, we will introduce some intuitive quantitative clustering metrics that will help quantitatively describe how well formed our clusters are and where there might be batch effects.
 
 ### Useful Resources
+
+-   [Significance analysis for clustering with single-cell RNA-sequencing data](https://doi.org/10.1038/s41592-023-01933-9)
+
+-   [Application of information theoretical approaches to assess diversity and similarity in single-cell transcriptomics](https://doi.org/10.1016/j.csbj.2020.05.005)
 
 ### Key Takeaways
 
