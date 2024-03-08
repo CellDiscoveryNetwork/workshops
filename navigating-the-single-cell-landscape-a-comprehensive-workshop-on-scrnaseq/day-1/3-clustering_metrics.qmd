@@ -132,12 +132,12 @@ set.seed(687)
 ### Load Seurat and replace gene symbols
 
 ```{r}
-srobj <- readRDS('/Users/kylekimler/Downloads/d8e35450-de43-451a-9979-276eac688bce.rds')
-genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
+srobj <- readRDS('../data/d8e35450-de43-451a-9979-276eac688bce.rds')
+genes <- read_csv('../data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
 
 # Need to remake seurat object
 mtx <- srobj@assays$RNA@data
-rownames(mtx) <- genes[match(row.names(mtx),genes$index),]$feature_name
+rownames(mtx) <- genes[match(row.names(mtx),genes$index), ]$feature_name
 
 srobj <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
 
@@ -178,7 +178,7 @@ Typically in scRNA analysis, clusters are viewed by coloring cells on a dimensio
 
 By plotting many UMAPs per sample or per group, we can start to understand how clusters behave across samples.
 
-```{r,fig.width=24,fig.height=5}
+```{r,fig.width=18,fig.height=5}
 d1 <- DimPlot(srobj, 
         reduction='umap', 
         group.by='Celltype',
@@ -195,12 +195,14 @@ d3 <- DimPlot(srobj,
 d1 | d2 | d3
 ```
 
+We can see how the UMAPs look when we split them by sample
+
 ```{r, fig.width=16,fig.height=20}
-DimPlot(srobj, 
+DimPlot(srobj,
         reduction='umap', 
         group.by='seurat_clusters', 
         split.by='Sample ID',
-        ncol=4) & theme_minimal()
+        ncol=4) & theme_light()
 ```
 
 For example, we might see that Flu patients 1 and 5 have clusters that are unique to them. But that doesn't tell us much about the clusters themselves. The authors have annotated them as Erythrocytes. We might also notice there are many unique clusters corresponding to classical monocytes.
@@ -313,45 +315,46 @@ clusterMetrics <- clusterMetrics %>% left_join(srobj@meta.data %>% count(seurat_
 clusterMetrics$seurat_clusters <- as.numeric(clusterMetrics$seurat_clusters)
 
 lollipop <- ggplot(clusterMetrics, aes(x = seurat_clusters, y = n)) +
-  geom_segment(aes(x = seurat_clusters, xend = seurat_clusters, y = 0, yend = n), size = 1.5, color = 'grey80') + # Draw lines for lollipops
+  geom_segment(aes(x = seurat_clusters, xend = seurat_clusters, y = 0, yend = n),
+               size = 1.5, color = 'grey80') + # Draw lines for lollipops
   geom_point(aes(colour = `Sample ID_diversity`), size = 5) + # Add colored lollipop 'heads', coloring by 'Sample ID_diversity'
-  scale_y_continuous(trans = 'log', name = "Log-scaled n", breaks = c(seq(1,10),seq(20,100,10), seq(200,1000,100), seq(2000,10000,1000))) + # Beautiful log breaks
+  scale_y_log10() +
   scale_x_continuous(breaks = seq(0,20)) + 
   scale_colour_viridis(option = "C", name = "Sample ID Diversity", direction = 1) + # Colorblind-friendly, vibrant color palette
   theme_minimal(base_size = 10) +
-  theme(legend.position = "bottom",,
+  theme(legend.position = "bottom",
         axis.text = element_text(size = 12), 
         axis.title = element_text(size = 14), 
         title = element_text(size = 16)) +
-  labs(x = "Seurat Clusters", y = "cluster size (log-scaled)", title = "Cluster Metrics") +
+  labs(x = "Seurat Clusters",
+       y = "cluster size (log-scaled)",
+       title = "Cluster Diversity Metrics") +
   guides(colour = guide_colourbar(title.position = "top", title.hjust = 0.5))
 
 lollipop
-
 ```
 
-```{r, fig.height=12, fig.width=4}
-p2 <- ggplot(clusterMetrics, aes(y=seurat_clusters, fill=`Sample ID_diversity`, x = 1, label = n)) +
+```{r, fig.height=4, fig.width=4}
+p2 <- ggplot(clusterMetrics, aes(y=as.character(seurat_clusters), fill=`Sample ID_diversity`, x = 1, label = n)) +
   geom_tile(colour = "white") +
-  geom_text(nudge_x = 1.5, size = 5) +
-  geom_text(aes(label = signif(`Sample ID_diversity`, 2)),size = 5) +
+  geom_text(nudge_x = 1.5, size = 3) +
+  geom_text(aes(label = signif(`Sample ID_diversity`, 2)),size = 3) +
   scale_fill_distiller(palette = "Spectral", limits = c(0,1)) + theme_classic() +
   coord_fixed(ratio = 0.25) + 
   expand_limits(x = c(0.5,3)) +
-  labs(x = "") +
-  theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 16),
+  labs(x = "Diversity            Size") +
+  theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 12),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
-        axis.title.y = element_text(size = 20),
+        axis.title.y = element_text(size = 15),
         legend.key.size = unit(1, 'cm'),
         legend.title = element_text(size=10), 
         legend.text = element_text(size=10)
   )
 p2
-
 ```
 
-So in this paper it looks like our clusters are in fact well represented among every sample. None of them are particularly small, but the classical Monocyte cluster contains \> 15000 cells. There may be some additional clusters hiding there.
+In this figures it looks like most of our clusters are in fact well represented among every sample. However, clusters 6, 11 and 18 seem to be dominated by one donor! We need to keep an eye out for this, it could be a patient specific cell type/state or due to batch effect we need to correct.
 
 ### Silhoeutte Analysis
 
@@ -359,7 +362,9 @@ In addition to cell numbers and sample representation, it can be useful to get a
 
 In silhouette analysis, for each cell, the average distance between cells in the same cluster is subtracted from the minimum average distance between that cell and cells from the other clusters, minimized across clusters. This value is then divided by the maximum of the two values to scale it to (-1,1) across cells.
 
-In other words, $$
+In other words,
+
+$$
 s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}}
 $$
 
@@ -430,17 +435,18 @@ full_silhouettes_plot <- ggplot(silhouette_arranged, aes(y = seurat_clusters, x 
 full_silhouettes_plot
 ```
 
-```{r, fig.height=5, fig.width=16}
+The red dotted line here represents the overall average silhouette - in clustering optimization this value can be optimized for to find the "best possible" resolution for a dataset. But sub-clustering can also increase the overall average silhouette distance in ways that changing the resolution cannot. Here, we can inspect each cluster individually and make these calls cluster by cluster.
+
+We can look at where the silhouette scores map on the UMAP
+```{r, fig.height=5, fig.width=12}
 srobj$CellID <- row.names(srobj@meta.data)
 
 sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(srobj@meta.data)
 
 srobj <- AddMetaData(srobj, sil_ids)
 
-FeaturePlot(srobj, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1)) | d2
+FeaturePlot(srobj, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1), option = "magma") | d2
 ```
-
-The red dotted line here represents the overall average silhouette - in clustering optimization this value can be optimized for to find the "best possible" resolution for a dataset. But sub-clustering can also increase the overall average silhouette distance in ways that changing the resolution cannot. Here, we can inspect each cluster individually and make these calls cluster by cluster.
 
 ### Cluster taxonomy
 
