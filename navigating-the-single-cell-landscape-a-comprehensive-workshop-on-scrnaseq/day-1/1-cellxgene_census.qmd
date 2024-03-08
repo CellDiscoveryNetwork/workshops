@@ -1,0 +1,283 @@
+---
+title: "1 - Cellxgene Census"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    self-contained-math: true
+    embed-resources: true
+editor_options: 
+  chunk_output_type: console
+bibliography: /Users/kylekimler/gitHub/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/bibliographies/Census.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+Welcome! welcome neighbors, welcome newcomers, welcome experts and enthusiasts, welcome to all who share a fascination with the building blocks of life. Here in the world of single-cell analysis, we come together as a community, eager to share and learn together, and to marvel at cellular wonders at the scale of RNA. Whether your journey here was driven by professional passion, academic ambition, or curiosity, whether you wield a pipette, a stethoscope, or a laptop, you've found your tribe. At this workshop, we will delve into the secret lives of cells, and hopefully we will discover not just the secrets they hold, but the connections that hold them together. 
+
+In this first analysis notebook of our workshop, we will download an example dataset from a public repository of single cell data to give us common ground as we explore methods for understanding single cells. Public repositories for single-cell analysis are the future of research. By making data findable, accessible, interoperable, and reusable for future work, we bring previously underpowered or difficult analysis into the realm of possibilities.
+
+Cellxgene Census is a package run by the Chan Zuckerberg Initiative in collaboration with tileDB, making it the fastest way to download single-cell data from the web. 
+
+### Useful Resources
+
+* https://singlecell.broadinstitute.org/single_cell
+* https://www.ebi.ac.uk/gxa/sc/home
+* https://panglaodb.se/index.html
+* https://bioconductor.org/packages/scRNAseq
+* https://chanzuckerberg.github.io/cellxgene-census/
+
+### Key Takeaways
+
+* CellxGene Census is the largest internet database of harmonized single-cell data, and has APIs for data download in python and R. It includes complete metadata for:
+    + Datasets
+    + Cells
+* Authors whose data is included in Census harmonize their own data to match standards and submit it - this is extra work, but research has shown that increasing data accessibility for your paper increases your citations, and only if the data is easily available. [@colavizza_citation_2020]
+    + "Data Availability Statements ... contribute to an increase of 22.65% (± 0.96%) over the average citation rate of an article after three years from publication"
+* When getting started on a new computational project, start with the FAIR framework in mind [@noauthor_fair_nodate]. Good computational organization from the start enables proper access to your research later. 
+    + Findability
+    + Accessibility
+    + Interoperability
+    + Reusability
+    
+## Libraries
+
+### Installation
+```{r}
+if (!requireNamespace("cellxgene.census", quietly = TRUE))
+    install.packages(
+      "cellxgene.census",
+      repos=c('https://chanzuckerberg.r-universe.dev', 'https://cloud.r-project.org')
+    )
+    
+if (!requireNamespace("gganatogram", quietly = TRUE))
+    devtools::install_github("jespermaag/gganatogram")
+
+if (!requireNamespace("gridExtra", quietly = TRUE))
+    install.packages('gridExtra')
+
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages('tidyverse')
+
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages('DT')
+```
+
+### Loading
+```{r}
+library(tidyverse) # used for general purpose coding
+library(cellxgene.census) # used for downloading data
+library(gganatogram) # used for plotting
+library(gridExtra) # plotting
+library(DT) # notebook data table presentation
+```
+
+## Querying CellxGene Census
+
+### Querying Datasets
+
+Cellxgene Census offers dataset-level metadata in the "census_info" rather than "census_data". 
+
+```{r}
+census <- open_soma() # To begin searching the census, we open SOMA, the high-efficiency database where census metadata is stored 
+
+census_datasets <-  census$get("census_info")$get("datasets") # to query dataset metadata, we pull census_info
+census_datasets <- census_datasets$read()$concat() # convert soma format to R data.frame
+datasetsdf <- as.data.frame(census_datasets)
+
+datatable(datasetsdf)
+```
+
+Looking at what's available in the census, we see there is a collection DOI and a dataset title that might help us find datasets we are interested in. When doing meta-analysis, many of us collect datasets by reading papers. But paper titles often have special characters, which can make finding them difficult. Instead, I often collect DOIs in large tables for meta-analysis and use these to obtain links to all the datasets I'm interested in. 
+
+Here's an example of pulling datasets per paper:
+
+```{r}
+example_meta_analysis <- c('10.1016/j.jcmgh.2022.02.007', # a study of the colon epithelium
+                            '10.1126/science.abl4896') # tabula sapiens, which has many census entries separated by tissue
+
+datasetsOfInterest <- datasetsdf %>% filter(collection_doi %in% example_meta_analysis) %>% arrange(collection_doi)
+datatable(datasetsOfInterest)
+```
+
+Once we've found datasets we are interested in, we can use Census to obtain cell-level metadata related to those datasets.
+
+### Querying Cells per Dataset
+
+```{r}
+census_hsapiens_metadata <-  census$get("census_data")$get("homo_sapiens")$get("obs")
+# Read cell metadata from census using queries
+metadata_query <-  census_hsapiens_metadata$read(
+#    value_filter = "sex == 'female' & cell_type %in% c('microglial cell', 'macrophage')", - you can also filter by cell type
+   column_names = c("dataset_id", "assay", "cell_type", "sex", "tissue", "tissue_general", "suspension_type", "disease", "donor_id")
+)
+
+# For a list of possible metadata columns, run the following:
+# census_hsapiens_metadata$colnames()
+
+# Queries are in a special query format which needs to be processed using cellxgene functions
+cell_metadata <-  metadata_query$concat()
+
+# Convert the processed object to an R data.frame to enable us to visualize numbers
+cell_metadata <-  as.data.frame(cell_metadata)
+
+datatable(cell_metadata %>% head)
+
+# we can use dataset's dataset_id to gather cell metadata from the census
+meta_analysis <- cell_metadata %>% filter(dataset_id %in% datasetsOfInterest$dataset_id) 
+# and peruse all the celltypes that are found in these datasets or plot some statistics
+datatable(meta_analysis %>% head)
+
+```
+
+### Querying Diseases, Samples, Tissues, and Celltypes
+
+Sometimes we can't find all the papers with the very specific celltype we're interested in, because rarer celltypes are hidden in the text or supplemental figures. Or sometimes we want to know all the datasets that contain data of samples coming from patients with a certain disease. We can use the census for this as well. For example here, one thing we might want to do is to find out how many patients were sampled across studies of COVID-19 and Flu.
+
+```{r, fig.width=8,fig.height=5}
+cough_datasets <- cell_metadata %>% filter(disease %in% c("COVID-19",'influenza')) %>% 
+                pull(dataset_id)
+
+sample_counts <- cell_metadata %>% filter(dataset_id %in% cough_datasets) %>%
+                select(tissue_general,tissue,disease,donor_id) %>% distinct %>% # keep only one row per patient
+                mutate(disease = ifelse(disease == 'COVID-19','COVID-19', # convert all disease names except covid, flu, and healthy to other
+                                        ifelse(disease=='influenza','influenza',
+                                                ifelse(disease=='normal','healthy','other')))) %>%
+                count(tissue_general,tissue,disease)
+
+p <- sample_counts %>% ggplot(aes(x=n, y=tissue, fill = tissue_general)) + 
+    geom_bar(stat='identity') + 
+    geom_text(aes(label=n),nudge_x=75) +
+    facet_grid(. ~ disease) + theme_linedraw() +
+    theme(strip.text.y=element_text(size=16),
+          strip.text.x=element_text(size=16),
+          axis.text.y=element_text(size=12),
+          axis.text.x=element_text(size=12),
+          axis.title.y=element_text(size=16),
+         ) +
+    scale_fill_manual(values = c('#F4442E','#086788','#61E8E1','#020122','#FC9E4F')) + 
+    expand_limits(x=c(0,675)) + # allow for room for n donor text
+    ggtitle('How many people have been sampled in cellxgene census COVID and flu papers?\nStratified by disease status and the tissue sampled')
+
+p
+
+```
+
+## Analysis
+
+With Census, we can start to perform analysis about where cell types show up in different parts of the body by overlaying counts of cell metadata on an anatogram [@maag_gganatogram_2018]. To use an anatogram, we have to harmonize the organ/tissue metadata from cellxgene census to gganatogram using a corrections table which is included below.
+
+```{r}
+corrections <- data.frame(
+  census =  c("blood", "mucosa", "small intestine", "placenta", "adrenal gland", "vasculature", 
+  "adipose tissue", "exocrine gland", "bladder organ", "respiratory system", "eye", 
+  "large intestine", "bone marrow", "musculature", "lymph node", 
+  "endocrine gland", "central nervous system", "spinal cord", "skin of body", 
+  "reproductive system", "esophagogastric junction", "immune system",  
+  "fallopian tube", "yolk sac", "digestive system", "pleural fluid", "omentum", 
+  "lamina propria", "saliva", "intestine", "ureter", "skeletal system"),
+  anatogram = c('coronary_artery','tonsil','small_intestine','uterus','adrenal_gland',
+              'coronary_artery','adipose_tissue','salivary_gland','urinary_bladder',
+              'lung','not matched','colon','bone_marrow','skeletal_muscle','lymph_node',
+              'thyroid_gland','brain','spinal_cord','skin','fallopian_tube','gastroesophageal junction',
+              'tonsil','fallopian_tube','placenta','small_intestine','pleura','pleura',
+              'small_intestine','parotid_gland','small_intestine','kidney','bone'),
+  stringsAsFactors = FALSE
+)
+```
+
+Then, cell metadata can be matched to gganatogram tissues to display which parts of the body are best represented in the census.
+```{r}
+organdf <- cell_metadata
+
+organdf$organ <- corrections[match(organdf$tissue_general,corrections$census),]$anatogram
+organdf$organ <- ifelse(is.na(organdf$organ),organdf$tissue_general,organdf$organ)
+
+organdf <- organdf %>% count(organ,cell_type)
+
+organdf <- organdf %>% left_join(
+                        organdf %>% filter(cell_type %in% c('microglial cell','macrophage')) %>% 
+                        select(organ, n) %>%
+                        group_by(organ) %>%
+                        summarize(macrophage_count = sum(n))
+                        )
+
+organdf <- organdf %>% group_by(organ) %>% 
+                       summarize(cell_type,n,macrophage_count,total_cell_count=sum(n))
+
+organdf <- organdf %>% group_by(organ) %>% mutate(macrophage_pct = macrophage_count/total_cell_count)
+
+macF <- gganatogram(data=hgFemale_key %>% left_join(organdf) %>% 
+                                  mutate(value=macrophage_pct) %>% 
+                                  select(-cell_type,-n) %>% 
+                                  distinct, 
+                                  fillOutline='#440154FF', organism='human', 
+                                  sex='female', fill="value") + 
+                                  scale_fill_distiller(palette='Spectral',limits=c(0,1)) + 
+                                  theme_void() + 
+                                  ggtitle('percent cells that are macrophages per organ in the census')
+
+macM <- gganatogram(data=hgMale_key %>% left_join(organdf) %>% 
+                                  mutate(value=macrophage_pct) %>% 
+                                  select(-cell_type,-n) %>% 
+                                  distinct, 
+                                  fillOutline='#440154FF', organism='human', 
+                                  sex='male', fill="value") + 
+                                  theme_void() + 
+                                  scale_fill_distiller(palette='Spectral',limits=c(0,1))
+
+grid.arrange(macF,macM, ncol=2)
+
+
+totF <- gganatogram(data=hgFemale_key %>% left_join(organdf) %>% 
+                                  mutate(value=log(total_cell_count)) %>% 
+                                  select(-cell_type,-n) %>% 
+                                  distinct, 
+                                  fillOutline='#440154FF', organism='human', 
+                                  sex='female', fill="value") + 
+                                  scale_fill_distiller(palette='Spectral') + 
+                                  theme_void() + 
+                                  ggtitle('log total cell count per organ in the census') +
+                                  labs(fill = expression(ln("cells")))
+
+totM <- gganatogram(data=hgMale_key %>% left_join(organdf) %>% 
+                                  mutate(value=log(total_cell_count)) %>% 
+                                  select(-cell_type,-n) %>% 
+                                  distinct, 
+                                  fillOutline='#440154FF', organism='human', 
+                                  sex='male', fill="value") + 
+                                  theme_void() + 
+                                  scale_fill_distiller(palette='Spectral') +
+                                  labs(fill = expression(ln("cells")))
+
+grid.arrange(totF,totM, ncol=2)
+
+```
+
+## Downloading count matrices
+For the purpose of the workshop, we will download one small dataset with a well defined case vs. control experimental setup. Since we are at BCH, we have chosen a pediatric dataset. We can find and download this dataset on the census.
+
+The following dataset isn't actually included in cellxgene_census yet. I've opened a github issue with them to ask them if there's a reason why ~half of the datasets in the Discovery portal aren't included yet. Here is a link to our dataset of choice. Download it to your favorite compute environment.
+
+[Workshop Dataset](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed)
+
+Finally, we must close the census.
+```{r}
+census$close()
+```
+
+## Session Info
+```{r}
+sessionInfo()
+```
