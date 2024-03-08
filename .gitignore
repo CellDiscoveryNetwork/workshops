@@ -62,3 +62,7 @@ rsconnect/
 # ignore python notebook checkpoints
 .ipynb_checkpoints/
 
+# intermediate datafiles
+*.rds
+*.Rds
+*.RDS
