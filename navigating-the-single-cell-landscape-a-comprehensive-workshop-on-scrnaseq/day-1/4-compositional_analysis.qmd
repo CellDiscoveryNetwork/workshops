@@ -134,7 +134,7 @@ names(pal) <- sort(unique(srobj$Celltype))
 
 In papers we often see percentages of clusters per sample or of subclusters in a larger celltype. These are done using stacked bar plots as follows.
 
-```{r}
+```{r, fig.width=12, fig.height=8}
 celltypePercentagesDF <- srobj@meta.data %>% count(`Sample ID`,Celltype) %>% group_by(`Sample ID`) %>% reframe(Celltype, celltype_n = n, total_n_cells = sum(n)) %>% mutate(pct_celltype = celltype_n / total_n_cells)
 
 datatable(celltypePercentagesDF)
@@ -154,7 +154,7 @@ And often these compositions are compared using rank sum tests, which Morton et 
 
 If we use the Wilcoxon test here in a comparison of compositions across samples Flu vs. Normal, we will see that the result depends on proper normalization of the data.
 
-```{r, fig.width = 9, fig.height = 7}
+```{r, fig.width = 9, fig.height = 9}
 # Create a function to perform Wilcoxon rank-sum tests and return p-values
 perform_wilcox_test <- function(data, group_col, group1, group2, species_col) {
   group1_data <- data[data[[group_col]] == group1, species_col]
@@ -202,7 +202,9 @@ ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), aes(x = species, 
   theme(axis.text.x = element_text(angle=45, hjust=1),
         legend.title = element_blank()) +
   scale_fill_manual(values = unname(pal[c(1,4)]))
+```
 
+```{r, fig.height=10, fig.width=9}
 wilcoxon_comparisons <- bind_rows(wilcoxon_raw,wilcoxon_pct)
 
 ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color = p.val < 0.05)) +
@@ -243,7 +245,7 @@ where:
 
 
 The CLR is very easy to use because it does not require a reference. We can calculate the ALR in a similar way to what scCODA does by choosing the reference cluster based on minimal dispersion and at least 95% presence across samples
-```{r, fig.width = 12, fig.height = 7}
+```{r, fig.width = 12, fig.height = 12}
 compTb <- pctTb
 
 clrTb <- compositions::clr(compTb[,-1]) %>% data.frame
@@ -268,7 +270,7 @@ iqr_values <- apply(compTb[, presence], 2, IQR)
 denominator_index <- which.min(iqr_values)
 denominator_name <- names(iqr_values[denominator_index])
 
-alrTb <- compositions::alr(rawTb[,-1] + 1, #apply a tiny pseudocount to avoid logarithmizing a 0
+alrTb <- compositions::alr(rawTb[,-1] + 1, # apply a tiny pseudocount to avoid logarithmizing a 0
 ivar = denominator_name) %>% data.frame
 alr_col_names <- species_col_names[species_col_names!=denominator_name]
 colnames(alrTb) <- alr_col_names
@@ -296,9 +298,11 @@ wilcoxon_alr <- lapply(alr_col_names, function(species) perform_wilcox_test(pctT
 wilcoxon_alr <- wilcoxon_alr %>% bind_rows %>% data.frame %>% mutate(transform = "ALR")
 
 wilcoxon_comparisons <- bind_rows(wilcoxon_comparisons,wilcoxon_clr,wilcoxon_alr)
+```
 
+```{r, fig.width = 10, fig.height=10}
 ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color = p.val < 0.05)) +
-  geom_point() + # Use geom_bar() for bar plots
+  geom_point() + 
   scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue"), name = "p-val < 0.05") +
   facet_wrap(~ transform, scales = "free_x") +
   labs(x = "Species", title = "Comparison of P-Values Across Species and Transformations") +
@@ -314,7 +318,7 @@ So we can see already that Wilcoxon results of the transforms are different than
 ## Comparing samples with compositions
 
 ### PCA
-```{r}
+```{r, fig.height=14, fig.width=12}
 alrPCA <- prcomp(alrTb[,-15])
 clrPCA <- prcomp(clrTb[,-16])
 rawPCA <- prcomp(rawTb[,-1])
@@ -339,7 +343,9 @@ ggplot(pcaDF, aes(x = PC1, y = PC2, color = group, label = sample)) +
         legend.position = "bottom") +
   guides(fill = guide_legend(title = "P-value < 0.05")) +
   scale_color_manual(values = unname(pal[c(4,6,9)]))
+```
 
+```{r, fig.height=16, fig.width=20}
 loadings_alr <- data.frame(alrPCA$rotation, transform = alr_long$transform %>% unique)
 loadings_clr <- data.frame(clrPCA$rotation, transform = clr_long$transform %>% unique)
 loadings_pct <- data.frame(pctPCA$rotation, transform = pct_long$transform %>% unique)
