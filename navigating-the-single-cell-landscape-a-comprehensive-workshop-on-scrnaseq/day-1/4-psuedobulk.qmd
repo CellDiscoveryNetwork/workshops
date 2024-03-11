@@ -40,13 +40,22 @@ library(org.Hs.eg.db)
 ```
 
 ```{r}
-se <- readRDS("./day-1/data/workshop-data.rds")
+srobj <- readRDS('/Users/kylekimler/Downloads/d8e35450-de43-451a-9979-276eac688bce.rds')
+genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
+
+# Need to remake seurat object
+mtx <- srobj@assays$RNA@data
+rownames(mtx) <- genes[match(row.names(mtx),genes$index),]$feature_name
+
+srobj <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
+
+srobj
 ```
 
 ```{r}
 # Set color palette
 pal <- paletteMartin
-names(pal) <- sort(unique(se$Celltype))
+names(pal) <- sort(unique(srobj$Celltype))
 ```
 
 ## Analysis
@@ -54,33 +63,9 @@ names(pal) <- sort(unique(se$Celltype))
 ### Set gene symbols
 
 ```{r}
-symbol_id <- mapIds(
-    org.Hs.eg.db,
-    keys = rownames(se), 
-    column = "SYMBOL",
-    keytype = "ENSEMBL",
-    multiVals = "first")
-
-all(rownames(se) == names(symbol_id))
-
-# re-create Seurat object
-mtx <- se@assays$RNA@data
-rownames(mtx) <- symbol_id
-
-# Remove NAs
-sum(is.na(rownames(mtx)))
-dim(mtx)
-mtx <- mtx[!is.na(rownames(mtx)), ]
-dim(mtx)
-
-rownames(mtx) <- make.unique(rownames(mtx))
-se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
-
-sum(is.na(rownames(se)))
-
 ### Quick processing
 
-se <- se %>%
+srobj <- srobj %>%
     NormalizeData(verbose = FALSE) %>%
     FindVariableFeatures(
         method = "vst",
@@ -90,10 +75,10 @@ se <- se %>%
     RunPCA(verbose = FALSE) %>%
     RunUMAP(dims = 1:30, verbose = FALSE)
 
-ElbowPlot(se, ndims = 50)
+ElbowPlot(srobj, ndims = 50)
 
 DimPlot(
-    se,
+    srobj,
     group.by = c("Celltype"),
     label = TRUE,
     cols = pal)
@@ -101,44 +86,10 @@ DimPlot(
 
 ```{r}
 # Not really sure what's going on here
-se@meta.data %>%
-  dplyr::count('Sample ID', 'Disease group')
-se@meta.data %>%
-  dplyr::count('Celltype', 'cell_type')
-se@meta.data['Celltype']
-se@meta.data['cell_type']
-```
-
-```{r}
-# Correct for function formatting preferences
-
-genes <- rownames(se) %>% str_replace_all('-','.')
-genes[0:10]
-```
-
-```{r}
-# data <- se[["RNA"]]$data
-# data
-```
-
-```{r}
-# row.names(data) <- genes
-# data
-```
-
-```{r}
-srobj <- CreateSeuratObject(data,meta.data = se@meta.data)
-
-srobj
-```
-
-```{r}
-row.names(srobj[["RNA"]]$counts) %>% head
-```
-
-```{r}
-AggregateExpression(srobj, group.by = c('Sample ID','Celltype'))$RNA %>% head
-
+srobj@meta.data %>%
+  dplyr::count(`Sample ID`, `Disease group`)
+srobj@meta.data %>%
+  dplyr::count(Celltype, cell_type)
 ```
 
 ```{r}
@@ -160,10 +111,6 @@ cd8_pseudobulk <- AggregateExpression(cd8sr,group.by='Sample ID')$RNA
 ```
 
 ```{r}
-cd8_pseudobulk
-```
-
-```{r}
 row.names(annot_pseudobulk)[annot_pseudobulk %>% row.names %>% grep('CD8',.)]
 ```
 
@@ -177,10 +124,10 @@ dim(annot_pseudobulk)
 dir.create('./day-1/pseudobulk_analysis')
 dir.create('./day-1/pseudobulk_analysis/data')
 
-saveRDS(annot_pseudobulk,'./day-1/pseudobulk_analysis/data/annotation_pseudo_bulk_data.rds')
-saveRDS(clust_pseudobulk,'./day-1/pseudobulk_analysis/data/cluster_pseudo_bulk_data.rds')
-saveRDS(cd4_pseudobulk,'./day-1/pseudobulk_analysis/data/cd4_pseudo_bulk_data.rds')
-saveRDS(cd8_pseudobulk,'./day-1/pseudobulk_analysis/data/cd8_pseudo_bulk_data.rds')
+# saveRDS(annot_pseudobulk,'./day-1/pseudobulk_analysis/data/annotation_pseudo_bulk_data.rds')
+# saveRDS(clust_pseudobulk,'./day-1/pseudobulk_analysis/data/cluster_pseudo_bulk_data.rds')
+# saveRDS(cd4_pseudobulk,'./day-1/pseudobulk_analysis/data/cd4_pseudo_bulk_data.rds')
+# saveRDS(cd8_pseudobulk,'./day-1/pseudobulk_analysis/data/cd8_pseudo_bulk_data.rds')
 ```
 
 ## Run DESeq2 !!!
@@ -200,12 +147,12 @@ colData <- data.frame(
   sample = colnames(cd4_pseudobulk),
   condition = sapply(sample_info, `[`, 1)
 )
-colData
+colData %>% head
 # Ensure unique rownames in colData for DESeqDataSet
 # TD: make new object with reg names, not factors
 # TD: go through a tutorial bc oh my
 rownames(colData) <- colnames(cd4_pseudobulk)
-rownames(colData)
+# rownames(colData)
 ```
 
 ```{r}
@@ -217,7 +164,7 @@ colData <- colData %>%
               dplyr::select('sample') %>%
               distinct()
 ) 
-colData
+colData %>% head
 
 cd4_pseudobulk@x <- as.numeric(as.integer(cd4_pseudobulk@x))
 
@@ -225,7 +172,7 @@ cd4_pseudobulk@x <- as.numeric(as.integer(cd4_pseudobulk@x))
 dds <- DESeqDataSetFromMatrix(countData = cd4_pseudobulk,
                                 colData = colData,
                                 design = ~ condition)
-saveRDS(dds,paste('./day-1/pseudobulk_analysis/data/cd4_annotation_pseudobulk_deseq2_object.rds'))
+# saveRDS(dds,paste('./day-1/pseudobulk_analysis/data/cd4_annotation_pseudobulk_deseq2_object.rds'))
 
 # this runs the test
 dds <- DESeq(dds)
@@ -240,7 +187,7 @@ res
 restbl <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05)
 
 # save the table!
-write.csv(restbl,file='./day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.csv')
+# write.csv(restbl,file='./day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.csv')
 ```
 
 ```{r}
@@ -289,11 +236,10 @@ colData <- data.frame(
   sample = colnames(cd8_pseudobulk),
   condition = sapply(sample_info, `[`, 1)
 )
-colData
+# colData
 # Ensure unique rownames in colData for DESeqDataSet
 
 rownames(colData) <- colnames(cd8_pseudobulk)
-rownames(colData)
 
 colData <- colData %>%
   left_join(srobj@meta.data %>%
@@ -301,7 +247,7 @@ colData <- colData %>%
     distinct()
 ) %>%
   column_to_rownames(var = 'sample')
-colData
+colData %>% head
 ```
 
 ```{r}
@@ -310,7 +256,7 @@ cd8_pseudobulk@x <- as.numeric(as.integer(cd8_pseudobulk@x))
 dds <- DESeqDataSetFromMatrix(countData = cd8_pseudobulk,
                                 colData = colData,
                                 design = ~ condition)
-saveRDS(dds,paste('./day-1/pseudobulk_analysis/data/cd8_annotation_pseudobulk_deseq2_object.rds'))
+# saveRDS(dds,paste('./day-1/pseudobulk_analysis/data/cd8_annotation_pseudobulk_deseq2_object.rds'))
 
 # this runs the test
 dds <- DESeq(dds)
@@ -325,7 +271,7 @@ res
 restbl <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05)
 
 # save the table!
-write.csv(restbl,file='./day-1/pseudobulk_analysis/results/cd8_annotation_pseudobulk_results.csv')
+# write.csv(restbl,file='./day-1/pseudobulk_analysis/results/cd8_annotation_pseudobulk_results.csv')
 ```
 
 ```{r}
@@ -337,10 +283,10 @@ colData <- data.frame(
   sample = colnames(annot_pseudobulk),
   condition = sapply(sample_info, `[`, 1)
 )
-colData
+
 # Ensure unique rownames in colData for DESeqDataSet
 rownames(colData) <- colnames(annot_pseudobulk)
-rownames(colData)
+# rownames(colData)
 
 colData <- colData %>%
   left_join(srobj@meta.data %>%
@@ -348,7 +294,7 @@ colData <- colData %>%
     distinct()
 ) %>%
   column_to_rownames(var = 'sample')
-colData
+colData %>% head
 ```
 
 ```{r}
