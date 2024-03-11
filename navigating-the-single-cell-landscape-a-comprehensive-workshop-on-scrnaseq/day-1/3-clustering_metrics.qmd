@@ -1,5 +1,5 @@
 ---
-title: "1 - Cellxgene Census"
+title: "3 - Clustering Metrics"
 author: "CDN team"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format:
@@ -31,19 +31,74 @@ knit_hooks$set(chunk_timing = function(before, options, envir) {
   }
 })
 
-# Assign the custom hook to execute for each chunk
+# set timing hook to execute for each cell
 opts_chunk$set(chunk_timing = TRUE)
+
+# set figure centering hook for each cell
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
 ```
+
+## Introduction
+
+In scRNAseq, how do we know our clusters are good? Most of us go through a laundry list of tasks:
+* Have we found expected populations?
+    + Do gene markers or sets match our expectation?
+    + Have we found our rare cell type of interest?
+* Are there any doublets? 
+* Are there any low-quality clusters?
+* Is there a batch effect? 
+
+And much of this is accomplished by checking qualitative aspects of our clusters 
+* Are the clusters separated on the UMAP?
+* Do heatmaps show overlap of genes across clusters?
+
+And the qualitative aspect of clustering causes us to cluster, annotate, cluster again, annotate again, and cluster again iteratively until we meet our expectations. Only rarely are quantitative methods used to determine cluster quality.
+
+In this notebook, I will introduce some intuitive quantitative clustering metrics that will help quantitatively describe how well formed our clusters are and where there might be batch effects. 
+
+### Useful Resources
+
+
+
+### Key Takeaways
+
+* Quantitative clustering metrics can help us assess and optimize clustering in single-cell data
+    + sample diversity
+    + silhouette width
+    + cluster size
+    + distance between clusters
 
 ## Libraries
-Installation
+
+### Installation
 ```{r, eval=FALSE}
-install.packages('plotly')
-install.packages('colorBlindness')
-devtools::install_github('jo-m-lab/ARBOL') # ARBOL is used to plot clusters.
-devtools::install_github('immunogenomics/presto') # presto is used to speed up Wilcoxon tests for marker gene calculation in Seurat
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages('tidyverse')
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages('Seurat')
+if (!requireNamespace("plotly", quietly = TRUE))
+    install.packages('plotly')
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages('colorBlindness')
+if (!requireNamespace("cluster", quietly = TRUE))
+    install.packages('cluster') # The cluster package provides tools to calculate clustering metrics, here used for silhouette analysis
+if (!requireNamespace("RColorBrewer", quietly = TRUE))
+    install.packages('RColorBrewer')
+if (!requireNamespace("scales", quietly = TRUE))
+    install.packages('scales')
+if (!requireNamespace("viridis", quietly = TRUE))
+    install.packages('viridis')
+if (!requireNamespace("ARBOL", quietly = TRUE))
+    devtools::install_github('jo-m-lab/ARBOL') # ARBOL is used to plot clusters.
+if (!requireNamespace("presto", quietly = TRUE))
+    devtools::install_github('immunogenomics/presto') # presto is used to speed up Wilcoxon tests for marker gene calculation in Seurat
+if (!requireNamespace("vegan", quietly = TRUE))
+    BiocManager::install('vegan') # vegan is a community ecological analysis package that provides many tools for dissimilarity, ordination, and diversity analysis, we will use it for diversity analysis here
 ```
 
+### Loading
 ```{r}
 suppressPackageStartupMessages({
   library(Seurat)
@@ -51,7 +106,9 @@ suppressPackageStartupMessages({
   library(ARBOL)
   library(plotly)
   library(colorBlindness)
+  library(scales)
   library(RColorBrewer)
+  library(viridis)
   library(vegan)
   library(cluster)
 })
@@ -59,11 +116,13 @@ set.seed(687)
 ```
 
 ## Load data
+
+### Load Seurat and replace gene symbols
 ```{r}
 srobj <- readRDS('/Users/kylekimler/Downloads/d8e35450-de43-451a-9979-276eac688bce.rds')
-genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv')
+genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
 
-## Need to remake seurat object
+# Need to remake seurat object
 mtx <- srobj@assays$RNA@data
 rownames(mtx) <- genes[match(row.names(mtx),genes$index),]$feature_name
 
@@ -72,8 +131,8 @@ srobj <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
 srobj
 ```
 
-
-Generate a color palette for our cell types
+### Setup
+Generate a color palette for plotting
 ```{r}
 # https://www.datanovia.com/en/blog/easy-way-to-expand-color-palettes-in-r/
 # nb.cols <- length(unique(se$Celltype))
@@ -98,27 +157,26 @@ srobj <- srobj %>%
 ```
 
 ## Viewing clusters
-Typically in scRNA analysis, clusters are viewed by coloring cells on a dimension-reduced latent space of gene expression, like a tSNE or a UMAP. 
-In the dataset we've downloaded, we have a tSNE already calculated, so let's display the authors' celltypes there first. 
 
-By plotting many tSNE's per sample or per group, we can start to understand how clusters behave across samples.
-```{r,fig.width=8,fig.height=5}
-DimPlot(srobj, 
+Typically in scRNA analysis, clusters are viewed by coloring cells on a dimension-reduced latent space of gene expression, like a tSNE or a UMAP. 
+In the dataset we've downloaded, we have author annotations and we have just calculated clusters with Seurat as well.
+
+By plotting many UMAPs per sample or per group, we can start to understand how clusters behave across samples.
+```{r,fig.width=24,fig.height=5}
+d1 <- DimPlot(srobj, 
         reduction='umap', 
         group.by='Celltype',
         cols = pal)
-```
 
-```{r,fig.width=8,fig.height=5}
-DimPlot(srobj, 
+d2 <- DimPlot(srobj, 
         reduction='umap', 
         group.by='seurat_clusters')
-```
 
-```{r,fig.width=8,fig.height=5}
-DimPlot(srobj, 
+d3 <- DimPlot(srobj, 
         reduction='umap', 
-        group.by='Sample ID')
+        group.by='Sample ID') 
+
+d1 | d2 | d3
 ```
 
 ```{r, fig.width=16,fig.height=20}
@@ -126,12 +184,12 @@ DimPlot(srobj,
         reduction='umap', 
         group.by='seurat_clusters', 
         split.by='Sample ID',
-        ncol=4)
+        ncol=4) & theme_minimal()
 ```
-For example, we can see the sample from flu patient 5 is dominated by erythrocytes, and these erythrocytes aren't reliably found across samples, whether diseased or normal. But that doesn't tell us much about the clusters themselves. 
+For example, we might see that Flu patients 1 and 5 have clusters that are unique to them. But that doesn't tell us much about the clusters themselves. The authors have annotated them as Erythrocytes. We might also notice there are many unique clusters corresponding to classical monocytes.
 
-And these celltypes are often validated by plotting heatmaps, dotplots, or violin plots of genes that are most important to each cluster, found by 1 v all differential expression.
-```{r,fig.width=12,fig.height=10}
+These clusters are often validated by plotting heatmaps, dotplots, or violin plots of genes that are most important to each cluster, found by 1 v all differential expression.
+```{r,fig.width=12,fig.height=16}
 Idents(srobj) <- srobj@meta.data$seurat_clusters
 celltype_markers <- FindAllMarkers(srobj, 
                         only.pos=TRUE, 
@@ -151,9 +209,9 @@ hm
 
 And there are quite a few methods for displaying genes across clusters detailed in [Seurat vignettes](https://satijalab.org/seurat/articles/visualization_vignette)
 
-## Beyond the norm
+### Slightly beyond the norm: 3D
 
-As we can see, the cell types are somewhat well defined but as usual there are some fuzzy boundaries. Some people like to go 3d to see if these boundaries are resolved.
+From the UMAPs, we see that some clusters and cell types are somewhat well defined but as usual there are some fuzzy boundaries. If we view a third dimension, we can see some additional separation inside these clusters.
 
 ```{r}
 emb <- Seurat::Embeddings(srobj,reduction='umap')
@@ -163,16 +221,24 @@ left_join(srobj@meta.data %>% rownames_to_column("CellID"))
 suppressMessages({
 p <- plot_ly(emb, type='scatter3d', 
                 color = ~seurat_clusters, 
+                size = 0.5,
                 x = ~umap_1, 
                 y = ~umap_2, 
-                z = ~umap_3)
+                z = ~umap_3, 
+                cols = pal)
 p
     })
 ```    
 
-But even with 3d we don't have a way to quantify how useful our clusters are as labels in our dataset. Firstly, with a UMAP or tSNE, we can't see how well represented samples are across clusters. Some people build cluster-composition bar graphs for this, but these can be difficult to compare, and they don't show us how large the clusters are. One solution is to make a plot of cluster metrics per cluster. Let's start with cell counts and sample diversity. 
+But we could look at many more UMAP dimensions and see similar differences.
+
+## Quantifying cluster attributes
+
+Even with 3d we don't have a way to quantify how useful our clusters are as labels in our dataset. Firstly, with a UMAP or tSNE, we can't see how well represented samples are across clusters. Some people build cluster-composition bar graphs for this, but these can be difficult to compare, and they don't show us how large the clusters are. One solution is to make a plot of cluster metrics per cluster. Let's start with cell counts and sample diversity. 
 
 ### Cluster diversity
+
+In ecological analysis, diversity indices quantify species richness in an ecosystem. Here, we flip the idea on its head, calculating the diversity of samples in a specific cluster of scRNA data. Diversity indices are analogous to information theory metrics that calculate the degree of uncertainty when predicting the next bit in information flow. If diversity is high, then uncertainty is high. If diversity is low, then we can be sure when we pick a random cell from that cluster, it will come from the dominant sample. 
 
 ```{r}
 diversityPerGroup <- function(df, species, group, diversity_metric = 'simpson') {
@@ -223,13 +289,35 @@ clusterMetrics <- clusterMetrics %>% left_join(srobj@meta.data %>% count(seurat_
 #   labs(x = "Cell Type", y = "Cell Number (log scale)") +
 #   theme_minimal() +
 #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
+``` {r, fig.height=8, fig.width=12}
+clusterMetrics$seurat_clusters <- as.numeric(clusterMetrics$seurat_clusters)
+
+lollipop <- ggplot(clusterMetrics, aes(x = seurat_clusters, y = n)) +
+  geom_segment(aes(x = seurat_clusters, xend = seurat_clusters, y = 0, yend = n), size = 1.5, color = 'grey80') + # Draw lines for lollipops
+  geom_point(aes(colour = `Sample ID_diversity`), size = 5) + # Add colored lollipop 'heads', coloring by 'Sample ID_diversity'
+  scale_y_continuous(trans = 'log', name = "Log-scaled n", breaks = c(seq(1,10),seq(20,100,10), seq(200,1000,100), seq(2000,10000,1000))) + # Beautiful log breaks
+  scale_x_continuous(breaks = seq(0,20)) + 
+  scale_colour_viridis(option = "C", name = "Sample ID Diversity", direction = 1) + # Colorblind-friendly, vibrant color palette
+  theme_minimal(base_size = 10) +
+  theme(legend.position = "bottom",,
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 14), 
+        title = element_text(size = 16)) +
+  labs(x = "Seurat Clusters", y = "cluster size (log-scaled)", title = "Cluster Metrics") +
+  guides(colour = guide_colourbar(title.position = "top", title.hjust = 0.5))
+
+lollipop
+
+```
+```{r, fig.height=12, fig.width=4}
 p2 <- ggplot(clusterMetrics, aes(y=seurat_clusters, fill=`Sample ID_diversity`, x = 1, label = n)) +
   geom_tile(colour = "white") +
   geom_text(nudge_x = 1.5, size = 5) +
   geom_text(aes(label = signif(`Sample ID_diversity`, 2)),size = 5) +
   scale_fill_distiller(palette = "Spectral", limits = c(0,1)) + theme_classic() +
-  coord_fixed(ratio = 3) + 
+  coord_fixed(ratio = 0.25) + 
   expand_limits(x = c(0.5,3)) +
   labs(x = "") +
   theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 16),
@@ -276,25 +364,33 @@ silhouette_data <- as.data.frame(sil_scores)
 # Recover cell type names
 silhouette_data$seurat_clusters <- as.character(seurat_clusters)
 
+row.names(silhouette_data) <- row.names(pca_embeddings)
+
 silhouette_arranged <- silhouette_data %>% group_by(seurat_clusters) %>% arrange(-sil_width)
 
-silhouette_averages <- silhouette_arranged %>% summarize(avg = mean(sil_width))
+```
 
-avg_silhouettes_plot <- ggplot(silhouette_averages, aes(y = seurat_clusters, x = avg, fill = seurat_clusters, group = seurat_clusters)) +
-    geom_bar(stat = "identity", position = 'dodge2') +
-    theme_minimal() +
-    labs(title = "Average Silhouettes",
-        y = "Cluster",
-        x = "Average Silhouette width",
-        fill = "Cluster") +
-    theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 20),
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank(),
-        axis.title.y = element_text(size = 20),
-        legend.position = "None")
+```{r, include = FALSE}
+# You can also calculate average silhouettes per cluster
+# silhouette_averages <- silhouette_arranged %>% summarize(avg = mean(sil_width))
 
-avg_silhouettes_plot
+# avg_silhouettes_plot <- ggplot(silhouette_averages, aes(y = seurat_clusters, x = avg, fill = seurat_clusters, group = seurat_clusters)) +
+#     geom_bar(stat = "identity", position = 'dodge2') +
+#     theme_minimal() +
+#     labs(title = "Average Silhouettes",
+#         y = "Cluster",
+#         x = "Average Silhouette width",
+#         fill = "Cluster") +
+#     theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 20),
+#         axis.text.x = element_blank(),
+#         axis.ticks.x = element_blank(),
+#         axis.title.y = element_text(size = 20),
+#         legend.position = "None")
 
+# avg_silhouettes_plot
+```
+
+```{r}
 overall_average <- silhouette_arranged %>% ungroup %>% summarize(ave = as.numeric(mean(sil_width))) %>% pull(ave)
 
 full_silhouettes_plot <- ggplot(silhouette_arranged, aes(y = seurat_clusters, x = sil_width, fill = seurat_clusters, group = seurat_clusters)) +
@@ -314,7 +410,16 @@ full_silhouettes_plot <- ggplot(silhouette_arranged, aes(y = seurat_clusters, x 
         legend.position = "None")
 
 full_silhouettes_plot
+```
 
+```{r, fig.height=5, fig.width=16}
+srobj$CellID <- row.names(srobj@meta.data)
+
+sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(srobj@meta.data)
+
+srobj <- AddMetaData(srobj, sil_ids)
+
+FeaturePlot(srobj, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1)) | d2
 ```
 
 The red dotted line here represents the overall average silhouette - in clustering optimization this value can be optimized for to find the "best possible" resolution for a dataset. But sub-clustering can also increase the overall average silhouette distance in ways that changing the resolution cannot. Here, we can inspect each cluster individually and make these calls cluster by cluster. 
@@ -331,7 +436,8 @@ srobj@meta.data$CellID <- row.names(srobj@meta.data)
 srobj@meta.data$sample <- srobj@meta.data$`Sample ID`
 
 srobj <- ARBOLcentroidTaxonomy(srobj, 
-                               tree_reduction='pca'
+                               tree_reduction='pca',
+                               categories = c('Celltype')
                                )
 
 ggraph(srobj@misc$tax_ggraph, layout = 'dendrogram', height=plotHeight) +
@@ -344,4 +450,28 @@ ggraph(srobj@misc$tax_ggraph, layout = 'dendrogram', height=plotHeight) +
   scale_color_gradient(low='grey90',high='grey10',limits=c(0,1)) +
   coord_flip() + scale_y_reverse() +
   expand_limits(y=-20)
+
+srobj@meta.data$tierNident <- srobj@meta.data$Celltype
+
+srobj <- ARBOLcentroidTaxonomy(srobj, 
+                               tree_reduction='pca',
+                               categories = c('Celltype')
+                               )
+
+ggraph(srobj@misc$tax_ggraph, layout = 'dendrogram', height=plotHeight) +
+  geom_edge_elbow() +
+  geom_node_text(aes(filter = leaf, label = name, color = name), nudge_y=10,vjust=0.5,hjust=0,size=8) +
+  geom_node_text(aes(filter = leaf, label = n),color='grey30',nudge_y=1,vjust=0.5,hjust=0,size=7) + 
+  theme_void() +
+  new_scale('color') +
+  geom_node_point(aes(filter = leaf, color=sample_diversity),size=4,shape='square') + 
+  scale_color_gradient(low='grey90',high='grey10',limits=c(0,1)) +
+  coord_flip() + scale_y_reverse() +
+  expand_limits(y=-40)
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
 ```
