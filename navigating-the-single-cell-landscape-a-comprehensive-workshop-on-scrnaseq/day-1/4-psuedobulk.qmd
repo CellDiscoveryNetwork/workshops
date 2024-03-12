@@ -35,6 +35,7 @@ library(colorBlindness)
 library(RColorBrewer)
 library(AnnotationDbi)
 library(org.Hs.eg.db)
+library(DT)
     })
                                 })
 ```
@@ -147,7 +148,7 @@ colData <- data.frame(
   sample = colnames(cd4_pseudobulk),
   condition = sapply(sample_info, `[`, 1)
 )
-colData %>% head
+DT::datatable(colData)
 # Ensure unique rownames in colData for DESeqDataSet
 # TD: make new object with reg names, not factors
 # TD: go through a tutorial bc oh my
@@ -164,7 +165,7 @@ colData <- colData %>%
               dplyr::select('sample') %>%
               distinct()
 ) 
-colData %>% head
+DT::datatable(colData)
 
 cd4_pseudobulk@x <- as.numeric(as.integer(cd4_pseudobulk@x))
 
@@ -187,7 +188,7 @@ res
 restbl <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05)
 
 # save the table!
-# write.csv(restbl,file='./day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.csv')
+write.csv(restbl,file='./navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.csv')
 ```
 
 ```{r}
@@ -247,7 +248,6 @@ colData <- colData %>%
     distinct()
 ) %>%
   column_to_rownames(var = 'sample')
-colData %>% head
 ```
 
 ```{r}
@@ -271,7 +271,7 @@ res
 restbl <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05)
 
 # save the table!
-# write.csv(restbl,file='./day-1/pseudobulk_analysis/results/cd8_annotation_pseudobulk_results.csv')
+write.csv(restbl,file='./navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/pseudobulk_analysis/results/cd8_annotation_pseudobulk_results.csv')
 ```
 
 ```{r}
@@ -294,7 +294,7 @@ colData <- colData %>%
     distinct()
 ) %>%
   column_to_rownames(var = 'sample')
-colData %>% head
+
 ```
 
 ```{r}
