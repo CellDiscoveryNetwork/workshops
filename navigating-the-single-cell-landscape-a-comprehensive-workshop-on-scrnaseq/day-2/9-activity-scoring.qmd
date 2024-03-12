@@ -1,0 +1,902 @@
+---
+title: "9 - Transcription Factor Activity - How to score & interpret them"
+author: "Marc Elosua Bayes"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    embed-resources: true
+    self-contained-math: true
+editor: visual
+editor_options: 
+  chunk_output_type: console
+bibliography: references.bib
+theme:
+  light: flatly
+  dark: darkly
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+scRNA-seq data returns individual molecular reads for each cell representing the expression of each gene in each cell. However, transcript abundances at the individual gene level can be hard to interpret. Another confounding factor with these readouts is the high sparsity of the data. This sparsity acutely affects genes with low mRNA abundance (Figure 1) @mereu2020 . Transcription factors (TFs) are key players involved in regulating the present and future cell states by binding to regulatory regions in the DNA and driving gene expression programs @baskar2022. Therefore, they are tightly regulated and are often found at low abundances due to their powerful effects on the cells. Hence, being able to quantify the activity of TFs in a cell can provide very valuable information when characterizing the biological processes underlying a cell type or state. However, due to their low expression they severely suffer from dropout events and their mRNA abundance can't be accurately quantified by looking at the number of UMIs. To address this issue methods have been developed to quantify their activities by leveraging the expression of the genes they regulate.
+
+<img src="img/mereu-lafzi-dropouts.png" width="900"/>\
+*Figure 1. Dropout Probability vs Expression level*
+
+In this vignette we are going to go over the best practices on how to compute these activites, what we need to take into account when computing them and follow a recent benchmarking paper to determine which are the best reference databases @müller-dott2023 and tools to use like `decoupler` @badia-i-mompel2022!
+
+Before we start here are some key concepts that will help us and frame the vignette!
+
+-   **What is a transcription factor?**
+
+    Transcription factors are broadly understood as proteins that bind to regulatory regions of the DNA acting as key regulators of gene-expression programs @baskar2022.
+
+-   **What information do we need to compute the activity of a TF?**
+
+    The activity of TF is scored based on the expression of the genes it regulates. Therefore, we need a database that contains which genes are regulated by each transcription factor and the relation between them. Some TF can activate the expression of some genes and repress the expression of others. There are many databases that contain this information and in this vignette we aim to provide the current state of the art databases to use, this can be considered as a gene regulatory network (GRN).
+
+-   **Do transcription factors act the same in all cell types?**
+
+    No! This is crucial to keep in mind when interpreting TF activities. If we take as an example Blimp1 (*PRDM1*) a well characterized TF in B and T cells it has been shown to have very different functions. In B cells, Blimp1 drives plasmablast formation and antibody secretion, whereas in T cells, Blimp1 regulates functional differentiation, including cytokine gene expression. Studies have determined both conserved and unique functions of Blimp1 in different immune cell subsets such as the unique direct activation of the igh gene transcription in B cells and a conserved antagonism with BCL6 in B cells, T cells, and myeloid cells @nadeau2022. This is important to consider because ideally we would have gene-specific GRNs. These can be obtained from multiome datasets but most of the time we don't have this information, hence reference GRNs are available for these cases and this is what is going to be covered in this vignette.
+
+-   **How do we score them in our dataset?**
+
+    There are many ways to score the activation of TFs as shown in the `decoupler` paper @badia-i-mompel2022. However, they do not all perform the same and it is important to select a robust method. The suggested method after their benchmarking analysis is running a Univariate Linear Model (ULM) where the gene expression values are the response variable and the regulator weights in the gene signature are the explanatory one (don't worry, we'll go through this in more detail in a second). The obtained t-value from the fitted model is the activity score of that gene signature in that cell.
+
+-   **How do we interpret the activity obtained?**
+
+    Scoring gene signatures using Univariate Linear Models and using the resulting t-value as the scoring metric allows us to simultaneously interpret in a single statistic the direction of activity (either + or -) and its significance (the magnitude of the score).
+
+-   **Can we further interrogate the activity scores obtained?**
+
+    Yes! In fact it is very important to look past the score obtained by a cell and into which are the genes driving that activity. Sometimes with TF regulating many genes downstream it could be that just a few genes are contributing to its activity in our dataset. Therefore, if we just stopped at the activity score we could be mislead into thinking that all of the genes downstream of the TF are important when it , usually, is actually only a fraction of them. Moreover, heterogeneous gene expression between two populations can also lead to 2 cells or populations having similar scores for one TF but vastly different genes gene programs underlying them.
+
+## Libraries
+
+Load the libraries and install the packages needed to run this notebook
+
+```{r warning=FALSE, message=FALSE}
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages("Seurat")
+
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages("tidyverse")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!requireNamespace("remotes", quietly = TRUE))
+    install.packages("remotes")
+    
+if (!requireNamespace("decoupleR", quietly = TRUE))
+    remotes::install_github('saezlab/decoupleR')
+
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+    BiocManager::install("ComplexHeatmap")
+
+if (!requireNamespace("glue", quietly = TRUE))
+    install.packages("glue")
+
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages("colorBlindness")
+
+if (!requireNamespace("ggpmisc", quietly = TRUE))
+    install.packages("ggpmisc")
+
+if (!requireNamespace("circlize", quietly = TRUE))
+    install.packages("circlize")
+
+library(Seurat)
+library(tidyverse)
+library(decoupleR)
+library(ComplexHeatmap)
+library(colorBlindness)
+library(ggpmisc)
+
+# Remember to set a seed so the analysis is reproducible!
+set.seed(687)
+```
+
+## Load data
+
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
+
+```{r}
+# Download the data in data/ directory
+# download.file(
+#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+#     destfile = "../data/workshop-data.rds",
+#     method = "wget",
+#     extra = "-r -p --random-wait")
+# We can also use the CLI with the wget command below
+# wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
+
+se <- readRDS("../data/workshop-data.rds")
+# Remove Uncategorized
+se <- se[, ! se$Celltype %in% c("Uncategorized1", "Uncategorized2")]
+se$Celltype <- as.character(se$Celltype)
+
+# Subset for the sake of speed
+se <- se[, sample(colnames(se), 0.25 * ncol(se))]
+```
+
+Generate a color palette for our cell types
+
+```{r}
+# https://www.datanovia.com/en/blog/easy-way-to-expand-color-palettes-in-r/
+nb.cols <- length(unique(se$Celltype))
+pal <- colorRampPalette(paletteMartin)(nb.cols)
+names(pal) <- sort(unique(se$Celltype))
+```
+
+## Analysis
+
+### Convert ENSEMBL IDs to Gene Symbols
+
+Right away we can see how ensembl ids are used in the rownames. Let's transform them into their matched symbols to make them human-readable:
+
+```{r}
+head(rownames(se))
+```
+
+Convert to gene symbols
+
+```{r}
+gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
+
+symbol_id <- data.frame(index = rownames(se)) %>%
+    left_join(gene_df, by = "index") %>%
+    pull(feature_name)
+
+# re-create seurat object
+mtx <- se@assays$RNA$data
+rownames(mtx) <- symbol_id
+se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+```
+
+### Preprocessing
+
+We will do a quick preprocessing of the data. 1) log-normalize, 2) identify highly variable genes, 3) scale their expression and 4) compute PCA on the scaled data.
+
+```{r}
+se <- se %>%
+    NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(nfeatures = 3000, verbose = FALSE) %>%
+    ScaleData(verbose = FALSE) %>%
+    RunPCA(verbose = FALSE)
+```
+
+Next we check the elbow plot to determine the number of PCs to use for the downstream analysis and then compute UMAP, K-nearest neighbor graph (KNN graph) and run Louvain clustering on it.
+
+```{r}
+# Look at elbow plot to assess the number of PCs to use
+ElbowPlot(se)
+```
+
+We can see a clear elbow at 10 PCs, we're going to extend it a bit more and use 15 PCs for the downstream analysis to make sure we are not loosing any biological signal
+
+```{r}
+se <- RunUMAP(se, reduction = "pca", dims = 1:30, verbose = FALSE)
+```
+
+Next we compute the K-nearest-neighbor graph
+
+```{r}
+# se <- se %>%
+#     FindNeighbors(verbose = FALSE) %>%
+#     FindClusters(resolution = c(0.05, 0.1, 0.125, 0.15, 0.2), verbose = FALSE)
+# 
+# # Visualize the clustering on the UMAP
+# DimPlot(
+#     se,
+#     group.by = c(
+#         "RNA_snn_res.0.05", "RNA_snn_res.0.1", "RNA_snn_res.0.125",
+#         "RNA_snn_res.0.15", "RNA_snn_res.0.2"))
+```
+
+For the purpose of this tutorial we are going to proceed with resolution 0.15
+
+```{r fig.width=7, fig.height=5}
+(dim_plt <- DimPlot(
+    se,
+    group.by = "Celltype") +
+    scale_color_manual(values = pal))
+```
+
+### TF activity scoring
+
+As mentioned in the introduction we need a GRN specifying the relation between a TF and its downstream genes. A recent benchmark has shown how `CollecTRI` is the best database to estimate TF activities @müller-dott2023. `CollecTRI` contains regulons of signed TF-target genes that have been compiled from 12 different sources, provides increased TF coverage, and in a recent benchmark showed a superior performance in indentifying TF perturbations from gene expression data @müller-dott2023. You can see the full explanation in the [CollecTRI](https://github.com/saezlab/CollecTRI) gihtub page from the Saez lab. We will also follow the `decoupler` vignette on how to download and score these signatures.
+
+```{r}
+net <- get_collectri(organism = "human", split_complexes = FALSE)
+net
+```
+
+Note we are using `organism = "human"` since we are working with human data - mouse and rat are also available and `split_complexes=False` since we want to ensure that TF that regulate complexes downstream are scored when the multiple subunits in the complex are present.
+
+In the net dataframe we have the regulation relation between each TF (source) and their downstream genes
+
+```{r}
+# Look at the targets of MYC
+net %>% dplyr::filter(source == "MYC")
+
+# Look at the weights of MYC
+Hmisc::describe(net$mor)
+```
+
+From here we can gather that in this database MYC is regulating 886 genes-gene complexes. The weight indicates if MYC activates or represses the activity of a genes. Target genes with values \> 0 indicate that MYC promotes the expression and viceversa in those with a weight \< 1.
+
+It is important to note that here we are using `CollecTRI` as a reference database. Therefore, some TF may be missing or the mode of regulation may be different from the expected in a cell type of interest. If you have inhouse curated GRNs obtained from inference methods such as CellOracle, pySCENIC or SCENIC+ you can plug them in here. These have the advantage that you can compute GRNs for your cell types and in turn use them in your scRNAseq dataset!
+
+## Activity inference with univariate linear model (ULM)
+
+*"Univariate Linear Model (ULM) fits a linear model for each sample and regulator, where the observed molecular readouts in mat are the response variable and the regulator weights in net are the explanatory one. Target features with no associated weight are set to zero. The obtained t-value from the fitted model is the activity ulm of a given regulator."*
+
+<img src="img/ulm.png" width="900"/> *Figure 2. Univariate linear model method graphical representation.*
+
+Moreover, a nice thing about `ulm` is that in a single statistic it provides the direction of activity (either + or -) and its significance (the magnitude of the score). Making the scores very easy to interpret!
+
+So lets compute the activity scores for every cell in our dataset!
+
+```{r}
+ulm_start <- Sys.time()
+res <- decoupleR::run_ulm(
+    mat = se@assays$RNA$data,
+    network = net,
+    .source = "source",
+    .target = "target",
+    .mor = "mor")
+
+glue::glue("Time to run ulm is {round(difftime(Sys.time(), ulm_start, units = 'min'), 0)} minutes")
+```
+
+Save data
+
+```{r echo=FALSE}
+saveRDS(res, file = "../data/res_tfactivity.rds")
+```
+
+We can see how every cells has a score for every signature!
+
+```{r}
+ # Looking at the first 10 entries
+res
+
+# Check the cell type for cell AAACCCAAGGGCAATC-1
+ct_b <- "AAACCCACAGCTGAAG-1"
+ct_nk <- "ACCAAACTCGGTGTTA-5"
+se@meta.data[c(ct_b, ct_nk), "Celltype", drop = FALSE]
+
+# Looking at all the scores for one specific cell
+res %>%
+    filter(condition %in% c(ct_b, ct_nk)) %>%
+    arrange(condition, desc(score))
+```
+
+#### Visualization
+
+We can directly add the `ulm` scores to an assay in our object and visualize the results
+
+```{r}
+se[['tfulm']] <- res %>%
+  pivot_wider(
+      id_cols = 'source',
+      names_from = 'condition',
+      values_from = 'score') %>%
+  column_to_rownames('source') %>%
+  Seurat::CreateAssayObject(.)
+
+# Change assay
+DefaultAssay(object = se) <- "tfulm"
+
+# Scale the data for comparison across signatures 
+se <- ScaleData(se)
+se@assays$tfulm@data <- se@assays$tfulm@scale.data
+```
+
+##### UMAP visualization
+
+Plot TF activities on the UMAP embedding
+
+```{r fig.width=12, fig.height=10, warning=FALSE, message=FALSE}
+plt <- FeaturePlot(
+    se,
+    features = c("PAX5", "EBF1", "EOMES"),
+    ncol = 2,
+    slot = "data") &
+    scale_color_viridis_c(option = "magma")
+
+plt + dim_plt
+```
+
+As mentioned in the introduction, TF are usually very lowly expressed and thus the mRNAs suffer from higher droput rates than more highly expressed genes with more mRNA copies. Using TF activities showcases how we can recover their activity by looking at the genes a TF regulates downstream.
+
+```{r fig.width=15, fig.height=10}
+# TF activity scores
+DefaultAssay(se) <- "tfulm"
+plt1 <- FeaturePlot(
+    se,
+    features = c("PAX5", "EBF1", "EOMES"),
+    ncol = 3,
+    slot = "data") &
+    scale_color_viridis_c(option = "magma")
+
+DefaultAssay(se) <- "RNA"
+plt2 <- FeaturePlot(
+    se,
+    features = c("PAX5", "EBF1", "EOMES"),
+    ncol = 3,
+    slot = "data") &
+    scale_color_viridis_c(option = "magma")
+
+plt1 / plt2
+```
+
+We can see how the difference is night and day. In the top row we see the TF activities while in the bottom the normalized gene expression. In all 3 examples (PAX5, EBF1, EOMES) the transcript is rarely detected while the activity is well recapitulated.
+
+##### Heatmap by cells
+
+We can also visualize the top 25 most highly variable TF scores using a heatmap
+
+```{r fig.width=15, fig.height=10}
+n_tfs <- 25
+# Extract activities from object as a long dataframe
+df <- t(as.matrix(se@assays$tfulm@counts)) %>%
+    as.data.frame() %>%
+    mutate(cluster = Idents(se)) %>%
+    pivot_longer(cols = -cluster, names_to = "source", values_to = "score")
+
+# Get top tfs with more variable means across **cells**
+tfs <- df %>%
+    group_by(source) %>%
+    summarise(std = sd(score)) %>%
+    arrange(-abs(std)) %>%
+    head(n_tfs) %>%
+    pull(source)
+
+glue::glue("Note that the maximum scaled value is: {round(max(se@assays$tfulm@data[tfs, ]), 2)}, and the minimum is {round(min(se@assays$tfulm@data[tfs, ]), 2)}.")
+
+DoHeatmap(
+    se,
+    features = tfs,
+    group.by = "Celltype",
+    assay = "tfulm",
+    disp.max = quantile(se@assays$tfulm@data[tfs, ], .99),
+    disp.min = quantile(se@assays$tfulm@data[tfs, ], .01),
+    slot = "data") +
+    scale_fill_viridis_c(option = "viridis")
+```
+
+##### Heatmap by groups
+
+From the plot above we can see how we have very distinct populations in our datasets. We can also look at it a bit less granular by looking at the mean activity score per cluster.
+
+```{r fig.width=9, fig.height=5}
+n_tfs <- 25
+# Extract activities from object as a long dataframe
+df <- t(as.matrix(se@assays$tfulm@data)) %>%
+    as.data.frame() %>%
+    mutate(cluster = se$Celltype) %>%
+    pivot_longer(cols = -cluster, names_to = "source", values_to = "score") %>%
+    group_by(cluster, source) %>%
+    summarise(mean = mean(score))
+
+# Get top tfs with more variable means across **clusters**
+tfs <- df %>%
+    group_by(source) %>%
+    summarise(std = sd(mean)) %>%
+    arrange(-abs(std)) %>%
+    head(n_tfs) %>%
+    pull(source)
+
+# Transform to wide matrix
+top_acts_mat <- df %>%
+    filter(source %in% tfs) %>%
+    pivot_wider(id_cols = 'cluster', names_from = 'source',
+              values_from = 'mean') %>%
+    column_to_rownames('cluster') %>%
+    as.matrix()
+
+# Choose color palette
+palette_length <- 100
+my_color <- colorRampPalette(c("Darkblue", "white","red"))(palette_length)
+
+# Show which is the max and min of the scaled value to make sure we set a scale that makes sense
+glue::glue("Note that the maximum scaled value is: {round(max(top_acts_mat), 2)}, and the minimum is {round(min(top_acts_mat), 2)}.")
+
+my_breaks <- c(seq(quantile(top_acts_mat, .01), 0, length.out=ceiling(palette_length/2) + 1),
+               seq(0.05, quantile(top_acts_mat, .99), length.out=floor(palette_length/2)))
+# Plot
+ComplexHeatmap::pheatmap(top_acts_mat, border_color = NA, color=my_color, breaks = my_breaks)
+```
+
+From this approach we see how RBCs are driving tis visualization. When this happens we can follow another approach in which we show the top activated TF per cluster.
+
+```{r fig.width=12, fig.height=6}
+# Get top tfs with more variable means across **clusters**
+tfs_df <- df %>%
+    group_by(cluster) %>%
+    top_n(n = 5, wt = abs(mean))
+
+# We can see how cluster 6 has the highest TF activity scores
+# we are going to take this into account when visualizing the data!
+tfs_df %>% head()
+
+# Extract the TF onto a list
+tfs <- tfs_df %>%
+    pull(source)
+
+# Transform to wide matrix
+top_acts_mat <- df %>%
+    filter(source %in% tfs) %>%
+    pivot_wider(id_cols = 'cluster', names_from = 'source',
+              values_from = 'mean') %>%
+    column_to_rownames('cluster') %>%
+    as.matrix()
+
+# Choose color palette
+palette_length <- 100
+my_color <- colorRampPalette(c("Darkblue", "white","red"))(palette_length)
+
+# Show which is the max and min of the scaled value to make sure we set a scale that makes sense
+glue::glue("Note that the maximum scaled value is: {round(max(top_acts_mat), 2)}, and the minimum is {round(min(top_acts_mat), 2)}.")
+
+my_breaks <- c(seq(quantile(top_acts_mat, .01), 0, length.out=ceiling(palette_length/2) + 1),
+               seq(0.05, quantile(top_acts_mat, .99), length.out=floor(palette_length/2)))
+# Plot
+ComplexHeatmap::pheatmap(top_acts_mat, border_color = NA, color=my_color, breaks = my_breaks)
+```
+
+We can clearly assess that the transcription factors returned are cell type specific since B cells cluster together, and T cells and monocytes as well.
+
+#### Heatmap by condition & cell type
+
+Lastly we want to check if there are differences in the TF activation depending on cell type and disease
+
+```{r fig.width=23, fig.height=9}
+meta_sub <- se@meta.data %>%
+    rownames_to_column("bc") %>%
+    dplyr::select(bc, Celltype, disease)
+df <- t(as.matrix(se@assays$tfulm@data)) %>%
+    as.data.frame() %>%
+    rownames_to_column("bc") %>%
+    left_join(meta_sub, by = "bc") %>%
+    column_to_rownames("bc") %>%
+    pivot_longer(cols = -c(Celltype, disease), names_to = "source", values_to = "score") %>%
+    group_by(Celltype, source, disease) %>%
+    summarise(mean = mean(score)) %>%
+    mutate(disease_celltype = glue::glue("{disease} - {Celltype}"))
+
+# Get top tfs with more variable means across **clusters**
+tfs_df <- df %>%
+    group_by(disease_celltype) %>%
+    top_n(n = 10, wt = abs(mean))
+
+# We can see how cluster 6 has the highest TF activity scores
+# we are going to take this into account when visualizing the data!
+# tfs_df %>% data.frame()
+
+# Extract the TF onto a list
+tfs <- tfs_df %>%
+    pull(source)
+
+# Transform to wide matrix
+top_acts_mat <- df %>%
+    filter(source %in% tfs) %>%
+    pivot_wider(id_cols = 'disease_celltype', names_from = 'source',
+              values_from = 'mean') %>%
+    column_to_rownames('disease_celltype') %>%
+    as.matrix()
+
+# Choose color palette
+palette_length <- 100
+my_color <- colorRampPalette(c("Darkblue", "white","red"))(palette_length)
+
+# Show which is the max and min of the scaled value to make sure we set a scale that makes sense
+glue::glue("Note that the maximum scaled value is: {round(max(top_acts_mat), 2)}, and the minimum is {round(min(top_acts_mat), 2)}.")
+
+my_breaks <- c(seq(quantile(top_acts_mat, .01), 0, length.out=ceiling(palette_length/2) + 1),
+               seq(0.05, quantile(top_acts_mat, .99), length.out=floor(palette_length/2)))
+# Plot
+ComplexHeatmap::pheatmap(top_acts_mat, border_color = NA, color=my_color, breaks = my_breaks)
+```
+
+This heatmap can be overwhelming, we can take a look at specific populations of interest, in this case monocytes and highlight the most highly variable ones:
+
+```{r fig.width=15, fig.height=9}
+n_tfs <- 25
+
+# Get top tfs with more variable means across **clusters**
+tfs <- df %>%
+    # Only keep monocytes
+    filter(str_detect(Celltype, "Monocyte")) %>%
+    group_by(source) %>%
+    summarise(std = sd(mean)) %>%
+    arrange(-abs(std)) %>%
+    head(n_tfs) %>%
+    pull(source)
+
+# Transform to wide matrix
+top_acts_mat <- df %>%
+    filter(source %in% tfs) %>%
+    filter(str_detect(Celltype, "Monocyte")) %>%
+    pivot_wider(id_cols = 'disease_celltype', names_from = 'source',
+              values_from = 'mean') %>%
+    column_to_rownames('disease_celltype') %>%
+    as.matrix()
+
+# Choose color palette
+palette_length <- 100
+my_color <- colorRampPalette(c("Darkblue", "white","red"))(palette_length)
+
+# Show which is the max and min of the scaled value to make sure we set a scale that makes sense
+glue::glue("Note that the maximum scaled value is: {round(max(top_acts_mat), 2)}, and the minimum is {round(min(top_acts_mat), 2)}.")
+
+my_breaks <- c(seq(quantile(top_acts_mat, .01), 0, length.out=ceiling(palette_length/2) + 1),
+               seq(0.05, quantile(top_acts_mat, .99), length.out=floor(palette_length/2)))
+# Plot
+ComplexHeatmap::pheatmap(top_acts_mat, border_color = NA, color=my_color, breaks = my_breaks)
+```
+
+In this last scenario we can see how the cell types cluster by major cell type, not by condition. However, in intermediate monocytes there seems to be an enrichment in interferon response genes in those from influenza or covid patients.
+
+##### Heatmap for gene expression
+
+To fully grasp which genes are driving each gene signature within each cell we want to visualize the gene expression of the genes involved in each gene signature for each cell. We can do so using the `ComplexHeatmap` package and a little bit of data processing. For ease here is a function you can incorporate in your analysis:
+
+```{r fig.height=5, fig.width=15}
+geneHM <- function(
+        object,
+        sig_df,
+        sig_name,
+        sig_assay,
+        .source,
+        .target,
+        sig_slot = "data",
+        expr_assay = "RNA",
+        expr_slot = "data",
+        grouping = NULL,
+        grouping_color = NULL,
+        expr_cols = viridisLite::magma(100)) {
+    
+    # Extract Gene Expression Matrix from Seurat Object
+    gene_expr <- GetAssayData(object, assay = expr_assay, slot = expr_slot)
+    
+    # Subset the genes of the signature from the Gene Expression Matrix
+    genes_of_interest <- sig_df[, .target][which(sig_df[, .source] %in% sig_name)]
+    
+    # Subset the genes intersecting between gene expression and genes in signature
+    g_int <- intersect(rownames(gene_expr), genes_of_interest)
+    
+    if (length(g_int) < length(genes_of_interest)) {
+        genes_excluded <- genes_of_interest[!genes_of_interest %in% rownames(gene_expr)]
+        genes_excluded <- paste(genes_excluded, collapse = ", ")
+        message(paste0(
+            "Genes ", genes_excluded,
+            " are in the gene signature but not in the expression matrix,",
+            " therefore, they have been excluded."))
+    }
+    
+    # Subset expression matrix to only genes of interest
+    gene_expr <- gene_expr[g_int, ]
+    
+    # Extract the Scores of the Signature of interest
+    sig_score <- GetAssayData(object, assay = sig_assay, slot = sig_slot)
+    sig_vec <- sig_score[sig_name, ]
+    anno <- data.frame(score = sig_vec)
+    # Make sure they are in the right order
+    anno <- anno[colnames(gene_expr), , drop = FALSE]
+    
+    # Add any metadata if specified
+    if (!is.null(grouping)) {
+        meta <- object@meta.data[, grouping, drop = FALSE]
+        anno <- cbind(anno, meta[rownames(anno), , drop = FALSE])
+    }
+    
+    if (any(is.infinite(c(anno$score))))
+        stop("There are scores with Inf values, please address this outside of this function. It could be because the slot used is scale_data.")
+    
+    # Make list of color to paint the annotation columns
+    if (!is.null(grouping) & !is.null(grouping_color)) {
+        score <- circlize::colorRamp2(
+            breaks = c(min(anno$score), 0, max(anno$score)),
+            colors = c("blue", "white", "red"))
+        
+        color_ls <- append(grouping_color, score)
+        names(color_ls)[length(color_ls)] <- "score"
+        
+    } else {
+        color_ls <- list(
+            score = circlize::colorRamp2
+            (breaks = c(min(anno$score), 0, max(anno$score)),
+                      colors = c("blue", "white", "red")),
+            RNA_snn_res.0.15 = clust_color)
+    }
+    
+    # Set the order from most expressing to least expressing 
+    ord <- rownames(anno[order(anno$score, decreasing = TRUE), ])
+    # Add the score of the signature as annotation in the heatmap
+    colAnn <- HeatmapAnnotation(
+        df = anno[ord, , drop = FALSE],
+        which = 'column',
+        col = color_ls)
+    
+    # Visualize the Heatmap with the genes and signature 
+    ht <- ComplexHeatmap::Heatmap(
+        as.matrix(gene_expr[, ord]),
+        name = "Gene Expression",
+        col = expr_cols,
+        cluster_rows = TRUE,
+        cluster_columns = TRUE,
+        column_title = sig_name,
+        column_names_gp = gpar(fontsize = 14),
+        show_column_names = FALSE,
+        top_annotation = colAnn)
+    
+    # Return ComplexHeatmap
+    draw(ht)
+}
+
+pal
+# Visualize the heatmaps for all signatures
+# tt <- lapply(unique(sig_df$signature), function(i) {
+#     geneHM(
+#         object = se,
+#         sig_df = sig_df,
+#         .source = "signature",
+#         .target = "gene",
+#         sig_name = i,
+#         expr_slot = "data",
+#         expr_assay = "RNA",
+#         sig_assay = "pathwaysulm",
+#         sig_slot = "data",
+#         grouping = c("RNA_snn_res.0.15"),
+#         grouping_color = list(RNA_snn_res.0.15 = clust_color))
+# })
+```
+
+Here are some examples of how to interpret these gene signatures:
+
+1.  Diving deeper into the EBF1 signature we can see how the cells with a high activity score have a high expression of CD79A/B which have a mode of regulation of 1. In turn, those with a negative score have a high expression of GATA3 whose mor is -1, thus indicating that the EBF1 pathway is turned off.
+
+```{r fig.with=15, fig.height=5}
+# Subset to 10% of the original dataset for speed and visualization purposes
+se_sub <- se[, sample(colnames(se), 0.1 * ncol(se))]
+
+geneHM(
+    object = se_sub,
+    sig_df = data.frame(net),
+    .source = "source",
+    .target = "target",
+    sig_name = "EBF1",
+    expr_slot = "data",
+    expr_assay = "RNA",
+    sig_assay = "tfulm",
+    sig_slot = "data",
+    grouping = c("Celltype"),
+    grouping_color = list(Celltype = pal))
+
+net %>% dplyr::filter(source == "EBF1" & target %in% c("CD79A", "CD79B", "GATA3"))
+```
+
+Briefly, when scoring TF activities and looking at their activities it is important to not only look at the overall score obtained for each cell but one also needs to dive deeper into which are the genes that are driving that signature!
+
+#### TF by disease
+Lastly we can also look at the TF activity per cell type by condition of interest as below:
+
+```{r fig.height=15, fig.width=20}
+disease_pal <- c("#41AE76", "#225EA8", "#E31A1C")
+names(disease_pal) <- c("normal", "influenza", "COVID-19")
+# make a donor palette
+donor_pal <- c(
+    "#66C2A4", "#41AE76", "#238B45", "#006D2C",
+    "#41B6C4", "#1D91C0", "#225EA8", "#253494", "#081D58",
+    "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C",
+    "#FC4E2A", "#E31A1C", "#BD0026", "#800026")
+
+names(donor_pal) <- c(
+    "Normal 1", "Normal 2", "Normal 3", "Normal 4",
+    "Flu 1", "Flu 2", "Flu 3", "Flu 4", "Flu 5",
+    "nCoV 1", "nCoV 2", "nCoV 3_4", "nCoV 5",
+    "nCoV 6", "nCoV 7_8", "nCoV 9_10", "nCoV 11"  
+)
+
+dd <- bind_cols(se@meta.data, t(as.matrix(se@assays$tfulm@counts))) %>%
+        tidyr::pivot_longer(
+            cols = rownames(se@assays$tfulm@counts),
+            names_to = "TF",
+            values_to = "score") %>%
+        group_by(Celltype, disease, donor_id, TF) %>%
+        summarise(median_score = median(score))
+
+# Let's look at some TF of interest
+lapply(c("IRF1", "IRF2", "IRF6", "IRF9"), function(i) {
+    dd %>%
+        filter(TF == i) %>%
+        ggplot(aes(x = disease, y = median_score, fill = disease)) +
+        geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+        geom_jitter(aes(color = donor_id), height = 0) +
+        facet_wrap(~ Celltype) +
+        scale_fill_manual(values = disease_pal) +
+        scale_color_manual(values = donor_pal) +
+        scale_x_discrete(limits = names(disease_pal)) +
+        theme_classic() +
+        labs(title = glue::glue("Factors by condition in {i}"))
+})
+```
+
+## Extra!
+
+#### How does a univariate linear model work?
+
+Lets start with a toy example. Imagine a very simple scenario where we have two very simple vectors where one is double the other. We can compute the linear model and also easily visualize the relationship between both vectors:
+
+```{r}
+# Define vectors of interest
+vec1 <- c(-1, -0.5, 1, 2, 5)
+vec2 <- c(-0.8, -0.7, 1.4, 1.8, 4)
+
+# Run the linear model
+summary(lm(vec2 ~ vec1))
+
+# Visualize the data
+(p <- ggplot(mapping = aes(x = vec1, y = vec2)) +
+        geom_point() +
+        geom_abline(slope = 1, color = "red", linetype = "dashed") + # Passing a slope = 1
+        geom_hline(yintercept = 0, size = 0.25) +
+        geom_vline(xintercept = 0, size = 0.25) +
+        coord_fixed() +
+        theme_minimal())
+
+# now we can add the slope of the line that best fits our data and the T value
+p +
+    stat_poly_line(formula = y ~ x, se = FALSE) +
+    stat_poly_eq(use_label(c("eq"))) +
+    stat_correlation(use_label(c("t")), label.x = 0.05, label.y = 0.9)
+```
+
+In the example above we see the linear relationship between both vectors and we get the slope and the T value:\
+- The **slope** indicates the what is the change in the response variable (vec2) given a 1 unit change in the predictor variable (vec1).
+
+\- The **T statistic** is the result of a T test. The T test assesses the significance of individual coefficients in our model. The T value indicates the number of standard errors the estimated coefficient is away from the null hypothesis (t = 0). Remember the T value is the $\frac{coefficient}{standard~error}$.
+
+An example of an activated TF activity score would look like this:
+
+```{r}
+# Define vectors of interest
+gex <- c(0, 0, 2.5, 0.65, 1.2)
+mor <- c(-1, -1, 1, 1, 1)
+
+# Run the linear model
+summary(lm(gex ~ mor))
+
+# Visualize the data
+(p <- ggplot(mapping = aes(x = gex, y = mor)) +
+        geom_jitter(width = 0, height = 0.1) +
+        geom_abline(slope = 1, color = "red", linetype = "dashed") + # Passing a slope = 1
+        geom_hline(yintercept = 0, size = 0.25) +
+        geom_vline(xintercept = 0, size = 0.25) +
+        coord_fixed() +
+        theme_minimal())
+
+# now we can add the slope of the line that best fits our data and the T value
+p +
+    stat_poly_line(formula = y ~ x, se = FALSE) +
+    stat_poly_eq(use_label(c("eq"))) +
+    stat_correlation(use_label(c("t")), label.x = 0.05, label.y = 0.9)
+```
+
+Here we see how genes with an mor of -1 (the TF represses the expression of that gene) are not expressed (gex = 0), while those with and mor = 1 (the TF promotes the expression of that gene) are expressed!
+
+Now lets look at a "real world" example, we want to score the B cell signature in one cell. First we are going to start by visualizing the relationship between the weights and the gene expression for 2 cells of interest, one is a B cell and the other is not.
+
+We need to do a bit of data prep but bear with me!
+
+```{r}
+# We have our gene expression matrix
+mat <- se@assays$RNA$data
+
+# We want to obtain a matrix with 1s and 0s indicating the weight each gene has for each signature
+## Initialize mor_mat with all 0s
+sources <- unique(net$source)
+targets <- rownames(mat)
+mor_mat <- matrix(0, ncol = length(sources), nrow = nrow(mat))
+colnames(mor_mat) <- sources
+rownames(mor_mat) <- targets
+weights <- net$mor
+
+# Fill in the matrix with the weights in the right places
+for (i in seq_len(nrow(net))) {
+    .source <- net$source[[i]]
+    .target <- net$target[[i]]
+    .weight <- weights[[i]]
+    if (.target %in% targets) {
+        mor_mat[[.target, .source]] <- .weight
+    }
+}
+```
+
+```{r fig.width=9, fig.height=6, warning=FALSE}
+# labels for geom_text_repel
+repel_text <- rownames(mat)
+pax5_targets <- net %>% filter(source == "PAX5") %>% pull(target)
+pax5_targets <- pax5_targets[pax5_targets %in% rownames(mat)]
+keep <- which(rownames(mat) %in% pax5_targets)
+# Set non-selected positions to NA
+repel_text[-keep] <- NA
+
+# Visualize the data
+# Note that we are using geom_bin2d which bins the data to show how many genes are found at each location (x, y)
+ct_b <- "AAACCCACAGCTGAAG-1"
+ct_nk <- "ACCAAACTCGGTGTTA-5"
+ggplot(mapping = aes(x = mat[, ct_b], y = mor_mat[, "PAX5", drop = FALSE])) +
+    # geom_bin2d(bins = 50) +
+    geom_point() +
+    ggrepel::geom_text_repel(aes(label = repel_text)) +
+    geom_abline(slope = 1, color = "red", linetype = "dashed") + # Passing a slope = 1
+    labs(x = "Gene Expression", y = "Gene Weight", title = glue::glue("Cell {ct_b} - B cell")) +
+    coord_fixed() +
+    scale_fill_gradient(name = "count", trans = "log10") +
+    xlim(-0.5, 10) +
+    ylim(-2, 2) + # Set the limits from -2 to 2 since the mor values can be negative
+    theme_minimal() +
+    # now we can add the slope of the line that best fits our data and the T value
+    stat_poly_line(formula = x ~ y, se = FALSE) +
+    stat_poly_eq(use_label(c("eq"))) +
+    stat_correlation(use_label(c("t")), label.x = 0.05, label.y = 0.9)
+
+# Visualize the data
+ggplot(mapping = aes(x = mat[, ct_nk], y = mor_mat[, "PAX5", drop = FALSE])) +
+    geom_point() +
+    ggrepel::geom_text_repel(aes(label = repel_text)) +
+    geom_abline(slope = 1, color = "red", linetype = "dashed") + # Passing a slope = 1
+    labs(x = "Gene Expression", y = "Gene Weight", title = glue::glue("Cell {ct_nk} - Not a B cell")) +
+    coord_fixed() +
+    scale_fill_gradient(name = "count", trans = "log10") +
+    xlim(-0.5, 10) +
+    ylim(-2, 2) +
+    theme_minimal() +
+    # now we can add the slope of the line that best fits our data and the T value
+    stat_poly_line(formula = x ~ y, se = FALSE) +
+    stat_poly_eq(use_label(c("eq"))) +
+    stat_correlation(use_label(c("t")), label.x = 0.05, label.y = 0.9)
+```
+
+Next we are going to manually run the models for these two cells so that we can see that the results obtained from `decoupleR` make sense!
+
+Lets run the a linear model to score two cell for the B cell signature
+
+```{r}
+mod1 <- lm(as.matrix(mat[, ct_b, drop = FALSE]) ~ mor_mat[, "PAX5", drop = FALSE])
+summary(mod1)
+0.245627 / 0.041251 # This equals the T value
+
+mod2 <- lm(as.matrix(mat[, ct_nk, drop = FALSE]) ~ mor_mat[, "PAX5", drop = FALSE])
+summary(mod2)
+0.013364 / 0.043381 # This equals the T value
+```
+
+We can see how mod1 has returned a high coefficient for cell `r ct_b` while mod2 has returned a low coefficient for cell `r ct_nk`. Moreover, when we look at the T value for the PAX5 we see how in mod1 it is `5.95` while for mod2 it is `0.3080611`.
+
+Lets check that the T values obtained manually actually match those returned by `decoupleR`
+
+```{r}
+res %>% filter(source == "PAX5" & condition %in% c(ct_b, ct_nk))
+```
+
+Effectively, they do!
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
