@@ -53,6 +53,8 @@ CoDA relativizes proportions by comparing them to a stable population, comparing
 * Cacoa, an R package for case-control analysis that uses ILR 
 * [compositions](https://cran.r-project.org/web/packages/compositions/index.html), an R package for CoDA 
 * A paper describing the compositionality problem in terms of microbiome studies [@morton_establishing_2019]
+* sccomp - an R method for single-cell compositional comparisons https://github.com/stemangiola/sccomp
+
 
 ### Key Takeaways
 
@@ -87,8 +89,10 @@ if (!requireNamespace("DT", quietly = TRUE))
     install.packages('DT')
 if (!requireNamespace("reshape2", quietly = TRUE))
     install.packages('reshape2')
-
-        
+if (!requireNamespace("ggrepel", quietly = TRUE))
+    install.packages("ggrepel")
+if (!requireNamespace("sccomp", quietly = TRUE))
+devtools::install_github("stemangiola/sccomp")
 ```
 
 ### Load Libraries
@@ -102,6 +106,9 @@ library(DT)
 library(Seurat)
 library(compositions)
 library(reshape2)
+library(ComplexHeatmap)
+library(ggrepel)
+library(sccomp)
 ```
 
 ## Load data
@@ -139,12 +146,13 @@ celltypePercentagesDF <- srobj@meta.data %>% count(`Sample ID`,Celltype) %>% gro
 
 datatable(celltypePercentagesDF)
 
-celltypePercentagesDF %>% ggplot(aes(x=`Sample ID`, y=pct_celltype, fill = Celltype), color='white') + 
+celltypePercentagesDF %>% 
+    ggplot(aes(x = `Sample ID`, y = pct_celltype, fill = Celltype), color = 'white') + 
     geom_bar(position='stack', stat='identity') + 
     scale_fill_manual(values = pal) + 
     ggtitle('Composition of each sample by celltype') +
     theme_linedraw(base_size = 20) +
-    theme(axis.text.x = element_text(angle=45,hjust=1,vjust=1))
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 ```
 
 
@@ -154,18 +162,26 @@ And often these compositions are compared using rank sum tests, which Morton et 
 
 If we use the Wilcoxon test here in a comparison of compositions across samples Flu vs. Normal, we will see that the result depends on proper normalization of the data.
 
-```{r, fig.width = 9, fig.height = 9}
+```{r, fig.width=12, fig.height=9}
 # Create a function to perform Wilcoxon rank-sum tests and return p-values
 perform_wilcox_test <- function(data, group_col, group1, group2, species_col) {
   group1_data <- data[data[[group_col]] == group1, species_col]
   group2_data <- data[data[[group_col]] == group2, species_col]
   
   test_result <- wilcox.test(group1_data, group2_data)
-  return(data.frame(p.val = test_result$p.value, statistic = test_result$statistic, species = species_col, test = paste(group1,'vs',group2)))
+  return(data.frame(
+      p.val = test_result$p.value,
+      statistic = test_result$statistic,
+      species = species_col, 
+      test = paste(group1,'vs',group2)))
 }
 
-rawTb <- celltypePercentagesDF %>% dplyr::select(sample=`Sample ID`, Celltype, celltype_n) %>% pivot_wider(names_from=Celltype, 
-values_from= celltype_n, values_fill=0) %>% separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% column_to_rownames("sample") %>% select(-sample_n)
+rawTb <- celltypePercentagesDF %>%
+     dplyr::select(sample=`Sample ID`, Celltype, celltype_n) %>%
+     pivot_wider(names_from=Celltype, values_from= celltype_n, values_fill=0) %>%
+     separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% 
+     column_to_rownames("sample") %>%
+      select(-sample_n)
 
 # Create a long dataframe of raw values for comparisons
 raw_long <- rawTb %>% 
@@ -174,9 +190,18 @@ raw_long <- rawTb %>%
 
 species_col_names <- colnames(rawTb)[2:ncol(rawTb)]
 
-wilcoxon_raw <- lapply(species_col_names, function(species) perform_wilcox_test(rawTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species))
+wilcoxon_raw <- lapply(species_col_names, function(species) 
+    perform_wilcox_test(r
+        awTb,
+        group_col = "group",
+        group1 = 'Flu',
+        group2 = 'Normal',
+        species_col = species))
 
-wilcoxon_raw <- wilcoxon_raw %>% bind_rows %>% data.frame %>% mutate(transform = "Raw")
+wilcoxon_raw <- wilcoxon_raw %>%
+    bind_rows %>% 
+    data.frame %>% 
+    mutate(transform = "Raw")
 
 pctTb <- celltypePercentagesDF %>% dplyr::select(sample=`Sample ID`, Celltype, pct_celltype) %>% pivot_wider(names_from=Celltype, 
 values_from=pct_celltype, values_fill=0) %>% separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% column_to_rownames("sample") %>% select(-sample_n) # reorganize dataframe for wilcoxon tests
@@ -192,7 +217,9 @@ wilcoxon_pct <- wilcoxon_pct %>% bind_rows %>% data.frame %>% mutate(transform =
 
 combined_data <- bind_rows(raw_long, pct_long)
 
-ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), aes(x = species, y=counts, fill = group)) +
+combined_data %>%
+    filter(group %in% c('Flu','Normal')) %>%
+    ggplot(aes(x = species, y=counts, fill = group)) +
   geom_boxplot() +
   facet_wrap(~ transform, scales = "free_y") +
   labs(title = "Comparison of Species Counts per Group",
@@ -204,7 +231,7 @@ ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), aes(x = species, 
   scale_fill_manual(values = unname(pal[c(1,4)]))
 ```
 
-```{r, fig.height=10, fig.width=9}
+```{r, fig.height=12, fig.width=12}
 wilcoxon_comparisons <- bind_rows(wilcoxon_raw,wilcoxon_pct)
 
 ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color = p.val < 0.05)) +
@@ -299,45 +326,100 @@ wilcoxon_alr <- wilcoxon_alr %>% bind_rows %>% data.frame %>% mutate(transform =
 wilcoxon_comparisons <- bind_rows(wilcoxon_comparisons,wilcoxon_clr,wilcoxon_alr)
 ```
 
-When there are many cell states in a dataset, for example in a large dataset, it can be nice to make a volcano plot of results, so here we include code for creating a nice looking One
-```{r}
-EnhancedVolcano(wilcoxon_comparisons %>% filter(transform=='Percent'), x = stati)
-```
 
-```{r, fig.width = 10, fig.height=10}
+```{r, fig.width=18, fig.height=12}
 ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color = p.val < 0.05)) +
   geom_point() + 
   scale_color_manual(values = c("TRUE" = "red", "FALSE" = "blue"), name = "p-val < 0.05") +
   facet_wrap(~ transform, scales = "free_x") +
   labs(x = "Species", title = "Comparison of P-Values Across Species and Transformations") +
   theme_minimal(base_size = 20) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1),
-        legend.position = "top") +
+ theme(
+      axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+      legend.position = "top") +
   guides(fill = guide_legend(title = "P-value < 0.05"))
 
 ```
 
-We can see that calculating rank sum differences across samples can produce a lot of false positives if we don't normalize our data properly. But even with mere normalization to overall cell number, the Wilcoxon shows similar results to ALR. This is because the ranks of cell population proportions do not change much with normalization. If we used a 
+We can see that calculating rank sum differences across samples can produce a lot of false positives if we don't normalize our data properly. But even with mere normalization to overall cell number, the Wilcoxon shows similar results to ALR. This is because the ranks of cell population proportions do not change much with normalization. If we used a Bayesian or parametric test, we would find more false positives with the percentages than with the compositional transforms. 
+
+The "best practice" method that has been shown to be successful for compositional analysis in microbiome [@noauthor_anova-like_nodate] and single-cell data [@mangiola_sccomp_2023] is composition-transform paired with binomial distribution modeling ANOVA tests. sccomp is available on github
+
+### Estimating a size effect in compositional data
+
+We can see that calculating rank sum differences across samples can produce a lot of false positives if we don't normalize our data properly. But even with mere normalization to overall cell number, the Wilcoxon shows similar results to ALR. This is because the ranks of cell population proportions do not change much with normalization. If we used a Bayesian or parametric test, we would find more false positives with the percentages than with the compositional transforms. 
+
+The "best practice" method that has been shown to be successful for compositional analysis in microbiome [@noauthor_anova-like_nodate] and single-cell data [@mangiola_sccomp_2023] is composition-transform paired with binomial distribution modeling ANOVA tests. sccomp is available on github
+
+```{r, fig.width = 16, fig.height = 12}
+
+srobj$sample <- srobj$`Sample ID` %>% str_replace_all(' ','')
+
+srobj$disease <- srobj$`Sample ID` %>% str_replace_all("\\ .*","")
+
+sccomp_res <- srobj %>%
+				  sccomp_estimate( 
+					    formula_composition = ~ 0 + disease, 
+					    .sample = sample,
+					    .cell_group = Celltype, 
+					    bimodal_mean_variability_association = TRUE,
+					    cores = 4
+				  ) %>%
+				  sccomp_remove_outliers() %>%
+				  sccomp_test(contrasts = "diseaseFlu - diseaseNormal",
+				  test_composition_above_logit_fold_change = 0.2)
+
+plots = plot(sccomp_res)
+
+plots$boxplot + ggtitle("Box plots showing sccomp transforms")
+
+```
+
+In sccomp, a differential composition "c" and differential variability "v" are both calculated between groups. Here Flu vs. Normal.
+```{r,fig.height=9,fig.width=6}
+
+plots$credible_intervals_1D
+
+```
+
+When there are many cell states in a dataset, for example in a large dataset, it can be nice to make a volcano plot of results for interpretability, so here we include code for creating a nice looking one based on sccomp results
+
+
+```{r, fig.height = 8, fig.width = 7}
+EnhancedVolcano(sccomp_res, x = "c_effect", y = "c_FDR", lab = sccomp_res$Celltype, pCutoff = 0.05, title = "sccomp differential composition Flu vs. Normal", subtitle = "p-val is FDR. FDR cutoff = 0.05; Flu positive, Normal negative")
+```
 
 ## Comparing samples with compositions
 
 ### PCA
 ```{r, fig.height=14, fig.width=12}
-alrPCA <- prcomp(alrTb[,-15])
-clrPCA <- prcomp(clrTb[,-16])
-rawPCA <- prcomp(rawTb[,-1])
-pctPCA <- prcomp(pctTb[,-1])
+comp_ls <- list("alr" = alrTb, "clr" = clrTb, "raw" = rawTb, "pct" = pctTb)
 
-pca_alr <- data.frame(alrPCA$x, group = alrTb$group, transform = alr_long$transform %>% unique)
-pca_clr <- data.frame(clrPCA$x, group = clrTb$group, transform = clr_long$transform %>% unique)
-pca_pct <- data.frame(pctPCA$x, group = pctTb$group, transform = pct_long$transform %>% unique)
-pca_raw <- data.frame(rawPCA$x, group = rawTb$group, transform = raw_long$transform %>% unique)
+# Run PCA on each transformation
+pca_ls <- lapply(names(comp_ls), function(i) {
+    PCA <- comp_ls[[i]] %>%
+        dplyr::select(-group) %>%
+        prcomp()
+    })
 
-pcaDF <- bind_rows(pca_alr, pca_clr, pca_pct, pca_raw)
+names(pca_ls) <- names(comp_ls)
 
-pcaDF <- pcaDF %>% mutate(sample = row.names(pcaDF) %>% str_replace_all('\\.\\.\\.(.*)',''))
 
-ggplot(pcaDF, aes(x = PC1, y = PC2, color = group, label = sample)) +
+# Extract data of interest from each transformation
+pcaDF <- lapply(names(pca_ls), function(i) {
+    # Return dataframe
+    data.frame(
+        PCA$x,
+        group = comp_ls[[i]]$group,
+        transform = i)
+}) %>% 
+    bind_rows() %>%
+    rownames_to_column("sample_id") %>%
+    mutate(
+        sample_id = str_replace_all(sample_id, '\\.\\.\\.(.*)', ''))
+
+
+ggplot(pcaDF, aes(x = PC1, y = PC2, color = group, label = sample_id)) +
   geom_point(size=4) + # Use geom_bar() for bar plots 
   geom_text_repel() +
   facet_wrap(~ transform, scales = "free") +
@@ -350,15 +432,27 @@ ggplot(pcaDF, aes(x = PC1, y = PC2, color = group, label = sample)) +
 ```
 
 ```{r, fig.height=16, fig.width=20}
-loadings_alr <- data.frame(alrPCA$rotation, transform = alr_long$transform %>% unique)
-loadings_clr <- data.frame(clrPCA$rotation, transform = clr_long$transform %>% unique)
-loadings_pct <- data.frame(pctPCA$rotation, transform = pct_long$transform %>% unique)
-loadings_raw <- data.frame(rawPCA$rotation, transform = raw_long$transform %>% unique)
+loadingsDF <- lapply(names(pca_ls), function(i) {
+    data.frame(
+        pca_ls[[i]]$rotation,
+        transform = i)
+}) %>%
+    bind_rows() %>%
+    rownames_to_column('species') %>%
+    group_by(transform) %>%
+    arrange(PC1)
 
-loadingsDF <- bind_rows(loadings_alr, loadings_clr, loadings_pct, loadings_raw) %>% rownames_to_column('species') %>% group_by(transform) %>% arrange(PC1)
 
+loadingsDF %>%
+    ggplot(
+        aes(x = PC1, y = factor(species, levels = loadingsDF$species),
+        fill = PC1 < 0)) +
+    geom_bar(stat = 'identity') + 
+    facet_wrap(.~transform, scales = 'free') +
+    theme_linedraw(base_size = 20) +
+    scale_fill_manual(values = unname(pal[c(6, 11)])) #+
+    # scale_y_discrete(labels = function(x) str_replace_all(x, '\\.\\.\\.(.*)',''))
 
-loadingsDF %>% ggplot(aes(x=PC1, y=factor(species, levels=loadingsDF$species), fill = PC1 < 0)) + geom_bar(stat='identity') + facet_wrap(.~transform, scales = 'free') + theme_linedraw(base_size=20) + scale_fill_manual(values = unname(pal[c(6,11)]))# + scale_y_discrete(labels = loadingsDF$species %>% str_replace_all('\\.\\.\\.(.*)',''))
 ```
 
 ### Distances between samples
