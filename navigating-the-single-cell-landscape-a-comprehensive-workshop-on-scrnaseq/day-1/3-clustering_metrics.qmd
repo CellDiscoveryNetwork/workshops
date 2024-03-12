@@ -13,7 +13,7 @@ format:
     embed-resources: true
 editor_options: 
   chunk_output_type: console
-bibliography: /Users/kylekimler/gitHub/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/bibliographies/cluster_metrics.bib
+bibliography: bibliographies/cluster_metrics.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -43,36 +43,47 @@ options(width = 1200)
 ## Introduction
 
 In scRNAseq, how do we know our clusters are good? Most of us go through a laundry list of tasks:
-* Have we found expected populations?
-    + Do gene markers or sets match our expectation?
-    + Have we found our rare cell type of interest?
-* Are there any doublets? 
-* Are there any low-quality clusters?
-* Is there a batch effect? 
 
-And much of this is accomplished by checking qualitative aspects of our clusters 
-* Are the clusters separated on the UMAP?
-* Do heatmaps show overlap of genes across clusters?
+-   Have we found expected populations?
 
-And the qualitative aspect of clustering causes us to cluster, annotate, cluster again, annotate again, and cluster again iteratively until we meet our expectations. Only rarely are quantitative methods used to determine cluster quality.
+    -   Do gene markers or sets match our expectation?
 
-In this notebook, I will introduce some intuitive quantitative clustering metrics that will help quantitatively describe how well formed our clusters are and where there might be batch effects. 
+    -   Have we found our rare cell type of interest?
+
+    -   Are there any doublets?
+
+    -   Are there any low-quality clusters?
+
+    -   Is there a batch effect?
+
+And much of this is accomplished by checking qualitative aspects of our clusters:
+
+-   Are the clusters separated on the UMAP?
+
+-   Do heatmaps show overlap of genes across clusters?
+
+The qualitative aspect of clustering causes us to cluster, annotate, cluster again, annotate again, and cluster again iteratively until we meet our expectations. Only rarely are quantitative methods used to determine cluster quality.
+
+In this notebook, we will introduce some intuitive quantitative clustering metrics that will help quantitatively describe how well formed our clusters are and where there might be batch effects.
 
 ### Useful Resources
 
+-   [Significance analysis for clustering with single-cell RNA-sequencing data](https://doi.org/10.1038/s41592-023-01933-9)
 
+-   [Application of information theoretical approaches to assess diversity and similarity in single-cell transcriptomics](https://doi.org/10.1016/j.csbj.2020.05.005)
 
 ### Key Takeaways
 
-* Quantitative clustering metrics can help us assess and optimize clustering in single-cell data
-    + sample diversity
-    + silhouette width
-    + cluster size
-    + distance between clusters
+-   Quantitative clustering metrics can help us assess and optimize clustering in single-cell data
+    -   sample diversity
+    -   silhouette width
+    -   cluster size
+    -   distance between clusters
 
 ## Libraries
 
 ### Installation
+
 ```{r, eval=FALSE}
 if (!requireNamespace("tidyverse", quietly = TRUE))
     install.packages('tidyverse')
@@ -101,6 +112,7 @@ if (!requireNamespace("DT", quietly = TRUE))
 ```
 
 ### Loading
+
 ```{r}
 suppressPackageStartupMessages({
   library(Seurat)
@@ -120,13 +132,14 @@ set.seed(687)
 ## Load data
 
 ### Load Seurat and replace gene symbols
+
 ```{r}
-srobj <- readRDS('/Users/kylekimler/Downloads/d8e35450-de43-451a-9979-276eac688bce.rds')
-genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
+srobj <- readRDS('../data/d8e35450-de43-451a-9979-276eac688bce.rds')
+genes <- read_csv('../data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
 
 # Need to remake seurat object
 mtx <- srobj@assays$RNA@data
-rownames(mtx) <- genes[match(row.names(mtx),genes$index),]$feature_name
+rownames(mtx) <- genes[match(row.names(mtx),genes$index), ]$feature_name
 
 srobj <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
 
@@ -134,7 +147,9 @@ srobj
 ```
 
 ### Setup
+
 Generate a color palette for plotting
+
 ```{r}
 # https://www.datanovia.com/en/blog/easy-way-to-expand-color-palettes-in-r/
 # nb.cols <- length(unique(se$Celltype))
@@ -144,6 +159,7 @@ names(pal) <- sort(unique(srobj$Celltype))
 ```
 
 ### Seurat pre-processing for cluster visualization (UMAP)
+
 ```{r, warnings = FALSE}
 srobj <- srobj %>%
     NormalizeData(verbose = FALSE) %>%
@@ -160,11 +176,11 @@ srobj <- srobj %>%
 
 ## Viewing clusters
 
-Typically in scRNA analysis, clusters are viewed by coloring cells on a dimension-reduced latent space of gene expression, like a tSNE or a UMAP. 
-In the dataset we've downloaded, we have author annotations and we have just calculated clusters with Seurat as well.
+Typically in scRNA analysis, clusters are viewed by coloring cells on a dimension-reduced latent space of gene expression, like a tSNE or a UMAP. In the dataset we've downloaded, we have author annotations and we have just calculated clusters with Seurat as well.
 
 By plotting many UMAPs per sample or per group, we can start to understand how clusters behave across samples.
-```{r,fig.width=24,fig.height=5}
+
+```{r,fig.width=18,fig.height=5}
 d1 <- DimPlot(srobj, 
         reduction='umap', 
         group.by='Celltype',
@@ -181,16 +197,20 @@ d3 <- DimPlot(srobj,
 d1 | d2 | d3
 ```
 
+We can see how the UMAPs look when we split them by sample
+
 ```{r, fig.width=16,fig.height=20}
-DimPlot(srobj, 
+DimPlot(srobj,
         reduction='umap', 
         group.by='seurat_clusters', 
         split.by='Sample ID',
-        ncol=4) & theme_minimal()
+        ncol=4) & theme_light()
 ```
+
 For example, we might see that Flu patients 1 and 5 have clusters that are unique to them. But that doesn't tell us much about the clusters themselves. The authors have annotated them as Erythrocytes. We might also notice there are many unique clusters corresponding to classical monocytes.
 
 These clusters are often validated by plotting heatmaps, dotplots, or violin plots of genes that are most important to each cluster, found by 1 v all differential expression.
+
 ```{r,fig.width=12,fig.height=16}
 Idents(srobj) <- srobj@meta.data$seurat_clusters
 celltype_markers <- FindAllMarkers(srobj, 
@@ -230,17 +250,17 @@ p <- plot_ly(emb, type='scatter3d',
                 cols = pal)
 p
     })
-```    
+```
 
 But we could look at many more UMAP dimensions and see similar differences.
 
 ## Quantifying cluster attributes
 
-Even with 3d we don't have a way to quantify how useful our clusters are as labels in our dataset. Firstly, with a UMAP or tSNE, we can't see how well represented samples are across clusters. Some people build cluster-composition bar graphs for this, but these can be difficult to compare, and they don't show us how large the clusters are. One solution is to make a plot of cluster metrics per cluster. Let's start with cell counts and sample diversity. 
+Even with 3d we don't have a way to quantify how useful our clusters are as labels in our dataset. Firstly, with a UMAP or tSNE, we can't see how well represented samples are across clusters. Some people build cluster-composition bar graphs for this, but these can be difficult to compare, and they don't show us how large the clusters are. One solution is to make a plot of cluster metrics per cluster. Let's start with cell counts and sample diversity.
 
 ### Cluster diversity
 
-In ecological analysis, diversity indices quantify species richness in an ecosystem. Here, we flip the idea on its head, calculating the diversity of samples in a specific cluster of scRNA data. Diversity indices are analogous to information theory metrics that calculate the degree of uncertainty when predicting the next bit in information flow. If diversity is high, then uncertainty is high. If diversity is low, then we can be sure when we pick a random cell from that cluster, it will come from the dominant sample. 
+In ecological analysis, diversity indices quantify species richness in an ecosystem. Here, we flip the idea on its head, calculating the diversity of samples in a specific cluster of scRNA data. Diversity indices are analogous to information theory metrics that calculate the degree of uncertainty when predicting the next bit in information flow. If diversity is high, then uncertainty is high. If diversity is low, then we can be sure when we pick a random cell from that cluster, it will come from the dominant sample.
 
 ```{r}
 diversityPerGroup <- function(df, species, group, diversity_metric = 'simpson') {
@@ -293,65 +313,68 @@ clusterMetrics <- clusterMetrics %>% left_join(srobj@meta.data %>% count(seurat_
 #   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-``` {r, fig.height=8, fig.width=12}
+```{r, fig.height=8, fig.width=12}
 clusterMetrics$seurat_clusters <- as.numeric(clusterMetrics$seurat_clusters)
 
 lollipop <- ggplot(clusterMetrics, aes(x = seurat_clusters, y = n)) +
-  geom_segment(aes(x = seurat_clusters, xend = seurat_clusters, y = 0, yend = n), size = 1.5, color = 'grey80') + # Draw lines for lollipops
+  geom_segment(aes(x = seurat_clusters, xend = seurat_clusters, y = 0, yend = n),
+               size = 1.5, color = 'grey80') + # Draw lines for lollipops
   geom_point(aes(colour = `Sample ID_diversity`), size = 5) + # Add colored lollipop 'heads', coloring by 'Sample ID_diversity'
-  scale_y_continuous(trans = 'log', name = "Log-scaled n", breaks = c(seq(1,10),seq(20,100,10), seq(200,1000,100), seq(2000,10000,1000))) + # Beautiful log breaks
+  scale_y_log10() +
   scale_x_continuous(breaks = seq(0,20)) + 
   scale_colour_viridis(option = "C", name = "Sample ID Diversity", direction = 1) + # Colorblind-friendly, vibrant color palette
   theme_minimal(base_size = 10) +
-  theme(legend.position = "bottom",,
+  theme(legend.position = "bottom",
         axis.text = element_text(size = 12), 
         axis.title = element_text(size = 14), 
         title = element_text(size = 16)) +
-  labs(x = "Seurat Clusters", y = "cluster size (log-scaled)", title = "Cluster Metrics") +
+  labs(x = "Seurat Clusters",
+       y = "cluster size (log-scaled)",
+       title = "Cluster Diversity Metrics") +
   guides(colour = guide_colourbar(title.position = "top", title.hjust = 0.5))
 
 lollipop
-
 ```
-```{r, fig.height=12, fig.width=4}
-p2 <- ggplot(clusterMetrics, aes(y=seurat_clusters, fill=`Sample ID_diversity`, x = 1, label = n)) +
+
+```{r, fig.height=4, fig.width=4}
+p2 <- ggplot(clusterMetrics, aes(y=as.character(seurat_clusters), fill=`Sample ID_diversity`, x = 1, label = n)) +
   geom_tile(colour = "white") +
-  geom_text(nudge_x = 1.5, size = 5) +
-  geom_text(aes(label = signif(`Sample ID_diversity`, 2)),size = 5) +
+  geom_text(nudge_x = 1.5, size = 3) +
+  geom_text(aes(label = signif(`Sample ID_diversity`, 2)),size = 3) +
   scale_fill_distiller(palette = "Spectral", limits = c(0,1)) + theme_classic() +
   coord_fixed(ratio = 0.25) + 
   expand_limits(x = c(0.5,3)) +
-  labs(x = "") +
-  theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 16),
+  labs(x = "Diversity            Size") +
+  theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 12),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
-        axis.title.y = element_text(size = 20),
+        axis.title.y = element_text(size = 15),
         legend.key.size = unit(1, 'cm'),
         legend.title = element_text(size=10), 
         legend.text = element_text(size=10)
   )
 p2
-
 ```
-So in this paper it looks like our clusters are in fact well represented among every sample. None of them are particularly small, but the classical Monocyte cluster contains > 15000 cells. There may be some additional clusters hiding there. 
+
+In this figures it looks like most of our clusters are in fact well represented among every sample. However, clusters 6, 11 and 18 seem to be dominated by one donor! We need to keep an eye out for this, it could be a patient specific cell type/state or due to batch effect we need to correct.
 
 ### Silhoeutte Analysis
 
-In addition to cell numbers and sample representation, it can be useful to get an idea of how tightly clustered cells are in each cluster, and how distant each cluster is to the others. This way we can quantify how fuzzy the borders are between clusters. Many clustering metrics exist to answer this question [@lim_quantifying_2024] - one popular metric is the average silhouette distance. 
+In addition to cell numbers and sample representation, it can be useful to get an idea of how tightly clustered cells are in each cluster, and how distant each cluster is to the others. This way we can quantify how fuzzy the borders are between clusters. Many clustering metrics exist to answer this question [@lim_quantifying_2024] - one popular metric is the average silhouette distance.
 
-In silhouette analysis, for each cell, the average distance between cells in the same cluster is subtracted from the minimum average distance between that cell and cells from the other clusters, minimized across clusters. This value is then divided by the maximum of the two values to scale it to (-1,1) across cells. 
+In silhouette analysis, for each cell, the average distance between cells in the same cluster is subtracted from the minimum average distance between that cell and cells from the other clusters, minimized across clusters. This value is then divided by the maximum of the two values to scale it to (-1,1) across cells.
 
 In other words,
+
 $$
 s(i) = \frac{b(i) - a(i)}{\max\{a(i), b(i)\}}
 $$
 
 where:
 
-- \(a(i)\) is the average distance from the \(i^{th}\) point to the other points in the same cluster,
-- \(b(i)\) is the smallest average distance from the \(i^{th}\) point to points in a different cluster, minimized over all clusters,
-- \(s(i)\) is the silhouette score for the \(i^{th}\) point, ranging from -1 to 1.
-
+-   (a(i)) is the average distance from the (i\^{th}) point to the other points in the same cluster,
+-   (b(i)) is the smallest average distance from the (i\^{th}) point to points in a different cluster, minimized over all clusters,
+-   (s(i)) is the silhouette score for the (i\^{th}) point, ranging from -1 to 1.
 
 ```{r}
 seurat_clusters <- srobj@meta.data$seurat_clusters
@@ -414,23 +437,25 @@ full_silhouettes_plot <- ggplot(silhouette_arranged, aes(y = seurat_clusters, x 
 full_silhouettes_plot
 ```
 
-```{r, fig.height=5, fig.width=16}
+The red dotted line here represents the overall average silhouette - in clustering optimization this value can be optimized for to find the "best possible" resolution for a dataset. But sub-clustering can also increase the overall average silhouette distance in ways that changing the resolution cannot. Here, we can inspect each cluster individually and make these calls cluster by cluster.
+
+We can look at where the silhouette scores map on the UMAP
+```{r, fig.height=5, fig.width=12}
 srobj$CellID <- row.names(srobj@meta.data)
 
 sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(srobj@meta.data)
 
 srobj <- AddMetaData(srobj, sil_ids)
 
-FeaturePlot(srobj, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1)) | d2
+FeaturePlot(srobj, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1), option = "magma") | d2
 ```
-
-The red dotted line here represents the overall average silhouette - in clustering optimization this value can be optimized for to find the "best possible" resolution for a dataset. But sub-clustering can also increase the overall average silhouette distance in ways that changing the resolution cannot. Here, we can inspect each cluster individually and make these calls cluster by cluster. 
 
 ### Cluster taxonomy
 
-Taking the concept of distances between clusters one step further, our lab wrote a package, ARBOL, for calculating and plotting distances between clusters in scRNAseq data [@zheng_concerted_2023]. 
+Taking the concept of distances between clusters one step further, our lab wrote a package, ARBOL, for calculating and plotting distances between clusters in scRNAseq data [@zheng_concerted_2023].
 
 With ARBOL, we can build a dendrogram of cluster centroid distances based on gene expression or some dimensionality reduction in the data. This can be useful for plotting cluster metrics
+
 ```{r, message = FALSE, warning = FALSE, fig.width=16, fig.height=5}
 # ARBOL requires 3 metadata entries
 srobj@meta.data$tierNident <- paste0('Cluster ',srobj@meta.data$seurat_clusters)
