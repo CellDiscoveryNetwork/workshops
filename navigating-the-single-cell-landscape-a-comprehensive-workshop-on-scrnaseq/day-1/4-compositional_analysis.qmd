@@ -87,6 +87,7 @@ if (!requireNamespace("DT", quietly = TRUE))
     install.packages('DT')
 if (!requireNamespace("reshape2", quietly = TRUE))
     install.packages('reshape2')
+
         
 ```
 
@@ -101,7 +102,6 @@ library(DT)
 library(Seurat)
 library(compositions)
 library(reshape2)
-library(ComplexHeatmap)
 ```
 
 ## Load data
@@ -229,9 +229,9 @@ $$
 
 where:
 
-- \(\log\) denotes the natural logarithm,
-- \(x_i\) is the value of component \(i\) in the composition,
-- \(x_D\) is the chosen reference component from the compositional dataset.
+- $\log$ denotes the natural logarithm,
+- $x_i$ is the value of component $i$ in the composition,
+- $x_D$ is the chosen reference component from the compositional dataset.
 
 $$
 \text{CLR}(x_i) = \log\left(\frac{x_i}{g(x)}\right)
@@ -241,10 +241,9 @@ where:
 
 - $\log$ denotes the natural logarithm,
 - $x_i$ is the value of component $i$ in the composition,
-- $g(x)$ is the geometric mean of all components in the composition, calculated as $g(x) = \left(\prod_{i=1}^{D} x_i\right)^{\frac{1}{D}}$, with $D$ being the total number of components in the composition.
+- $g(x)$ is the geometric mean of all components in the composition, calculated as $g(x) = \left(\prod_{i=1}^{D} x_i\right)^{\frac{1}{D}}$, with $D$ being the total number of components in the composition. $\prod_{}$ means multiply each $x_i$, so you can think of it as an extension of the pythagorean theorem to any $n$ components
 
-
-The CLR is very easy to use because it does not require a reference. We can calculate the ALR in a similar way to what scCODA does by choosing the reference cluster based on minimal dispersion and at least 95% presence across samples
+The CLR is very easy to use in practice because it does not require a reference. In datasets with very noisy cell subtypes or very different samples, it can be better than the ALR, which can fail when there isn't a good reference cluster. For this notebook, we can calculate the ALR in a similar way to what scCODA (the first CODA package built into scanpy) does by choosing the reference based on which cluster has minimal dispersion and at least 95% presence across samples
 ```{r, fig.width = 12, fig.height = 12}
 compTb <- pctTb
 
@@ -300,6 +299,11 @@ wilcoxon_alr <- wilcoxon_alr %>% bind_rows %>% data.frame %>% mutate(transform =
 wilcoxon_comparisons <- bind_rows(wilcoxon_comparisons,wilcoxon_clr,wilcoxon_alr)
 ```
 
+When there are many cell states in a dataset, for example in a large dataset, it can be nice to make a volcano plot of results, so here we include code for creating a nice looking One
+```{r}
+EnhancedVolcano(wilcoxon_comparisons %>% filter(transform=='Percent'), x = stati)
+```
+
 ```{r, fig.width = 10, fig.height=10}
 ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color = p.val < 0.05)) +
   geom_point() + 
@@ -313,7 +317,7 @@ ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color =
 
 ```
 
-So we can see already that Wilcoxon results of the transforms are different than percentage and raw 
+We can see that calculating rank sum differences across samples can produce a lot of false positives if we don't normalize our data properly. But even with mere normalization to overall cell number, the Wilcoxon shows similar results to ALR. This is because the ranks of cell population proportions do not change much with normalization. If we used a 
 
 ## Comparing samples with compositions
 
