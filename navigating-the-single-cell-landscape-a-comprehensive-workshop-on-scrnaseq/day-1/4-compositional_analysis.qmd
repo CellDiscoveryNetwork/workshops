@@ -181,7 +181,7 @@ rawTb <- celltypePercentagesDF %>%
      pivot_wider(names_from=Celltype, values_from= celltype_n, values_fill=0) %>%
      separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% 
      column_to_rownames("sample") %>%
-      select(-sample_n)
+     select(-sample_n)
 
 # Create a long dataframe of raw values for comparisons
 raw_long <- rawTb %>% 
@@ -191,8 +191,7 @@ raw_long <- rawTb %>%
 species_col_names <- colnames(rawTb)[2:ncol(rawTb)]
 
 wilcoxon_raw <- lapply(species_col_names, function(species) 
-    perform_wilcox_test(r
-        awTb,
+    perform_wilcox_test(rawTb,
         group_col = "group",
         group1 = 'Flu',
         group2 = 'Normal',
@@ -203,15 +202,24 @@ wilcoxon_raw <- wilcoxon_raw %>%
     data.frame %>% 
     mutate(transform = "Raw")
 
-pctTb <- celltypePercentagesDF %>% dplyr::select(sample=`Sample ID`, Celltype, pct_celltype) %>% pivot_wider(names_from=Celltype, 
-values_from=pct_celltype, values_fill=0) %>% separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% column_to_rownames("sample") %>% select(-sample_n) # reorganize dataframe for wilcoxon tests
+pctTb <- celltypePercentagesDF %>% 
+            dplyr::select(sample=`Sample ID`, Celltype, pct_celltype) %>% 
+            pivot_wider(names_from=Celltype, values_from=pct_celltype, values_fill=0) %>% 
+            separate(sample, sep = " ", into=c('group','sample_n'), remove=FALSE) %>% 
+            column_to_rownames("sample") %>% 
+            select(-sample_n) # reorganize dataframe for wilcoxon tests
 
 # Create a long dataframe of percent values for comparisons
 pct_long <- pctTb %>% 
   pivot_longer(-group, names_to="species", values_to="counts") %>%
   mutate(transform = "Percentages")
 
-wilcoxon_pct <- lapply(species_col_names, function(species) perform_wilcox_test(pctTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species)) 
+wilcoxon_pct <- lapply(species_col_names, function(species) 
+                        perform_wilcox_test(pctTb, 
+                                            group_col = "group", 
+                                            group1 = 'Flu', 
+                                            group2 = 'Normal', 
+                                            species_col = species)) 
 
 wilcoxon_pct <- wilcoxon_pct %>% bind_rows %>% data.frame %>% mutate(transform = "Percent")
 
@@ -271,6 +279,7 @@ where:
 - $g(x)$ is the geometric mean of all components in the composition, calculated as $g(x) = \left(\prod_{i=1}^{D} x_i\right)^{\frac{1}{D}}$, with $D$ being the total number of components in the composition. $\prod_{}$ means multiply each $x_i$, so you can think of it as an extension of the pythagorean theorem to any $n$ components
 
 The CLR is very easy to use in practice because it does not require a reference. In datasets with very noisy cell subtypes or very different samples, it can be better than the ALR, which can fail when there isn't a good reference cluster. For this notebook, we can calculate the ALR in a similar way to what scCODA (the first CODA package built into scanpy) does by choosing the reference based on which cluster has minimal dispersion and at least 95% presence across samples
+
 ```{r, fig.width = 12, fig.height = 12}
 compTb <- pctTb
 
@@ -283,7 +292,12 @@ clr_long <- clrTb %>%
   pivot_longer(-group, names_to="species", values_to="counts") %>%
   mutate(transform = "CLR")
 
-wilcoxon_clr <- lapply(species_col_names, function(species) perform_wilcox_test(clrTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species))
+wilcoxon_clr <- lapply(species_col_names, function(species) 
+                        perform_wilcox_test(clrTb, 
+                                            group_col = "group", 
+                                            group1 = 'Flu', 
+                                            group2 = 'Normal', 
+                                            species_col = species))
 
 wilcoxon_clr <- wilcoxon_clr %>% bind_rows %>% data.frame %>% mutate(transform = "CLR")
 
@@ -297,7 +311,9 @@ denominator_index <- which.min(iqr_values)
 denominator_name <- names(iqr_values[denominator_index])
 
 alrTb <- compositions::alr(rawTb[,-1] + 1, # apply a tiny pseudocount to avoid logarithmizing a 0
-ivar = denominator_name) %>% data.frame
+                           ivar = denominator_name) %>% #ivar is the invariant variable
+         data.frame
+
 alr_col_names <- species_col_names[species_col_names!=denominator_name]
 colnames(alrTb) <- alr_col_names
 alrTb$group <- compTb$group 
@@ -308,7 +324,8 @@ alr_long <- alrTb %>%
 
 combined_data <- bind_rows(combined_data, clr_long, alr_long)
 
-ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), aes(x = species, y=counts, fill = group)) +
+ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), 
+  aes(x = species, y=counts, fill = group)) +
   geom_boxplot() +
   labs(title = "Comparison of Species Counts per Group",
        x = "Species",
@@ -319,7 +336,12 @@ ggplot(combined_data %>% filter(group %in% c('Flu','Normal')), aes(x = species, 
   scale_fill_manual(values = unname(pal[c(1,4)])) +
   facet_wrap(~ transform, scales = "free_y")
 
-wilcoxon_alr <- lapply(alr_col_names, function(species) perform_wilcox_test(pctTb, group_col = "group", group1 = 'Flu', group2 = 'Normal', species_col = species))
+wilcoxon_alr <- lapply(alr_col_names, function(species) 
+                        perform_wilcox_test(pctTb, 
+                        group_col = "group", 
+                        group1 = 'Flu', 
+                        group2 = 'Normal', 
+                        species_col = species))
 
 wilcoxon_alr <- wilcoxon_alr %>% bind_rows %>% data.frame %>% mutate(transform = "ALR")
 
@@ -334,7 +356,7 @@ ggplot(wilcoxon_comparisons, aes(x = reorder(species, p.val), y = p.val, color =
   facet_wrap(~ transform, scales = "free_x") +
   labs(x = "Species", title = "Comparison of P-Values Across Species and Transformations") +
   theme_minimal(base_size = 20) +
- theme(
+  theme(
       axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
       legend.position = "top") +
   guides(fill = guide_legend(title = "P-value < 0.05"))
@@ -357,37 +379,81 @@ srobj$sample <- srobj$`Sample ID` %>% str_replace_all(' ','')
 
 srobj$disease <- srobj$`Sample ID` %>% str_replace_all("\\ .*","")
 
-sccomp_res <- srobj %>%
+sccomp_est <- subset(srobj, disease %in% c('Flu','Normal')) %>%
 				  sccomp_estimate( 
 					    formula_composition = ~ 0 + disease, 
+                        formula_variability = ~ 0 + disease,
 					    .sample = sample,
 					    .cell_group = Celltype, 
 					    bimodal_mean_variability_association = TRUE,
 					    cores = 4
-				  ) %>%
+				  )
+
+# Run post-model processing
+sccomp_res <- sccomp_est %>%
 				  sccomp_remove_outliers() %>%
 				  sccomp_test(contrasts = "diseaseFlu - diseaseNormal",
 				  test_composition_above_logit_fold_change = 0.2)
 
-plots = plot(sccomp_res)
-
-plots$boxplot + ggtitle("Box plots showing sccomp transforms")
-
 ```
 
-In sccomp, a differential composition "c" and differential variability "v" are both calculated between groups. Here Flu vs. Normal.
+The plotting methods don't work well in the sccomp package. I recommend using the data to make plots directly. A familiar plot for differential tests is the volcano plot. 
+
+```{r, fig.height = 8, fig.width = 7}
+EnhancedVolcano(sccomp_res, 
+                x = "c_effect", 
+                y = "c_FDR", 
+                lab = sccomp_res$Celltype, 
+                pCutoff = 0.05, 
+                title = "sccomp differential composition Flu vs. Normal", 
+                subtitle = "p-val is FDR. FDR cutoff = 0.05; Flu positive, Normal negative")
+```
+
+In sccomp, a differential composition "c" and differential variability "v" are both calculated between groups. We can plot each of these separately as well
+
 ```{r,fig.height=9,fig.width=6}
 
-plots$credible_intervals_1D
+sccomp_res <- sccomp_res %>%
+  mutate(signif = ifelse(c_FDR < 0.05, "FDR < 0.05", "FDR >= 0.05")) %>% arrange(c_effect)
 
+ggplot(sccomp_res, aes(y = factor(Celltype,levels=Celltype), x = c_effect)) +
+  geom_segment(aes(y = Celltype, 
+                   yend = Celltype, 
+                   x = c_lower, 
+                   xend = c_upper, 
+                   color = signif), 
+                   size = 1) +
+  geom_point(size = 3) + # Add point at c_effect
+  scale_color_manual(values = c("FDR < 0.05" = "red3", "FDR >= 0.05" = "black")) +
+  theme_minimal(base_size = 24) + 
+  labs(title = "Composition test intervals with FDR",
+       x = "Log-fold-change",
+       y = "Celltype") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.title = element_blank()) # Improve x-axis labels readability
+
+sccomp_res <- sccomp_res %>%
+  mutate(signif = ifelse(v_FDR < 0.05, "FDR < 0.05", "FDR >= 0.05")) %>% arrange(v_effect)
+
+ggplot(sccomp_res, aes(y = factor(Celltype,levels=Celltype), x = v_effect)) +
+  geom_segment(aes(y = Celltype, 
+                   yend = Celltype, 
+                   x = v_lower, 
+                   xend = v_upper, 
+                   color = signif), 
+                   size = 1) +
+  geom_point(size = 3) + # Add point at c_effect
+  scale_color_manual(values = c("FDR < 0.05" = "red3", "FDR >= 0.05" = "black")) +
+  theme_minimal(base_size = 24) + 
+  labs(title = "Variability test intervals with FDR",
+       x = "Difference in Variance",
+       y = "Celltype") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.title = element_blank()) # Improve x-axis labels readability
 ```
 
 When there are many cell states in a dataset, for example in a large dataset, it can be nice to make a volcano plot of results for interpretability, so here we include code for creating a nice looking one based on sccomp results
 
-
-```{r, fig.height = 8, fig.width = 7}
-EnhancedVolcano(sccomp_res, x = "c_effect", y = "c_FDR", lab = sccomp_res$Celltype, pCutoff = 0.05, title = "sccomp differential composition Flu vs. Normal", subtitle = "p-val is FDR. FDR cutoff = 0.05; Flu positive, Normal negative")
-```
 
 ## Comparing samples with compositions
 
@@ -404,15 +470,14 @@ pca_ls <- lapply(names(comp_ls), function(i) {
 
 names(pca_ls) <- names(comp_ls)
 
-
 # Extract data of interest from each transformation
 pcaDF <- lapply(names(pca_ls), function(i) {
     # Return dataframe
-    data.frame(
-        PCA$x,
-        group = comp_ls[[i]]$group,
-        transform = i)
-}) %>% 
+                data.frame(
+                    pca_ls[[i]]$x,
+                    group = comp_ls[[i]]$group,
+                    transform = i)
+                }) %>% 
     bind_rows() %>%
     rownames_to_column("sample_id") %>%
     mutate(
@@ -433,10 +498,10 @@ ggplot(pcaDF, aes(x = PC1, y = PC2, color = group, label = sample_id)) +
 
 ```{r, fig.height=16, fig.width=20}
 loadingsDF <- lapply(names(pca_ls), function(i) {
-    data.frame(
-        pca_ls[[i]]$rotation,
-        transform = i)
-}) %>%
+                    data.frame(
+                        pca_ls[[i]]$rotation,
+                        transform = i)
+                    }) %>%
     bind_rows() %>%
     rownames_to_column('species') %>%
     group_by(transform) %>%
@@ -462,6 +527,7 @@ We can also directly calculate distances between samples based on sample composi
 In compositional analysis, the method for calculating distances between samples proposed by John Aitchison [@aitchison_concise_2005] remains the a popular method. Termed Aitchison Distance, it is the Euclidean distance between samples based on CLR transformed counts of species. 
 
 ```{r, fig.width=10,fig.height=6}
+
 clr_distances <- dist(clrTb[,-16], method = "euclidean")
 
 distdf <- reshape2::melt(as.matrix(clr_distances), varnames = c("from", "to"))
@@ -469,9 +535,14 @@ distdf <- reshape2::melt(as.matrix(clr_distances), varnames = c("from", "to"))
 datatable(distdf)
 
 distlong <- distdf %>% separate(from,c('group1','sample1'),sep=' ', remove=FALSE) %>% 
-            separate(to,c('group2','sample2'),sep=' ', remove=FALSE)
+                       separate(to,c('group2','sample2'),sep=' ', remove=FALSE)
             
-distlong %>% filter(sample1 !=sample2) %>% mutate(distance_group = ifelse(group1==group2,'between same disease individuals',ifelse(group1 == 'Normal' | group2 == 'Normal', 'between disease and healthy', 'between Covid and Flu'))) %>% 
+distlong %>% filter(sample1 !=sample2) %>% 
+             mutate(distance_group = ifelse(group1==group2, 
+                                            'between same disease individuals',
+                                     ifelse(group1 == 'Normal' | group2 == 'Normal', 
+                                            'between disease and healthy', 
+                                            'between Covid and Flu'))) %>% 
     ggplot(aes(x=value,fill=distance_group)) + geom_density(alpha=0.4) + 
     ggtitle('COVID-Flu study distances\nAitchison Distances') +
     theme_bw(base_size = 20) + scale_fill_manual(values = unname(pal[c(3,6,8)])) + xlab('euclidean distance')
