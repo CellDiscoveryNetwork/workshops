@@ -411,7 +411,7 @@ EnhancedVolcano(sccomp_res,
 
 In sccomp, a differential composition "c" and differential variability "v" are both calculated between groups. We can plot each of these separately as well
 
-```{r,fig.height=9,fig.width=6}
+```{r,fig.height=6,fig.width=5}
 
 sccomp_res <- sccomp_res %>%
   mutate(signif = ifelse(c_FDR < 0.05, "FDR < 0.05", "FDR >= 0.05")) %>% arrange(c_effect)
@@ -425,7 +425,7 @@ ggplot(sccomp_res, aes(y = factor(Celltype,levels=Celltype), x = c_effect)) +
                    size = 1) +
   geom_point(size = 3) + # Add point at c_effect
   scale_color_manual(values = c("FDR < 0.05" = "red3", "FDR >= 0.05" = "black")) +
-  theme_minimal(base_size = 24) + 
+  theme_minimal(base_size = 16) + 
   labs(title = "Composition test intervals with FDR",
        x = "Log-fold-change",
        y = "Celltype") +
@@ -444,7 +444,7 @@ ggplot(sccomp_res, aes(y = factor(Celltype,levels=Celltype), x = v_effect)) +
                    size = 1) +
   geom_point(size = 3) + # Add point at c_effect
   scale_color_manual(values = c("FDR < 0.05" = "red3", "FDR >= 0.05" = "black")) +
-  theme_minimal(base_size = 24) + 
+  theme_minimal(base_size = 16) + 
   labs(title = "Variability test intervals with FDR",
        x = "Difference in Variance",
        y = "Celltype") +
