@@ -428,7 +428,7 @@ EnhancedVolcano(res_df,
                 xlim = c(-8, 8),
                 ylim = c(0, 5),
                 title = 'Volcano Plot: CD4 T cells',
-                subtitle = '                                                   <------------- NoRx   .   Rx ------------->',
+                subtitle = 'try something different here,
                 xlab = 'Log2 Fold Change',
                 ylab = '-log10 FDR',
                 pCutoff = 0.05,
@@ -448,37 +448,113 @@ EnhancedVolcano(res_df,
 
 
 ``` {r}
+suppressMessages({
 
+# dir.create('./day-1/pseudobulk_analysis/figures/')
+for(file in list.files('./day-1/pseudobulk_analysis/results/')){
+    res_df <- read_csv(glue::glue('./day-1/pseudobulk_analysis/results/',file))
+    
+    pdf(glue::glue('./day-1/pseudobulk_analysis/figures/',strsplit(file,split='_')[[1]][1],'_volcano.pdf'),width=14,height=10)
+
+    print(EnhancedVolcano(res_df,
+                lab = res_df$gene,
+                x = 'log2FoldChange',
+                y = 'padj',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = glue::glue('Volcano Plot: ',strsplit(file,split='_')[[1]][1]),
+                subtitle = 'try again',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 FDR',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res_df$padj < 0.05 & abs(res_df$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant','Log2FC','P-Value','Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30'))
+    dev.off()
+}
+    })
+```
+
+
+``` {r}
+list.files('./day-1/pseudobulk_analysis/figures/')
+
+```
+
+### Read and bind files
+
+``` {r}
+grep('annotation',list.files('./day-1/pseudobulk_analysis/results'))
+
+annots <- list.files('./day-1/pseudobulk_analysis/results')[grepl('annotation_',list.files('./day-1/pseudobulk_analysis/results'))]
+clusts <- list.files('./day-1/pseudobulk_analysis/results')[grepl('cluster-',list.files('./day-1/pseudobulk_analysis/results'))]
+
+annots = annots[c(-1,-8)]
+```
+
+
+``` {r}
+setwd('./day-1/pseudobulk_analysis/results')
+
+read_and_bind_files <- function(file_list) {
+  # Function to extract cluster name and read file
+  read_file <- function(file_name) {
+    cluster_name <- str_extract(file_name, ".*(?=_annotation_pseudobulk_results\\.csv)")
+    read_csv(file_name) %>%
+      mutate(cluster = cluster_name) 
+  }
+  
+  # Apply the function to each file and bind rows
+  map_dfr(file_list, read_file)
+}
+
+combined_data1 <- read_and_bind_files(annots)
+
+read_and_bind_files <- function(file_list) {
+  # Function to extract cluster name and read file
+  read_file <- function(file_name) {
+    cluster_name <- str_extract(file_name, ".*(?=_pseudobulk_results\\.csv)")
+    read_csv(file_name) %>%
+      mutate(cluster = cluster_name) 
+  }
+  
+  # Apply the function to each file and bind rows
+  map_dfr(file_list, read_file)
+}
+
+combined_data2 <- read_and_bind_files(clusts)
+
+setwd('../..')
 
 ```
 
 
 ``` {r}
-
-
-```
-
-
-``` {r}
-
+# To confirm original working directory
+getwd()
 
 ```
 
 
 ``` {r}
+write_csv(
+  combined_data1,
+  './pseudobulk_analysis/results/combined_annot_pseudobulk_cohort_DE.csv')
+write_csv(
+  combined_data2,
+  './pseudobulk_analysis/results/combined_clusters_pseudobulk_cohort_DE.csv')
 
+bucket <- 'gs://fc-f188c449-d5f6-45c3-807f-540127e67fe7'
 
-```
-
-
-``` {r}
-
-
-```
-
-
-``` {r}
-
+system(sprintf('gsutil -m cp -r pseudobulk_analysis/ %s',bucket))
 
 ```
 
