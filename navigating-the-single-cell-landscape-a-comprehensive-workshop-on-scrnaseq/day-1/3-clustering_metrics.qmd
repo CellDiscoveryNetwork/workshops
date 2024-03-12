@@ -107,6 +107,8 @@ if (!requireNamespace("presto", quietly = TRUE))
     devtools::install_github('immunogenomics/presto') # presto is used to speed up Wilcoxon tests for marker gene calculation in Seurat
 if (!requireNamespace("vegan", quietly = TRUE))
     BiocManager::install('vegan') # vegan is a community ecological analysis package that provides many tools for dissimilarity, ordination, and diversity analysis, we will use it for diversity analysis here
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages('DT')
 ```
 
 ### Loading
