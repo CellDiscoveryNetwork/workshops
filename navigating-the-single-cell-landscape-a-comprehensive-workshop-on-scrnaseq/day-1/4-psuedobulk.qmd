@@ -1,5 +1,5 @@
 ---
-title: "4 - Pseudobulk Analysis"
+title: "5 - Pseudobulk Analysis"
 author: "CDN team"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format:
@@ -16,122 +16,190 @@ editor_options:
 ---
 
 ## Introduction
+In single cell RNA seq, there are many ways to manipulate the data retrieved from your samples. One popular way to get more out of that data is pseudobulk. *define pseudobulk*
 
-### Install Packages and Libraries
+### Useful Resources
+- Paper 1
+- Paper 2
+- Paper 3 - or Bioinformatician videos
 
-```{r}
-# BiocManager::install("DESeq2")
-# BiocManager::install("org.Hs.eg.db")
+### Key Takeaways
+- The 3 steps
+- Next Steps
+
+## Libraries
+
+### Installation
+
+```{r, eval=FALSE}
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages('tidyverse')
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages('Seurat')
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages('colorBlindness')
+if (!requireNamespace("RColorBrewer", quietly = TRUE))
+    install.packages('RColorBrewer')
+# Presto speeds up Wilcoxon tests for marker gene calculation in Seurat
+if (!requireNamespace("presto", quietly = TRUE))
+    devtools::install_github('immunogenomics/presto')
+if (!requireNamespace("DESeq2", quietly = TRUE))
+    BiocManager::install('DESeq2')
+if (!requireNamespace("org.Hs.eg.db", quietly = TRUE))
+    BiocManager::install('org.Hs.eg.db')
+if (!requireNamespace("Matrix", quietly = TRUE))
+    install.packages('Matrix')
+if (!requireNamespace("tictoc", quietly = TRUE))
+    install.packages('tictoc')
+if (!requireNamespace("AnnotationDbi", quietly = TRUE))
+    install.packages('AnnotationDbi')
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages('DT')
+if (!requireNamespace("EnhancedVolcano", quietly = TRUE))
+    BiocManager::install('EnhancedVolcano')
+
 ```
 
-```{r}
-suppressPackageStartupMessages({suppressWarnings({
-library(Seurat)
-library(tidyverse)
-library(DESeq2)
-library(Matrix)
-library(tictoc)
-library(colorBlindness)
-library(RColorBrewer)
-library(AnnotationDbi)
-library(org.Hs.eg.db)
-library(DT)
-    })
-                                })
+### Loading
+
+``` {r}
+suppressPackageStartupMessages({
+  library(tidyverse)
+  library(Seurat)
+  library(colorBlindness)
+  library(RColorBrewer)
+  library(presto)
+  library(DESeq2)
+  library(org.Hs.eg.db)
+  library(Matrix)
+  library(tictoc)
+  library(AnnotationDbi)
+  library(DT)
+  library(dplyr)
+  library(EnhancedVolcano)
+  })
+
+# Set seed to your favorite number for reproducibility
+set.seed(21)
 ```
 
-```{r}
-srobj <- readRDS('/Users/kylekimler/Downloads/d8e35450-de43-451a-9979-276eac688bce.rds')
-genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
+## Load Data
 
+### Load Seurat object 
+```{r}
+srobj <- readRDS('./day-1/data/workshop-data.rds')
+genes <- read_csv('./day-1/data/cov_flu_gene_names_table.csv') 
+# genes is a gene conversion table to convert ENSG to readable gene symbols
+```
+
+``` {r}
 # Need to remake seurat object
 mtx <- srobj@assays$RNA@data
-rownames(mtx) <- genes[match(row.names(mtx),genes$index),]$feature_name
+rownames(mtx) <- genes[match(row.names(mtx), genes$index), ]$feature_name
 
-srobj <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
+se <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
 
-srobj
+se
 ```
 
 ```{r}
 # Set color palette
 pal <- paletteMartin
-names(pal) <- sort(unique(srobj$Celltype))
+names(pal) <- sort(unique(se$Celltype))
 ```
 
 ## Analysis
 
-### Set gene symbols
+### Seurat pre-processing for cluster visualization (UMAP)
 
-```{r}
-### Quick processing
-
-srobj <- srobj %>%
+```{r, warnings = FALSE}
+se <- se %>%
     NormalizeData(verbose = FALSE) %>%
     FindVariableFeatures(
         method = "vst",
         nfeatures = 3000,
         verbose = FALSE) %>%
-    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
+    ScaleData(verbose = FALSE) %>%
     RunPCA(verbose = FALSE) %>%
-    RunUMAP(dims = 1:30, verbose = FALSE)
+    FindNeighbors %>%
+    FindClusters(resolution = 0.5) %>%
+    RunUMAP(dims = 1:30, verbose = FALSE, n.components=3L)
 
-ElbowPlot(srobj, ndims = 50)
+```
 
+``` {r, warnings = FALSE}
+# TD: Reason behind elbow plot
+ElbowPlot(se, ndims = 50)
+```
+
+``` {r, warnings = FALSE}
+# TD: Reason behind DimPlot
 DimPlot(
-    srobj,
+    se,
     group.by = c("Celltype"),
     label = TRUE,
     cols = pal)
 ```
 
+
 ```{r}
-# Not really sure what's going on here
-srobj@meta.data %>%
-  dplyr::count(`Sample ID`, `Disease group`)
-srobj@meta.data %>%
-  dplyr::count(Celltype, cell_type)
+# Modify strings with special characters to avoid complications later
+
+# QQQ: when I do the comma edit last, it only happens on the B cells - why?
+# test1 <- se@meta.data %>%
+#   mutate(
+#     Celltype = case_when(
+#       str_detect(Celltype, ", ") ~ str_replace(Celltype, ", ", "_"),
+#       str_detect(Celltype, "\\+") ~ str_replace(Celltype, "G\\+", "Gpos"),
+#       str_detect(Celltype, "\\-") ~ str_replace(Celltype, "G\\-", "Gneg"),
+#       
+#       TRUE ~ Celltype
+#       )
+#   )
+
+se@meta.data <- se@meta.data %>%
+  mutate(
+    Celltype = str_replace(Celltype, ", ", "_"),
+    Celltype = str_replace(Celltype, "G\\-", "Gneg"),
+    Celltype = str_replace(Celltype, "G\\+", "Gpos")
+  )
+
 ```
 
 ```{r}
-# VT_annotation is the low-resolution annotation
-
-annot_pseudobulk <- AggregateExpression(srobj, group.by = c('Sample ID','Celltype'))$RNA
-
-# tierNident is a higher-res annotation
-clust_pseudobulk <- AggregateExpression(srobj, group.by = c('Sample ID','cell_type'))$RNA
-
-# Here we separate the dataset into two other subsets that the team was interested in. - CD8 vs. CD4 T cells
-Idents(srobj) <- srobj@meta.data$Celltype
-cd8sr <- subset(srobj, idents = c('CD8, non-EM-like','CD8, EM-like'))
-cd4sr <- subset(srobj, idents = c('CD4, EM-like','CD4, non-EM-like'))
-
-# Aggregation is the pseudobulking step, where RNAs are summed across cells per celltype per sample. 
-cd4_pseudobulk <- AggregateExpression(cd4sr,group.by='Sample ID')$RNA
-cd8_pseudobulk <- AggregateExpression(cd8sr,group.by='Sample ID')$RNA
+se@meta.data$Celltype
 ```
 
-```{r}
-row.names(annot_pseudobulk)[annot_pseudobulk %>% row.names %>% grep('CD8',.)]
+### Aggreage Expression function
+TD: define this in 3 sentences or less
+``` {r}
+annot_pseudobulk <- AggregateExpression(
+  se, 
+  group.by = c('Sample ID','Celltype')
+  )$RNA
+
+# Here we separate the dataset into two subsets the team was interested in.
+# CD8 vs. CD4 T cells
+Idents(se) <- se@meta.data$Celltype
+cd8sr <- subset(se, idents = c('CD8_non-EM-like', 'CD8_EM-like'))
+cd4sr <- subset(se, idents = c('CD4_EM-like', 'CD4_non-EM-like'))
+
+# Aggregation is the pseudobulking step - 
+# where RNAs are summed across cells per celltype per sample. 
+cd4_pseudobulk <- AggregateExpression(cd4sr, group.by = 'Sample ID')$RNA
+cd8_pseudobulk <- AggregateExpression(cd8sr, group.by = 'Sample ID')$RNA
 ```
 
-```{r}
-dim(annot_pseudobulk)
-```
 
 ```{r}
-# I like to save intermediate files because they might be useful for something else later.
-
+# Save intermediate files because they might be useful for something else later.
 dir.create('./day-1/pseudobulk_analysis')
 dir.create('./day-1/pseudobulk_analysis/data')
-
-# saveRDS(annot_pseudobulk,'./day-1/pseudobulk_analysis/data/annotation_pseudo_bulk_data.rds')
-# saveRDS(clust_pseudobulk,'./day-1/pseudobulk_analysis/data/cluster_pseudo_bulk_data.rds')
-# saveRDS(cd4_pseudobulk,'./day-1/pseudobulk_analysis/data/cd4_pseudo_bulk_data.rds')
-# saveRDS(cd8_pseudobulk,'./day-1/pseudobulk_analysis/data/cd8_pseudo_bulk_data.rds')
 ```
 
-## Run DESeq2 !!!
+## Run DESeq2 
+
+### Explanation
 
 ```{r}
 list.files('./day-1/pseudobulk_analysis/data')
@@ -140,41 +208,35 @@ list.files('./day-1/pseudobulk_analysis/data')
 ```{r}
 # Here we run DESeq2, the classic differential expression package.
 colnames(cd4_pseudobulk)
-# We have to rearrange the data somewhat to get it into the DESeq object. colData is the sample-level metadata
+# We have to rearrange the data somewhat to get it into the DESeq object. 
+# colData is the sample-level metadata
 sample_info <- strsplit(colnames(cd4_pseudobulk), " ")
-# sample_info
 
 colData <- data.frame(
   sample = colnames(cd4_pseudobulk),
   condition = sapply(sample_info, `[`, 1)
 )
 DT::datatable(colData)
-# Ensure unique rownames in colData for DESeqDataSet
-# TD: make new object with reg names, not factors
-# TD: go through a tutorial bc oh my
+
 rownames(colData) <- colnames(cd4_pseudobulk)
-# rownames(colData)
 ```
 
 ```{r}
-library(dplyr)
-srobj@meta.data <- srobj@meta.data %>%
+# Note: If you encounter an error here, make sure dplyr is installed/running.
+se@meta.data <- se@meta.data %>%
   rename("Sample ID" = "sample")
 colData <- colData %>%
-  left_join(srobj@meta.data %>%
+  left_join(se@meta.data %>%
               dplyr::select('sample') %>%
               distinct()
 ) 
 DT::datatable(colData)
 
-cd4_pseudobulk@x <- as.numeric(as.integer(cd4_pseudobulk@x))
-
-# This function creates the DESeq object, where tests can be run. check out the documentation online for more.
+# Create the DESeq object, where tests can be run. 
+## Check out the documentation online for more.
 dds <- DESeqDataSetFromMatrix(countData = cd4_pseudobulk,
                                 colData = colData,
                                 design = ~ condition)
-# saveRDS(dds,paste('./day-1/pseudobulk_analysis/data/cd4_annotation_pseudobulk_deseq2_object.rds'))
-
 # this runs the test
 dds <- DESeq(dds)
 dds
@@ -185,40 +247,31 @@ res <- results(dds)
 res
 
 # filtering and rearranging for plotting
-restbl <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05)
+restbl <- res %>% 
+  data.frame %>% 
+  rownames_to_column('gene') %>% 
+  filter(pvalue < 0.05)
 
 # save the table!
-write.csv(restbl,file='./navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.csv')
+## Uncomment below to create results folder
+# dir.create('./day-1/pseudobulk_analysis/results')
+write.csv(
+  restbl, 
+  file='./day-1/pseudobulk_analysis/results/cd4_annot_pseudobulk_results.csv'
+  )
 ```
 
-```{r}
-### DO THESE BEFORE RUNNING DESEQ()  - optional - this is from a tutorial
-# remove rows with less than 10 reads across all of the samples
-# keep <- rowSums(counts(dds)) >= 10
-# 
-# dds_1 <- dds[keep,]
-# dds_1
-# dds_1$condition <- relevel(dds_1$condition, ref = "Normal")
-```
+## Results
 
-```{r}
-# dds_2 <- DESeq(dds_1)
-# res <- results(dds_2)
-# res
-```
-
-```{r}
-res01 <- results(dds, alpha = "0.01")
-summary(res01)
-```
-
+### What does this mean?
 ```{r}
 results(dds, contrast = c("condition", "Flu", "Normal"))
 ```
 
+### VolcanoPlot instead >> see below
 ```{r}
 # plotMA()
-plotMA(res01)
+plotMA(res)
 ```
 
 ## CD8
@@ -229,7 +282,8 @@ colnames(cd8_pseudobulk)
 ```
 
 ```{r}
-# We have to rearrange the data somewhat to get it into the DESeq object. colData is the sample-level metadata
+# We have to rearrange the data somewhat to get it into the DESeq object. 
+# colData is the sample-level metadata
 sample_info <- strsplit(colnames(cd8_pseudobulk), " ")
 # sample_info
 
@@ -237,26 +291,27 @@ colData <- data.frame(
   sample = colnames(cd8_pseudobulk),
   condition = sapply(sample_info, `[`, 1)
 )
-# colData
+DT::datatable(colData)
+
 # Ensure unique rownames in colData for DESeqDataSet
 
 rownames(colData) <- colnames(cd8_pseudobulk)
 
 colData <- colData %>%
-  left_join(srobj@meta.data %>%
+  left_join(se@meta.data %>%
   dplyr::select(sample) %>%
     distinct()
 ) %>%
   column_to_rownames(var = 'sample')
+DT::datatable(colData)
 ```
 
 ```{r}
-cd8_pseudobulk@x <- as.numeric(as.integer(cd8_pseudobulk@x))
-# This function creates the DESeq object, where tests can be run. check out the documentation online for more.
+# This function creates the DESeq object, where tests can be run. 
+# check out the documentation online for more.
 dds <- DESeqDataSetFromMatrix(countData = cd8_pseudobulk,
                                 colData = colData,
                                 design = ~ condition)
-# saveRDS(dds,paste('./day-1/pseudobulk_analysis/data/cd8_annotation_pseudobulk_deseq2_object.rds'))
 
 # this runs the test
 dds <- DESeq(dds)
@@ -268,37 +323,52 @@ res <- results(dds)
 res
 
 # filtering and rearranging for plotting
-restbl <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05)
+restbl <- res %>% 
+  data.frame %>% 
+  rownames_to_column('gene') %>% 
+  filter(pvalue < 0.05)
 
 # save the table!
-write.csv(restbl,file='./navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/pseudobulk_analysis/results/cd8_annotation_pseudobulk_results.csv')
+write.csv(
+  restbl,
+  file='./day-1/pseudobulk_analysis/results/cd8_annot_pseudobulk_results.csv')
+```
+
+
+```{r}
+res <- res %>% 
+  data.frame %>% 
+  rownames_to_column('gene') %>% 
+  filter(pvalue < 0.05) %>% 
+  dim
 ```
 
 ```{r}
 # We have to rearrange the data somewhat to get it into the DESeq object. colData is the sample-level metadata
-sample_info <- strsplit(colnames(annot_pseudobulk), " ")
-# sample_info
+
+# Celltype variable is in question
+sample_info <- strsplit(colnames(annot_pseudobulk), "_")
+
+# Prep variables
+lvls <- c("Normal", "Flu", "nCoV")
+ftr <- str_split(colnames(annot_pseudobulk), pattern = " ", simplify = TRUE)
 
 colData <- data.frame(
   sample = colnames(annot_pseudobulk),
-  condition = sapply(sample_info, `[`, 1)
+  condition = factor(ftr[, 1], levels = lvls),
+  donor_id = sapply(sample_info, `[`, 1),
+  CT = sapply(sample_info, `[`, 2)
 )
 
 # Ensure unique rownames in colData for DESeqDataSet
 rownames(colData) <- colnames(annot_pseudobulk)
-# rownames(colData)
 
 colData <- colData %>%
-  left_join(srobj@meta.data %>%
+  left_join(se@meta.data %>%
   dplyr::select(sample) %>%
     distinct()
 ) %>%
   column_to_rownames(var = 'sample')
-
-```
-
-```{r}
-res <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05) %>% dim
 ```
 
 ```{r}
@@ -306,23 +376,132 @@ res <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.0
 
 # I made a 4 loop to do all this for each higher-res celltype separately. 
 # colData
-for (cluster in unique(colData$Celltype)) {
-  cluster
-    # bulk_subset <- annot_pseudobulk[,str_split_fixed(colnames(annot_pseudobulk),pattern='_',n=2)[,2] %in% cluster ]
-    # data_subset <- colData %>% filter(VT_annotation24 %in% cluster)
-    # dds <- DESeqDataSetFromMatrix(countData = bulk_subset,
-    #                             colData = data_subset,
-    #                             design = ~ cohort)
-    # saveRDS(dds,paste0('pseudobulk_analysis/data/',
-    #                    cluster %>% str_replace_all('/','.'),
-    #                    '_annotation_pseudobulk_deseq2_object.rds'))
-    # dds <- DESeq(dds)
-    # res <- results(dds,name='cohort_Rx_vs_NoRx')
-    # restbl <- res %>% data.frame %>% rownames_to_column('gene') %>% filter(pvalue < 0.05)
-    # write_csv(restbl,paste0('pseudobulk_analysis/results/',
-    #                         cluster %>% str_replace_all('/','.'),
-    #                         '_annotation_pseudobulk_results.csv'))
-}
+lapply(unique(colData$CT), function(cluster) {
+  print(cluster)
+  # str_detect(string = colnames(annot_pseudobulk), pattern = cluster)
+  # bulk_subset <- annot_pseudobulk[, str_detect(string = colnames(annot_pseudobulk), pattern = cluster)]
+  split <- str_split_fixed(colnames(annot_pseudobulk),pattern='_',n=2)[,2]
+  bulk_subset <- annot_pseudobulk[,split %in% cluster ]
+  data_subset <- colData %>% filter(CT %in% cluster) 
+  dds <- DESeqDataSetFromMatrix(countData = bulk_subset,
+                                colData = data_subset,
+                                design = ~ condition)
+  
+  cluster <- stringr::str_replace(cluster, " ", "_")
+  c <- stringr::str_replace(cluster, "\\-", "_")
+  dds <- DESeq(dds)
+  res <- results(dds)
+  restbl <- res %>% 
+    data.frame %>% 
+    rownames_to_column('gene') %>% 
+    filter(pvalue < 0.05)
+  r <- str_replace_all(c, '/', '.')
+  write_csv(
+    restbl,
+    glue::glue("./day-1/pseudobulk_analysis/results/{r}_annot_pseudobulk_results.csv"))
+})
 ```
 
-# The `echo: false` option disables the printing of code (only output is displayed).
+## Still copying Kyle
+``` {r}
+list.files('./day-1/pseudobulk_analysis/results')
+```
+
+
+``` {r}
+res_df <- read_csv('./day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.csv')
+
+res_df %>% head
+```
+
+
+``` {r}
+# Volcano plot is often the ultimate goal of differential expression analysis. This can be the end of the notebook.
+# If you have other ideas for further analysis feel free to add. And if you want to write a function to make these per result
+# rather than manually doing for loops that would also be great! 
+library(EnhancedVolcano)
+# options(repr.plot.width=14,repr.plot.height=10)
+EnhancedVolcano(res_df,
+                lab = res_df$gene,
+                x = 'log2FoldChange',
+                y = 'padj',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = 'Volcano Plot: CD4 T cells',
+                subtitle = '                                                   <------------- NoRx   .   Rx ------------->',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 FDR',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res_df$padj < 0.05 & abs(res_df$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant', 'Log2FC', 'P-Value', 'Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30')
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+
+
+``` {r}
+
+
+```
+Suggestions:
+<!-- # TD: -->
+<!-- # after commas, add a space -->
+<!-- # make sure code doesn't pass this line >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> -->
+
+The `echo: false` option disables the printing of code (only output is displayed).
