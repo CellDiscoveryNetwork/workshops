@@ -27,12 +27,18 @@ options(width = 1200)
 
 ## Introduction
 
-scRNA-seq data returns individual molecular reads for each cell representing the expression of each gene in each cell. However, transcript abundances at the individual gene level can be hard to interpret. Another confounding factor with these readouts is the high sparsity of the data. This sparsity acutely affects genes with low mRNA abundance (Figure 1) @mereu2020 . Transcription factors (TFs) are key players involved in regulating the present and future cell states by binding to regulatory regions in the DNA and driving gene expression programs @baskar2022. Therefore, they are tightly regulated and are often found at low abundances due to their powerful effects on the cells. Hence, being able to quantify the activity of TFs in a cell can provide very valuable information when characterizing the biological processes underlying a cell type or state. However, due to their low expression they severely suffer from dropout events and their mRNA abundance can't be accurately quantified by looking at the number of UMIs. To address this issue methods have been developed to quantify their activities by leveraging the expression of the genes they regulate.
+scRNA-seq data returns individual molecular reads for each cell representing the expression of each gene in each cell. However, transcript abundances at the individual gene level can be hard to interpret. Another confounding factor with these readouts is the high sparsity of the data. This sparsity acutely affects genes with low mRNA abundance (Figure 1) @mereu2020 . Transcription factors (TFs) are key players involved in regulating the present and future cell states by binding to regulatory regions in the DNA and driving gene expression programs @baskar2022. Therefore, they are tightly regulated and are often found at low abundances due to their powerful effects on the cells. Hence, being able to quantify the activity of TFs in a cell can provide very valuable information when characterizing the biological processes underlying a cell type or state. However, due to their low expression they severely suffer from dropout events and their mRNA abundance can't be accurately quantified by looking at the number of UMIs. Moreover, TFs can be regulated at the posttranscriptional level, therefore just assessing the mRNA abundance may not be the most accurate measure of abundance. To address this issue methods have been developed to quantify their activities by leveraging the expression of the genes they regulate.
 
 <img src="img/mereu-lafzi-dropouts.png" width="900"/>\
 *Figure 1. Dropout Probability vs Expression level*
 
 In this vignette we are going to go over the best practices on how to compute these activites, what we need to take into account when computing them and follow a recent benchmarking paper to determine which are the best reference databases @müller-dott2023 and tools to use like `decoupler` @badia-i-mompel2022!
+
+Some associated literature which is a must read are:
+
+-   [Integrating single-cell multi-omics and prior biological knowledge for a functional characterization of the immune system](https://doi.org/10.1038/s41590-024-01768-2)
+
+-   [decoupleR: ensemble of computational methods to infer biological activities from omics data](https://doi.org/10.1093/bioadv/vbac016)
 
 Before we start here are some key concepts that will help us and frame the vignette!
 
@@ -691,6 +697,7 @@ net %>% dplyr::filter(source == "EBF1" & target %in% c("CD79A", "CD79B", "GATA3"
 Briefly, when scoring TF activities and looking at their activities it is important to not only look at the overall score obtained for each cell but one also needs to dive deeper into which are the genes that are driving that signature!
 
 #### TF by disease
+
 Lastly we can also look at the TF activity per cell type by condition of interest as below:
 
 ```{r fig.height=15, fig.width=20}
