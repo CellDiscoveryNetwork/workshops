@@ -31,6 +31,13 @@ Gene signatures are commonly used in routine single cell analysis. Many methods 
 
 With this tutorial we hope to familiarize you with the concepts of gene signatures, how they are scored in single cell datasets and how to interpret the scores obtained!
 
+Some associated literature which is a must read are:
+
+-   [Integrating single-cell multi-omics and prior biological knowledge for a functional characterization of the immune system](https://doi.org/10.1038/s41590-024-01768-2)
+
+-   [decoupleR: ensemble of computational methods to infer biological activities from omics data](https://doi.org/10.1093/bioadv/vbac016)
+
+
 Before we start here are some key concepts that will help us and frame the vignette!
 
 -   **What is a gene signature?**
@@ -461,7 +468,7 @@ Here are some examples of how to interpret these gene signatures:
 
 1.  In the Monocyte signature not all cells that have the same score have the same genes expressed. For example, wee can see how among the cells with high scores there are cells that express CD14 with a gradient switching to expression of FCGR3A. Therefore, classifying all of these cells as the same just because the gene signature scoring returns the same value would be a mistake. In this case, a likely scenario could be that the gene signature isn't teasing out differences between classical, intermediate, and non-classical monocytes.
 
-```{r fig.with=18, fig.height=5}
+```{r fig.width=18, fig.height=8}
 # Subset to 10% of the original dataset for speed and visualization purposes
 se_sub <- se[, sample(colnames(se), 0.1 * ncol(se))]
 geneHM(
