@@ -1,5 +1,5 @@
 ---
-title: "5 - Pseudobulk Analysis"
+title: "5 - Multi-Sample Multi-Condition Differential Expression"
 author: "CDN team"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format:
@@ -97,7 +97,7 @@ Uncomment commands below to see what directory you are currently working in and 
 
 ```{r}
 # getwd() 
-# setwd('./workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/')
+# setwd('~/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/')
 ```
 
 ## Load Data
@@ -106,10 +106,10 @@ Uncomment commands below to see what directory you are currently working in and 
 
 ```{r}
 # 'se' or 'srobj' are common abbreviations for Seurat objects
-srobj <- readRDS('./data/d8e35450-de43-451a-9979-276eac688bce.rds')
+srobj <- readRDS('../data/d8e35450-de43-451a-9979-276eac688bce.rds')
 
 # 'genes' is a gene conversion table to convert ENSG to readable gene symbols
-genes <- read_csv('./data/cov_flu_gene_names_table.csv') 
+genes <- read_csv('../data/cov_flu_gene_names_table.csv') 
 ```
 
 ```{r}
@@ -147,8 +147,6 @@ se <- se %>%
         verbose = FALSE) %>%
     ScaleData(verbose = FALSE) %>%
     RunPCA(verbose = FALSE) %>%
-    # FindNeighbors %>%
-    # FindClusters(resolution = 0.5) %>%
     RunUMAP(dims = 1:30, verbose = FALSE, n.components=3L)
 
 ```
@@ -168,12 +166,6 @@ DimPlot(
     group.by = c("Celltype"),
     label = TRUE,
     cols = pal)
-```
-
-TD
-
-```{r}
-
 ```
 
 Modify strings with special characters to avoid complications later
@@ -196,32 +188,36 @@ unique(se@meta.data$Celltype)
 
 ### Aggregate Expression
 
-The AggregateExpression() function arranges the cell by gene matrix to group gene counts by the Sample ID and labelled Celltype of each cell. It outputs either a new seurat object or a list of counts. **Aggregation is the pseudobulking step where genes are summed across cells per celltype per sample.**
-
-Q: does order matter?
+The AggregateExpression() function arranges the cell by gene matrix to group gene counts by the Sample ID and labelled Celltype of each cell. It outputs either a sparse matrix or a new seurat object if `return.Seurat = TRUE`. **Aggregation is the pseudobulking step where genes are summed across cells per celltype per sample.**
 
 ```{r}
-annot_pseudobulk <- AggregateExpression(
-  se, # object name
-  group.by = c('Sample ID','Celltype')
-  )$RNA # desired assay defined here
-# NOTE: Can add "return.seurat = FALSE" and assign this to a variable which will output as a list of counts
-
 # Here we separate the dataset into two subsets
-# CD8 vs. CD4 T cells
+# CD8 and CD4 T cells
 Idents(se) <- se@meta.data$Celltype
-cd8sr <- subset(se, idents = c('CD8_non-EM-like', 'CD8_EM-like'))
 cd4sr <- subset(se, idents = c('CD4_EM-like', 'CD4_non-EM-like'))
+cd8sr <- subset(se, idents = c('CD8_non-EM-like', 'CD8_EM-like'))
+
+# Filter for genes with 0 counts
 cd4sr <- cd4sr[sparseMatrixStats::rowSums2(cd4sr@assays$RNA$data) > 0, ]
+cd8sr <- cd8sr[sparseMatrixStats::rowSums2(cd8sr@assays$RNA$data) > 0, ]
+
 
 cd4_pseudobulk <- AggregateExpression(cd4sr, group.by = 'Sample ID')$RNA
 cd8_pseudobulk <- AggregateExpression(cd8sr, group.by = 'Sample ID')$RNA
+dim(cd4_pseudobulk)
+dim(cd8_pseudobulk)
 ```
 
 ```{r}
 # Save intermediate files because they might be useful later.
+## TKTK : put at top or in "save" section
 dir.create('pseudobulk_analysis')
 dir.create('pseudobulk_analysis/data')
+```
+
+```{r}
+## TKTK : put at top or in "save" section
+list.files('pseudobulk_analysis/data')
 ```
 
 ## Run DESeq2
@@ -234,36 +230,38 @@ DESeq2 takes 3 main parameters.
 
 2.  colData = Sample metadata.
 
-3.  design = Tells DESeq what comparisons to make.
-
-```{r}
-list.files('./day-1/pseudobulk_analysis/data')
-```
+3.  design = Tells the DESeq function what comparisons to make.
 
 ```{r}
 # Here we run DESeq2, the classic differential expression package.
 
+# 2 - Subset the sample metadata to match the sample x gene matrix.
 sample_info <- strsplit(colnames(cd4_pseudobulk), " ")
 
+lvls <- c("Normal", "Flu", "nCoV")
 colData <- data.frame(
   sample = colnames(cd4_pseudobulk),
-  condition = sapply(sample_info, `[`, 1)
+  condition = factor(sapply(sample_info, `[`, 1), levels = lvls)
 )
 DT::datatable(colData)
 
 rownames(colData) <- colnames(cd4_pseudobulk)
-```
 
-```{r}
 # Note: If you encounter an error here, make sure dplyr is installed/running.
+
+# Set "sample" variable to join the dataframes on
 se@meta.data <- se@meta.data %>%
   dplyr::rename("sample" = "Sample ID")
 
+# Join the metadata in se@meta.data to colData dataframe
 colData <- colData %>%
   left_join(se@meta.data %>%
               dplyr::select('sample', 'Disease group') %>%
               distinct()
 )
+```
+
+```{r}
 # Create the DESeq object, where tests can be run. 
 ## Check out the documentation online for more.
 dds <- DESeqDataSetFromMatrix(countData = cd4_pseudobulk,
@@ -276,49 +274,275 @@ dds
 ## Plot dispersion estimates
 # DESeq2 assumes that genes with similar expression levels have similar dispersion.
 plotDispEsts(dds)
-
-# run 'resultsNames(dds)' to see "name" options
-# current options: "condition_Flu_vs_Normal"  "condition_nCoV_vs_Normal"
-# this pulls results from the DESeq object
-res <- results(dds, name = "condition_Normal_vs_Flu")
-res
-# Save the table
-# Uncomment below to create results folder
-# dir.create('pseudobulk_analysis/results')
-write.csv(
-  res, 
-  file='./day-1/pseudobulk_analysis/results/cd4_annot_pseudobulk_results.csv'
-  )
-saveRDS(object = res, 
-        file = './day-1/pseudobulk_analysis/results/cd4_annot_pseudobulk_results.rds')
-# Filtering and rearranging for plotting
-restbl <- res %>% 
-  data.frame %>% 
-  rownames_to_column('gene') 
-# %>% 
-#   filter(pvalue < 0.05)
 ```
 
-```{r}
-summary(res)
-```
-
-```{r}
-# # Group cells by condition
-# DimPlot(
-#     se,
-#     group.by = c("Sample ID"),
-#     label = TRUE,
-#     cols = pal)
-```
 ## Results
 
 ### What does this mean?
 
-results notes: - positive log2fold change are upregulated, and negative are down reegulated - can set the p-value to a certain threshold
+Results function examples:
+
+-   res \<- results(dds)
+
+-   res \<- results(dds, contrast = c("metadata_var", "opt1", "opt2"))
+
+-   res \<- results(dds, name = "defined_condition")
+
+Results output guide:
+
+-   Positive log2fold change are up-regulated
+
+-   Negative are down-regulated
+
+-   Can set the p-value to a certain threshold
 
 ```{r}
 results(dds, contrast = c("condition", "Flu", "Normal"))
+```
+
+```{r}
+# run 'resultsNames(dds)' to see "name" options
+# current options: "condition_Flu_vs_Normal"  "condition_nCoV_vs_Normal"
+# this pulls results from the DESeq object
+res <- results(dds, name = "condition_Flu_vs_Normal")
+res
+
+# Summary function 
+summary(res)
+```
+
+Save Results\
+**NOTE: Save all data so if a collaborator asks what the comparison was, you have the header stored or rerun analysis.**
+
+```{r}
+# Uncomment below to create results folder
+# dir.create('pseudobulk_analysis/results')
+
+# Save as a R object
+saveRDS(object = res, 
+        file = 'pseudobulk_analysis/results/cd4_annot_pseudobulk_results.rds')
+
+# Filtering and rearranging for plotting
+restbl <- res %>% 
+  data.frame %>% 
+  rownames_to_column('gene')
+
+# Write data frame results to CSV
+write.csv(
+  restbl,
+  file='pseudobulk_analysis/results/cd4_annot_pseudobulk_results.csv'
+  )
+```
+
+## Visualize Results
+
+Volcano plot is often the ultimate goal of differential expression analysis.
+
+### From CSV object
+
+```{r}
+res <- read_csv('pseudobulk_analysis/results/cd4_annot_pseudobulk_results.csv')
+```
+
+```{r}
+library(EnhancedVolcano)
+EnhancedVolcano(res,
+                lab = res$gene,
+                x = 'log2FoldChange',
+                y = 'padj',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = 'Volcano Plot: CD4 T cells',
+                subtitle = 'Normal < -  - - -  | -  - - -  > Flu',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 FDR',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res$padj < 0.05 & abs(res$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant', 'Log2FC', 'P-Value', 'Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30')
+
+```
+
+TD: List notable genes, highlight where they are found, what they do, etc
+
+### From RDS object
+
+```{r}
+res <- readRDS('pseudobulk_analysis/results/cd4_annot_pseudobulk_results.rds')
+```
+
+Volcano plot is often the ultimate goal of differential expression analysis.
+
+```{r}
+library(EnhancedVolcano)
+EnhancedVolcano(res,
+                lab = rownames(res),
+                x = 'log2FoldChange',
+                y = 'padj',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = 'Volcano Plot: CD4 T cells',
+                subtitle = 'Normal < -  - - -  | -  - - -  > Flu',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 FDR',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res$padj < 0.05 & abs(res$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant', 'Log2FC', 'P-Value', 'Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30')
+
+```
+
+TD: List notable genes, highlight where they are found, what they do, etc
+
+## Automate this for pre-annotated cell types
+
+### Aggregate gene counts for each sample
+
+```{r}
+# TKTK: how do I filter for 0 gene counts of a seurat obj?
+# Filter genes with zero counts
+## Start loop, then filter
+annot_pseudobulk <- AggregateExpression(
+  se, # object name
+  group.by = c('Sample ID','Celltype')
+  )$RNA # desired assay
+# NOTE: Can add "return.seurat = TRUE" and assign this to a new Seurat obj
+```
+
+```{r}
+# We have to rearrange the data somewhat to get it into the DESeq object. colData is the sample-level metadata
+
+# Celltype variable is in question
+sample_info <- strsplit(colnames(annot_pseudobulk), "_")
+
+# TKTK: figure out consistent factor order
+# Prep variables
+lvls <- c("Normal", "Flu", "nCoV")
+ftr <- str_split(colnames(annot_pseudobulk), pattern = " ", simplify = TRUE)
+
+colData <- data.frame(
+  sample = colnames(annot_pseudobulk),
+  condition = factor(ftr[, 1], levels = lvls),
+  donor_id = sapply(sample_info, `[`, 1),
+  CT = sapply(sample_info, `[`, 2)
+)
+
+# Ensure unique rownames in colData for DESeqDataSet
+rownames(colData) <- colnames(annot_pseudobulk)
+
+colData <- colData %>%
+  left_join(se@meta.data %>%
+  dplyr::select(sample) %>%
+    distinct()
+) %>%
+  column_to_rownames(var = 'sample')
+```
+
+```{r}
+# Use lapply function to loop through Celltypes
+lapply(unique(colData$CT), function(cluster) {
+  split <- str_split_fixed(colnames(annot_pseudobulk),pattern='_',n=2)[,2]
+  bulk_subset <- annot_pseudobulk[,split %in% cluster ]
+  bulk_subset <- bulk_subset[sparseMatrixStats::rowSums2(bulk_subset@assays$RNA$data) > 0, ]
+  data_subset <- colData %>% filter(CT %in% cluster) 
+  data_subset$condition
+  dds <- DESeqDataSetFromMatrix(countData = bulk_subset,
+                                colData = data_subset,
+                                design = ~ condition)
+  
+  cluster <- stringr::str_replace(cluster, " ", "_")
+  c <- stringr::str_replace(cluster, "\\-", "_")
+  dds <- DESeq(dds)
+  # resultsNames(dds)
+  res <- results(dds, name = "condition_Flu_vs_Normal")  
+
+  r <- str_replace_all(c, '/', '.')
+  saveRDS(
+    res,
+    glue::glue("pseudobulk_analysis/results/{r}_fluVnorm_annot_pseudobulk_results.rds"))
+  
+  restbl <- res %>%
+  data.frame %>%
+  rownames_to_column('gene')
+  write_csv(
+    restbl,
+    glue::glue("pseudobulk_analysis/results/{r}_fluVnorm_annot_pseudobulk_results.csv"))
+})
+
+# TD: openxlsx package
+# save each csv file individually, then loop through them again and put them into one excel file
+```
+
+Save to XLSX
+
+```{r}
+# TKTK pick this up later
+# ls <- unique(colData$CT)
+# clust_xlsx <- lapply(names(ls), function(c){
+#   # print(c)
+#   # extract cluster
+#   print(c)
+# })
+
+```
+
+```{r}
+res_ls <- list.files('pseudobulk_analysis/results/', pattern = "*.rds")
+```
+
+```{r}
+suppressMessages({
+
+# dir.create('pseudobulk_analysis/figures/')
+lapply(res_ls, function(file) {
+    res_df <- readRDS(glue::glue('pseudobulk_analysis/results/{file}'))
+    pdf(glue::glue('pseudobulk_analysis/figures/',strsplit(file,split='_')[[1]][1],'_volcano.pdf'),width=14,height=10)
+
+    print(EnhancedVolcano(res_df,
+                lab = res_df$gene,
+                x = 'log2FoldChange',
+                y = 'padj',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = glue::glue('Volcano Plot: ',strsplit(file,split='_')[[1]][1]),
+                subtitle = 'try again',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 FDR',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res_df$padj < 0.05 & abs(res_df$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant','Log2FC','P-Value','Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30'))
+    dev.off()
+})
+    })
+```
+
+```{r}
+list.files('pseudobulk_analysis/figures/')
 ```
 
 ## CD8
@@ -374,7 +598,7 @@ restbl <- res %>%
 # save the table!
 write.csv(
   restbl,
-  file='./day-1/pseudobulk_analysis/results/cd8_annot_pseudobulk_results.csv')
+  file='pseudobulk_analysis/results/cd8_annot_pseudobulk_results.csv')
 ```
 
 ```{r}
@@ -385,183 +609,19 @@ res <- res %>%
   dim
 ```
 
-```{r}
-# We have to rearrange the data somewhat to get it into the DESeq object. colData is the sample-level metadata
-
-# Celltype variable is in question
-sample_info <- strsplit(colnames(annot_pseudobulk), "_")
-
-# TKTK: figure out consistent factor order
-# Prep variables
-lvls <- c("Normal", "Flu", "nCoV")
-ftr <- str_split(colnames(annot_pseudobulk), pattern = " ", simplify = TRUE)
-
-colData <- data.frame(
-  sample = colnames(annot_pseudobulk),
-  condition = factor(ftr[, 1], levels = lvls),
-  donor_id = sapply(sample_info, `[`, 1),
-  CT = sapply(sample_info, `[`, 2)
-)
-
-# Ensure unique rownames in colData for DESeqDataSet
-rownames(colData) <- colnames(annot_pseudobulk)
-
-colData <- colData %>%
-  left_join(se@meta.data %>%
-  dplyr::select(sample) %>%
-    distinct()
-) %>%
-  column_to_rownames(var = 'sample')
-```
-
-```{r}
-# Use lapply function to loop through Celltypes
-lapply(unique(colData$CT), function(cluster) {
-  split <- str_split_fixed(colnames(annot_pseudobulk),pattern='_',n=2)[,2]
-  bulk_subset <- annot_pseudobulk[,split %in% cluster ]
-  data_subset <- colData %>% filter(CT %in% cluster) 
-  data_subset$condition
-  dds <- DESeqDataSetFromMatrix(countData = bulk_subset,
-                                colData = data_subset,
-                                design = ~ condition)
-  
-  cluster <- stringr::str_replace(cluster, " ", "_")
-  c <- stringr::str_replace(cluster, "\\-", "_")
-  dds <- DESeq(dds)
-  # resultsNames(dds)
-  res <- results(dds, name = "condition_Flu_vs_Normal")  
-
-  r <- str_replace_all(c, '/', '.')
-  saveRDS(
-    res,
-    glue::glue("./day-1/pseudobulk_analysis/results/{r}_fluVnorm_annot_pseudobulk_results.rds"))
-  
-  restbl <- res %>%
-  data.frame %>%
-  rownames_to_column('gene')
-  write_csv(
-    restbl,
-    glue::glue("./day-1/pseudobulk_analysis/results/{r}_fluVnorm_annot_pseudobulk_results.csv"))
-})
-
-# TD: openxlsx package
-# save each csv file individually, then loop through them again and put them into one excel file
-```
-
-Save to XLSX
-
-```{r}
-# TKTK pick this up later
-# ls <- unique(colData$CT)
-# clust_xlsx <- lapply(names(ls), function(c){
-#   # print(c)
-#   # extract cluster
-#   print(c)
-# })
-
-```
-
-## Visualizations
-
-```{r}
-list.files('./day-1/pseudobulk_analysis/results')
-```
-
-```{r}
-# res <- read_csv('./day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.csv')
-# 
-# res %>% head
-
-res <- readRDS('./day-1/pseudobulk_analysis/results/cd4_annotation_pseudobulk_results.rds')
-```
-
-TD: Save. all data so if a collaborator asks what the comparison was, you have the header stored or rerun analysis.
-
-Volcano plot is often the ultimate goal of differential expression analysis.
-
-```{r}
-library(EnhancedVolcano)
-EnhancedVolcano(res,
-                lab = res$gene,
-                x = 'log2FoldChange',
-                y = 'padj',
-                xlim = c(-8, 8),
-                ylim = c(0, 5),
-                title = 'Volcano Plot: CD4 T cells',
-                subtitle = 'Flu <--------------------|-------------------->Normal',
-                xlab = 'Log2 Fold Change',
-                ylab = '-log10 FDR',
-                pCutoff = 0.05,
-                FCcutoff = 1.5,
-                pointSize = c(ifelse(res$padj < 0.05 & abs(res$log2FoldChange) > 1.5, 1.5, 1)),
-                labSize = 4.0,
-                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
-                colAlpha = 1,
-                legendLabels=c('Not Significant', 'Log2FC', 'P-Value', 'Log2FC & P-Value'),
-                legendPosition = 'right',
-                legendLabSize = 14,
-                drawConnectors = TRUE,
-                widthConnectors = 0.5,
-                colConnectors = 'grey30')
-
-```
-
-```{r}
-res_ls <- list.files('./day-1/pseudobulk_analysis/results/', pattern = "*.rds")
-```
-
-```{r}
-suppressMessages({
-
-# dir.create('pseudobulk_analysis/figures/')
-lapply(res_ls, function(file) {
-    res_df <- readRDS(glue::glue('./day-1/pseudobulk_analysis/results/{file}'))
-    pdf(glue::glue('./day-1/pseudobulk_analysis/figures/',strsplit(file,split='_')[[1]][1],'_volcano.pdf'),width=14,height=10)
-
-    print(EnhancedVolcano(res_df,
-                lab = res_df$gene,
-                x = 'log2FoldChange',
-                y = 'padj',
-                xlim = c(-8, 8),
-                ylim = c(0, 5),
-                title = glue::glue('Volcano Plot: ',strsplit(file,split='_')[[1]][1]),
-                subtitle = 'try again',
-                xlab = 'Log2 Fold Change',
-                ylab = '-log10 FDR',
-                pCutoff = 0.05,
-                FCcutoff = 1.5,
-                pointSize = c(ifelse(res_df$padj < 0.05 & abs(res_df$log2FoldChange) > 1.5, 1.5, 1)),
-                labSize = 4.0,
-                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
-                colAlpha = 1,
-                legendLabels=c('Not Significant','Log2FC','P-Value','Log2FC & P-Value'),
-                legendPosition = 'right',
-                legendLabSize = 14,
-                drawConnectors = TRUE,
-                widthConnectors = 0.5,
-                colConnectors = 'grey30'))
-    dev.off()
-})
-    })
-```
-
-```{r}
-list.files('./day-1/pseudobulk_analysis/figures/')
-```
-
 ### Read and bind files
 
 ```{r}
 grep('annotation',list.files('./day-1/pseudobulk_analysis/results'))
 
-annots <- list.files('./day-1/pseudobulk_analysis/results')[grepl('annotation_',list.files('./day-1/pseudobulk_analysis/results'))]
-clusts <- list.files('./day-1/pseudobulk_analysis/results')[grepl('cluster-',list.files('./day-1/pseudobulk_analysis/results'))]
+annots <- list.files('pseudobulk_analysis/results')[grepl('annotation_',list.files('pseudobulk_analysis/results'))]
+clusts <- list.files('pseudobulk_analysis/results')[grepl('cluster-',list.files('pseudobulk_analysis/results'))]
 
 annots = annots[c(-1,-8)]
 ```
 
 ```{r}
-setwd('./day-1/pseudobulk_analysis/results')
+setwd('pseudobulk_analysis/results')
 
 read_and_bind_files <- function(file_list) {
   # Function to extract cluster name and read file
