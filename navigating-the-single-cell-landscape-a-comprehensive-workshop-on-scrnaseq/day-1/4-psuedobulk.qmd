@@ -27,7 +27,7 @@ Another way to process single-cell data is to pseudobulk the samples by aggregat
 
 ### Key Takeaways
 
-1.  Aggregating gene counts at the sample level provides another way to determine differentially expressed genes in single-cell data.
+1.  Aggregating gene counts by cell type at the sample level provides a way to determine differentially expressed genes in single-cell data.
 2.  Pseudobulking single-cell data allows scientists to benefit from the statistical rigor of pre-existing bulk DE analysis on their single-cell data.
 3.  Three
 
