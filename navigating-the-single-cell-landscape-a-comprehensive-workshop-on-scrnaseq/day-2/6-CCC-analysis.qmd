@@ -29,6 +29,8 @@ Some associated literature which is a must read are:
 
 -   [Evaluation of cell-cell interaction methods by integrating single-cell RNA sequencing data with spatial information](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-022-02783-y)
 
+-   [Integrating single-cell multi-omics and prior biological knowledge for a functional characterization of the immune system](https://doi.org/10.1038/s41590-024-01768-2)
+
 **Key Takeaways**
 
 -   The Ligand-Receptor (L-R) database used gather the collective prior knowledge and has a great impact on the results obtained.
@@ -46,7 +48,7 @@ Some associated literature which is a must read are:
 ## Library
 
 ```{r}
-options(future.globals.maxSize= 891289600)
+options(future.globals.maxSize = 891289600)
 ### Make sure all the packages are installed
 if (!requireNamespace("Seurat", quietly = TRUE))
     install.packages("Seurat")
@@ -207,11 +209,11 @@ How is the communication probability computed? See the methods section in the [C
 The communication probability *P*~i,j~ from cell groups *i* to *j* for a particular ligand-receptor pair *k* was modeled by
 
 $$
-P_{i,j}^k =     \frac{{L_iR_j}}{{K_h + L_iR_j}} \times \left( {1 + \frac{{AG_i}}{{K_h + AG_i}}} \right) \cdot \left( {1 + \frac{{AG_j}}{{K_h + AG_j}}} \right) \\    \times \frac{{K_h}}{{K_h + AN_i}} \cdot \frac{{K_h}}{{K_h + AN_j}} \times \frac{{n_in_j}}{{n^2}}
+P_{i,j}^k = \frac{ {L_iR_j} }{ {K_h + L_iR_j} } \times \left( {1 + \frac{ {AG_i} }{ {K_h + AG_i} } } \right) \cdot \left( {1 + \frac{ {AG_j} }{ {K_h + AG_j} } } \right) \\    \times \frac{ {K_h} }{ {K_h + AN_i} } \cdot \frac{ {K_h} }{ {K_h + AN_j} } \times \frac{ {n_in_j} }{ {n^2} }
 $$
 
 $$
-{L_i = \root {{m1}} \of {{L_{i,1} \cdots L_{i,m1}}},\,R_j = \root {{m2}} \of {{R_{j,1} \cdots R_{j,m2}}} \cdot \frac{{1 + RA_j}}{{1 + RI_j}}}
+{L_i = \root { {m1} } \of { {L_{i,1} \cdots L_{i,m1} } },\,R_j = \root { {m2} } \of { {R_{j,1} \cdots R_{j,m2} } } \cdot \frac{ {1 + RA_j} }{ {1 + RI_j} } }
 $$
 
 -   *L~i~* and *R~j~* represent the expression level of ligand *L* and receptor *R* in cell group *i* and cell group *j*, respectively
