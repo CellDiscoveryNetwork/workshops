@@ -13,7 +13,7 @@ format:
     embed-resources: true
 editor_options: 
   chunk_output_type: console
-bibliography: /Users/kylekimler/gitHub/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/bibliographies/Census.bib
+bibliography: bibliographies/Census.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -32,11 +32,12 @@ Cellxgene Census is a package run by the Chan Zuckerberg Initiative in collabora
 
 ### Useful Resources
 
-* https://singlecell.broadinstitute.org/single_cell
-* https://www.ebi.ac.uk/gxa/sc/home
-* https://panglaodb.se/index.html
-* https://bioconductor.org/packages/scRNAseq
-* https://chanzuckerberg.github.io/cellxgene-census/
+* [https://singlecell.broadinstitute.org/single_cell](https://singlecell.broadinstitute.org/single_cell)
+* [https://www.ebi.ac.uk/gxa/sc/home](https://www.ebi.ac.uk/gxa/sc/home)
+* [https://panglaodb.se/index.html](https://panglaodb.se/index.html)
+* [https://bioconductor.org/packages/scRNAseq](https://bioconductor.org/packages/scRNAseq)
+* [https://chanzuckerberg.github.io/cellxgene-census/](https://chanzuckerberg.github.io/cellxgene-census/)
+* [https://data.humancellatlas.org/](https://data.humancellatlas.org/)
 
 ### Key Takeaways
 
@@ -90,10 +91,14 @@ library(DT) # notebook data table presentation
 Cellxgene Census offers dataset-level metadata in the "census_info" rather than "census_data". 
 
 ```{r}
-census <- open_soma() # To begin searching the census, we open SOMA, the high-efficiency database where census metadata is stored 
+# To begin searching the census, we open SOMA, 
+# the high-efficiency database where census metadata is stored 
+census <- open_soma()
 
-census_datasets <-  census$get("census_info")$get("datasets") # to query dataset metadata, we pull census_info
-census_datasets <- census_datasets$read()$concat() # convert soma format to R data.frame
+# to query dataset metadata, we pull census_info
+census_datasets <-  census$get("census_info")$get("datasets") 
+# convert soma format to R data.frame
+census_datasets <- census_datasets$read()$concat() 
 datasetsdf <- as.data.frame(census_datasets)
 
 datatable(datasetsdf)
@@ -119,8 +124,11 @@ Once we've found datasets we are interested in, we can use Census to obtain cell
 census_hsapiens_metadata <-  census$get("census_data")$get("homo_sapiens")$get("obs")
 # Read cell metadata from census using queries
 metadata_query <-  census_hsapiens_metadata$read(
-#    value_filter = "sex == 'female' & cell_type %in% c('microglial cell', 'macrophage')", - you can also filter by cell type
-   column_names = c("dataset_id", "assay", "cell_type", "sex", "tissue", "tissue_general", "suspension_type", "disease", "donor_id")
+   column_names = c("dataset_id", "assay", "cell_type", 
+   "sex", "tissue", "tissue_general", "suspension_type", 
+   "disease", "donor_id")
+   # you can also filter by any query metadata. for example patient sex or cell type
+   # value_filter = "sex == 'female' & cell_type %in% c('microglial cell', 'macrophage')", 
 )
 
 # For a list of possible metadata columns, run the following:

@@ -13,7 +13,7 @@ format:
     embed-resources: true
 editor_options: 
   chunk_output_type: console
-bibliography: /Users/kylekimler/gitHub/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/bibliographies/compositional_analysis.bib
+bibliography: ../day-1/bibliographies/compositional_analysis.bib
 ---
 
 ```{r setup, include=FALSE}
@@ -42,9 +42,13 @@ options(width = 1200)
 
 ## Introduction
 
-In this notebook we will study which cell types compose different samples in single-cell data. We will do this using a subset of statistics called compositional data analysis (or CoDA for short), because single-cell experiments are samples of a larger tissue, and the cells we obtain represents the proportions of cell types in the tissue, but does not reflect their true abundance. 
+In this notebook we will study which cell types compose different samples in single-cell data. We will do this using a subset of statistics called compositional data analysis (or CoDA for short), because single-cell experiments are small samples of a larger tissue so the cells we obtain represent only the proportions of each cell type in the tissue, not their true abundance. 
 
 CoDA relativizes proportions by comparing them to a stable population, comparing them to each other, or to a mean across samples, all resulting in a table of relative abundances of cell types per sample. This sample x species matrix is a natural foundation for conducting case-control analysis, as we have a single vector of variables per sample. Here, we can scrutinize variances between conditions and between samples.
+
+With compositions, we can be as granular as our data allows us. Some studies [@zheng_concerted_2023][@dann_differential_2022] have suggested that higher-resolution sub-clusters are where biological differences are most prominent. Compositions can be normalized within cell type or subtype so case-control analysis can be performed at this level, with multiple resolutions using advanced methods, or at a more general low-resolution clustering level. I've written a tool for automated sub-clustering and sub-cluster annotation, [ARBOL](https://github.com/jo-m-lab/ARBOL), which is available in R and python. 
+
+For teaching purposes, here we will use the cell type annotations the authors provide and include all celltypes in our compositional analysis.
 
 ### Useful Resources
 
@@ -53,14 +57,14 @@ CoDA relativizes proportions by comparing them to a stable population, comparing
 * Cacoa, an R package for case-control analysis that uses ILR 
 * [compositions](https://cran.r-project.org/web/packages/compositions/index.html), an R package for CoDA 
 * A paper describing the compositionality problem in terms of microbiome studies [@morton_establishing_2019]
-* sccomp - an R method for single-cell compositional comparisons https://github.com/stemangiola/sccomp
+* sccomp - an R method for single-cell compositional comparisons [https://github.com/stemangiola/sccomp](https://github.com/stemangiola/sccomp)
 
 
 ### Key Takeaways
 
 * Compositions provide a good foundation for comparing individual samples
 * The compositional nature of scRNAseq means only conclusions about relative values can be made, and overall cell density can bias results
-* Compositional transforms allow quantitative assessment of scRNA abundances
+* Compositional transforms allow quantitative assessment of scRNA relative abundances
 
 ## Libraries
 
@@ -113,8 +117,8 @@ library(sccomp)
 
 ## Load data
 ```{r}
-srobj <- readRDS('/Users/kylekimler/Downloads/d8e35450-de43-451a-9979-276eac688bce.rds')
-genes <- read_csv('/Users/kylekimler/CDN/workshops/workshop1/data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
+srobj <- readRDS('../data/d8e35450-de43-451a-9979-276eac688bce.rds')
+genes <- read_csv('../data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
 
 # Need to remake seurat object
 mtx <- srobj@assays$RNA@data
@@ -137,17 +141,22 @@ pal <- paletteMartin
 names(pal) <- sort(unique(srobj$Celltype))
 ```
 
-## Composition of clusters per sample
+## Generate a sample x celltype composition table
 
 In papers we often see percentages of clusters per sample or of subclusters in a larger celltype. These are done using stacked bar plots as follows.
 
 ```{r, fig.width=12, fig.height=8}
-celltypePercentagesDF <- srobj@meta.data %>% count(`Sample ID`,Celltype) %>% group_by(`Sample ID`) %>% reframe(Celltype, celltype_n = n, total_n_cells = sum(n)) %>% mutate(pct_celltype = celltype_n / total_n_cells)
+celltypePercentagesDF <- srobj@meta.data %>% 
+    count(`Sample ID`,Celltype) %>% 
+    group_by(`Sample ID`) %>% 
+    reframe(Celltype, celltype_n = n, total_n_cells = sum(n)) %>% 
+    mutate(pct_celltype = celltype_n / total_n_cells)
 
 datatable(celltypePercentagesDF)
 
 celltypePercentagesDF %>% 
-    ggplot(aes(x = `Sample ID`, y = pct_celltype, fill = Celltype), color = 'white') + 
+    ggplot(aes(x = `Sample ID`, y = pct_celltype, fill = Celltype), 
+           color = 'white') + 
     geom_bar(position='stack', stat='identity') + 
     scale_fill_manual(values = pal) + 
     ggtitle('Composition of each sample by celltype') +
@@ -155,10 +164,17 @@ celltypePercentagesDF %>%
     theme(axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 ```
 
+## Understanding Compositional Data Analysis
+
+![Compositional abundances are relative to each other and to total number of cells](../img/compositions1.png)
+
+![Conclusions about absolute abundance cannot be made with compositional data](../img/compositions2.png)
 
 ### Comparing compositions with Wilcoxon tests
 
-And often these compositions are compared using rank sum tests, which Morton et al [@morton_establishing_2019] show is a great way to avoid the compositionality problem. The most common rank sum test is the Wilcoxon test, the default test Seurat uses for comparisons of genes across clusters with FindAllMarkers. 
+For simplicity all comparisons in this notebook will be made between Flu and normal samples, with Flu in the positive direction.
+
+Compositions are often compared using rank sum tests, which Morton et al [@morton_establishing_2019] show is a great way to avoid the compositionality problem. It avoids the problem by only making conclusions about relative abundance rather than absolute abundance, because a cell type's rank is dependent on the other cell types. The most commonly used rank test is the Wilcoxon test (aka Mann-Whitney U test), the default test Seurat uses for comparisons of genes across clusters with FindAllMarkers. 
 
 If we use the Wilcoxon test here in a comparison of compositions across samples Flu vs. Normal, we will see that the result depends on proper normalization of the data.
 
@@ -411,7 +427,7 @@ EnhancedVolcano(sccomp_res,
 
 In sccomp, a differential composition "c" and differential variability "v" are both calculated between groups. We can plot each of these separately as well
 
-```{r,fig.height=6,fig.width=5}
+```{r,fig.height=10,fig.width=8}
 
 sccomp_res <- sccomp_res %>%
   mutate(signif = ifelse(c_FDR < 0.05, "FDR < 0.05", "FDR >= 0.05")) %>% arrange(c_effect)
@@ -483,17 +499,42 @@ pcaDF <- lapply(names(pca_ls), function(i) {
     mutate(
         sample_id = str_replace_all(sample_id, '\\.\\.\\.(.*)', ''))
 
+# add total number of cells per sample to the PCA for illustration
+total_cells <- srobj@meta.data %>% count(`Sample ID`,`Disease group`, Severity, development_stage) %>% rename(total_cells = n, sample_id=`Sample ID`)
+pcaDF <- pcaDF %>% left_join(total_cells)
 
 ggplot(pcaDF, aes(x = PC1, y = PC2, color = group, label = sample_id)) +
-  geom_point(size=4) + # Use geom_bar() for bar plots 
+  geom_point(size=4) +
   geom_text_repel() +
   facet_wrap(~ transform, scales = "free") +
   labs(title = "PCA Across Transformations") +
-  theme_minimal(base_size = 20) +
+  theme_linedraw(base_size = 20) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1),
         legend.position = "bottom") +
   guides(fill = guide_legend(title = "P-value < 0.05")) +
   scale_color_manual(values = unname(pal[c(4,6,9)]))
+
+ggplot(pcaDF, aes(x = PC1, y = PC2, color = total_cells, label = sample_id)) +
+  geom_point(size=4) +
+  geom_text_repel() +
+  facet_wrap(~ transform, scales = "free") +
+  labs(title = "PCA colored by total cell number") +
+  theme_linedraw(base_size = 20) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1), 
+        legend.text = element_text(angle=45, hjust = 1),
+        legend.position = "bottom") +
+  scale_color_gradient(low = 'turquoise', high='royalblue')
+
+ggplot(pcaDF, aes(x = PC1, y = PC2, color = `Disease group`, label = sample_id)) +
+  geom_point(size=4) +
+  geom_text_repel() +
+  facet_wrap(~ transform, scales = "free") +
+  labs(title = "PCA colored by patient severity") +
+  theme_linedraw(base_size = 20) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "bottom") +  
+  scale_color_manual(values = unname(pal[-2]))  +
+  guides(color = guide_legend(nrow = 2, byrow = TRUE))
 ```
 
 ```{r, fig.height=16, fig.width=20}
@@ -545,11 +586,34 @@ distlong %>% filter(sample1 !=sample2) %>%
                                             'between Covid and Flu'))) %>% 
     ggplot(aes(x=value,fill=distance_group)) + geom_density(alpha=0.4) + 
     ggtitle('COVID-Flu study distances\nAitchison Distances') +
-    theme_bw(base_size = 20) + scale_fill_manual(values = unname(pal[c(3,6,8)])) + xlab('euclidean distance')
+    theme_bw(base_size = 20) + scale_fill_manual(values = unname(pal[c(4,6,3)])) + xlab('euclidean distance')
 
-ComplexHeatmap::Heatmap(as.matrix(clr_distances))
 ```
 
+```{r, fig.width=10, fig.height=8}
+heatmap_metadata <- pcaDF %>% 
+    dplyr::select(sample_id,`Disease group`) %>% 
+    distinct %>%
+    mutate(severity = ifelse(grepl("severe", `Disease group`), "Severe", "Mild"),
+           disease = sapply(strsplit(sample_id, " "), function(x) x[1])
+           )
+
+color_gradient <- colorRampPalette(c("#eff817", "#fe1b07"))(100)
+
+unnamed_pal <- unname(pal)
+
+ha <- HeatmapAnnotation(df = as.data.frame(heatmap_metadata[, c("severity", "disease")]),
+                        col = list(severity = c("Severe" = unnamed_pal[7], "Mild" = unnamed_pal[10]),
+                                   disease = c("Flu" = unnamed_pal[6], "nCoV" = unnamed_pal[4], "Normal" = unnamed_pal[1])),
+                        which = "column")
+
+ComplexHeatmap::Heatmap(as.matrix(clr_distances),
+                        name = "Aitchison Distance",
+                        col = color_gradient, 
+                        top_annotation = ha,
+                        clustering_distance_rows = "euclidean",
+                        clustering_distance_columns = "euclidean")
+```
 
 ## Session Info
 
