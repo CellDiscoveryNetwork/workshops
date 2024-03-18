@@ -13,7 +13,7 @@ format:
     embed-resources: true
 editor_options: 
   chunk_output_type: console
-bibliography: /Users/kylekimler/gitHub/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/bibliographies/Census.bib
+bibliography: bibliographies/Census.bib
 ---
 
 ```{r setup, include=FALSE}
