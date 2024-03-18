@@ -218,7 +218,7 @@ The AggregateExpression() function arranges the cell by gene matrix to group gen
 
 ```{r}
 # Here we separate the dataset into two subsets
-# CD8 and CD4 T cells
+# CD4 T cells
 Idents(se) <- se@meta.data$Celltype
 cd4sr <- subset(se, idents = c('CD4_EM-like', 'CD4_non-EM-like'))
 
@@ -245,8 +245,6 @@ DESeq takes 3 main parameters.
 Prepare data to create a DESeq object.
 
 ```{r}
-# Here we run DESeq2, the classic differential expression package.
-
 # 2 - Subset the sample metadata to align with the sample x gene matrix.
 sample_info <- strsplit(colnames(cd4_pseudobulk), " ")
 
@@ -323,8 +321,10 @@ res
 summary(res)
 ```
 
-Save Results\
+
+#### Save Results\
 **NOTE: Save all data so if a collaborator asks what the comparison was, you have the header stored or rerun analysis.**
+
 
 ```{r}
 # Save intermediate files
@@ -396,9 +396,9 @@ EnhancedVolcano(res,
 NOTE: There are many genes turned on in the infected group
 
 We use the raw p-value (pval) because the adjusted p-value (padj) loses some information when FDR-corrected.
-# https://support.bioconductor.org/p/62384/
-# https://support.bioconductor.org/p/98442/
-# https://www.biostars.org/p/190779/ 
+# https://support.bioconductor.org/p/62384/  
+# https://support.bioconductor.org/p/98442/  
+# https://www.biostars.org/p/190779/   
 
 ### From RDS object
 
@@ -544,7 +544,6 @@ res_ls <- list.files('pseudobulk_analysis/results/', pattern = "*.rds")
 suppressMessages({
 dir.create('pseudobulk_analysis/figures/')
 tmp <- lapply(res_ls, function(file) {
-    print(file)
     res_df <- readRDS(glue::glue('pseudobulk_analysis/results/{file}'))
     test <- strsplit(file,split='_fluVnorm')[[1]][1]
     pdf(glue::glue("pseudobulk_analysis/figures/{test}_volcano.pdf"),width=9,height=6)
