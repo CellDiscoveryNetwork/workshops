@@ -1,4 +1,18 @@
-# Navigating the Single-Cell Landscape: A Comprehensive Workshop on scRNAseq
+---
+title: "Navigating the Single-Cell Landscape: A Comprehensive Workshop on scRNAseq"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    embed-resources: true
+    self-contained-math: true
+editor_options: 
+  chunk_output_type: inline
+---
 
 ## Day 1: March 18th 2024
 - **Where**: Center for Life Sciences 3 Rosen Conference Room
