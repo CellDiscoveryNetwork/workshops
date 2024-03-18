@@ -1,0 +1,587 @@
+---
+title: "5 - Multi-Sample Multi-Condition Differential Expression"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    self-contained-math: true
+    embed-resources: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+Another way to process single-cell data is to pseudobulk the samples by aggregating the gene counts for cells belonging to each cell type by sample. This results in a single count value per gene per cell type per sample which is similar to a bulk matrix. Single-cell sparse matrices contain a lot of zeros which create a complicated distribution that makes it less sensitive to recognizing lowly expressed genes. Pseudobulking single-cell data allows us to benefit from the statistical rigor of existing bulk DE analysis.
+
+### Useful Resources
+
+-   [Bioconductor DESeq2 workflow](https://www.bioconductor.org/packages/devel/bioc/vignettes/DESeq2/inst/doc/DESeq2.html#interactions) ⭐️
+-   [Bioinformagician DESeq2 workflow](https://www.youtube.com/watch?v=04gB2owLKus)
+-   [Bioinformagician DESeq2 walk-through](https://www.youtube.com/watch?v=0b24mpzM_5M&t=1204s)
+-   [Confronting false disocveries in single-cell differential expression](https://www.nature.com/articles/s41467-021-25960-2)
+
+### Key Takeaways
+
+1.  Aggregating gene counts at the sample level provides another way to determine differentially expressed genes in single-cell data.
+2.  Pseudobulking single-cell data allows scientists to benefit from the statistical rigor of pre-existing bulk DE analysis on their single-cell data.
+3.  Having a minimum of 3 replicates per condition is necessary to be able to obtain statistically significant results.
+
+![](../img/pseudobulk.png)*Squair, J.W., Gautier, M., Kathe, C. et al. Confronting false discoveries in single-cell differential expression. Nat Commun 12, 5692 (2021). https://doi.org/10.1038/s41467-021-25960-2*\
+
+## Process Overview
+
+1.  Load R object
+2.  Aggregate gene counts via AggregateExpression()
+3.  Set up DESeq()-friendly matrix format
+4.  Run DESeq()'s statistical tests
+5.  Visualize results!
+
+## Libraries
+
+### Installation
+
+```{r, eval=FALSE}
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages('tidyverse')
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages('Seurat')
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages('colorBlindness')
+if (!requireNamespace("RColorBrewer", quietly = TRUE))
+    install.packages('RColorBrewer')
+# Presto speeds up Wilcoxon tests for marker gene calculation in Seurat
+if (!requireNamespace("presto", quietly = TRUE))
+    devtools::install_github('immunogenomics/presto')
+if (!requireNamespace("DESeq2", quietly = TRUE))
+    BiocManager::install('DESeq2')
+if (!requireNamespace("org.Hs.eg.db", quietly = TRUE))
+    BiocManager::install('org.Hs.eg.db')
+if (!requireNamespace("Matrix", quietly = TRUE))
+    install.packages('Matrix')
+if (!requireNamespace("tictoc", quietly = TRUE))
+    install.packages('tictoc')
+if (!requireNamespace("AnnotationDbi", quietly = TRUE))
+    install.packages('AnnotationDbi')
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages('DT')
+if (!requireNamespace("EnhancedVolcano", quietly = TRUE))
+    BiocManager::install('EnhancedVolcano')
+if (!requireNamespace("sparseMatrixStats", quietly = TRUE))
+    BiocManager::install('sparseMatrixStats')
+if (!requireNamespace("openxlsx", quietly = TRUE))
+    install.packages('openxlsx')
+
+```
+
+### Load Libraries
+
+```{r}
+suppressPackageStartupMessages({
+  library(presto)
+  library(DESeq2)
+  library(tidyverse)
+  library(Seurat)
+  library(colorBlindness)
+  library(RColorBrewer)
+  library(org.Hs.eg.db)
+  library(Matrix)
+  library(tictoc)
+  library(AnnotationDbi)
+  library(DT)
+  library(EnhancedVolcano)
+  library(sparseMatrixStats)
+  library(openxlsx)
+  })
+
+# Set seed to your favorite number for reproducibility
+set.seed(21)
+```
+
+## Set working directory
+
+Uncomment commands below to see what directory you are currently working in and set the correct one
+
+```{r}
+# getwd()
+# setwd('./workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/')
+```
+
+## Load Data
+
+### Load Seurat object
+
+```{r}
+# 'se' or 'srobj' are common abbreviations for Seurat objects
+srobj <- readRDS('../data/d8e35450-de43-451a-9979-276eac688bce.rds')
+
+# 'genes' is a gene conversion table to convert ENSG to readable gene symbols
+genes <- read_csv('../data/cov_flu_gene_names_table.csv') 
+```
+
+Since we are modifying the names of the genes we need to recreate the Seurat object. In this process we need to ensure that mtx or contains the raw counts (integers) and not the normalized data.
+
+```{r}
+# Ensure that mtx or your desired data is in integer format. 
+mtx <- srobj@assays$RNA@data
+# NOTE: Run command below to ensure data is class 'numeric'
+# class(mtx@x)
+mtx[1:10,1:10] # Don't put normalized data into DESeq
+
+# Set rownames to be gene names
+rownames(mtx) <- genes[match(row.names(mtx), genes$index), ]$feature_name
+
+# Remake Seurat object
+se <- CreateSeuratObject(counts = mtx, meta.data = srobj@meta.data)
+se
+```
+
+Set color palette
+
+```{r}
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
+```
+
+## Analysis
+
+### Seurat pre-processing
+
+```{r, warnings = FALSE}
+se <- se %>%
+    NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE) %>%
+    RunPCA(verbose = FALSE) %>%
+    RunUMAP(dims = 1:30, verbose = FALSE, n.components=3L)
+
+```
+
+Visualize PCs
+
+```{r, warnings = FALSE}
+# Elbow plot of PCs
+# NOTE: First 15-20 PCs hold most of the information
+ElbowPlot(se, ndims = 30)
+```
+
+```{r, warnings = FALSE}
+# Group cells by annotation
+DimPlot(
+    se,
+    group.by = c("Celltype"),
+    label = TRUE,
+    cols = pal)
+
+# Group cells by sample
+DimPlot(
+  se,
+  group.by = c('Sample ID')
+  )
+```
+
+Because DESeq() is outside of Seurat, let's modify strings with special characters to avoid complications later.
+
+```{r}
+se@meta.data <- se@meta.data %>%
+  mutate(
+    Celltype = str_replace(Celltype, ", ", "_"),
+    Celltype = str_replace(Celltype, "G\\-", "Gneg"),
+    Celltype = str_replace(Celltype, "G\\+", "Gpos")
+  )
+
+```
+
+Check to make sure strings were modified correctly before next steps
+
+```{r}
+unique(se@meta.data$Celltype)
+```
+
+### Aggregate Expression
+
+The AggregateExpression() function arranges the cell by gene matrix to group gene counts by the Sample ID and labelled Celltype of each cell. It outputs either a sparse matrix or a new `Seurat` object if `return.Seurat = TRUE`. **Aggregation is the pseudobulking step where genes are summed across cells per celltype per sample.**
+
+```{r}
+# Here we separate the dataset into two subsets
+# CD8 and CD4 T cells
+Idents(se) <- se@meta.data$Celltype
+cd4sr <- subset(se, idents = c('CD4_EM-like', 'CD4_non-EM-like'))
+
+# Filter for genes with 0 counts
+cd4sr <- cd4sr[sparseMatrixStats::rowSums2(cd4sr@assays$RNA$data) > 0, ]
+
+# 1- Sum gene counts and group by Sample ID
+cd4_pseudobulk <- AggregateExpression(cd4sr, group.by = 'Sample ID')$RNA
+dim(cd4_pseudobulk)
+```
+
+## Run DESeq
+
+### Explanation
+
+DESeq takes 3 main parameters.
+
+1.  countData = A subset of the aggregated counts. Counts have to be whole numbers.
+
+2.  colData = Sample metadata.
+
+3.  design = Tells the DESeq function what comparisons to make.
+
+Prepare data to create a DESeq object.
+
+```{r}
+# Here we run DESeq2, the classic differential expression package.
+
+# 2 - Subset the sample metadata to align with the sample x gene matrix.
+sample_info <- strsplit(colnames(cd4_pseudobulk), " ")
+
+lvls <- c("Normal", "Flu", "nCoV")
+colData <- data.frame(
+  sample = colnames(cd4_pseudobulk),
+  condition = factor(sapply(sample_info, `[`, 1), levels = lvls)
+)
+DT::datatable(colData)
+
+rownames(colData) <- colnames(cd4_pseudobulk)
+
+# Note: If you encounter an error here, make sure dplyr is installed/running.
+
+# Set "sample" variable to join the dataframes on
+se@meta.data <- se@meta.data %>%
+  dplyr::rename("sample" = "Sample ID")
+
+# Join the metadata in se@meta.data to colData dataframe
+colData <- colData %>%
+  left_join(se@meta.data %>%
+              dplyr::select('sample', 'Disease group') %>%
+              distinct()
+)
+```
+
+Create DESeq object
+
+```{r}
+# Create the DESeq object, where tests can be run. 
+## Check out the documentation online for more.
+dds <- DESeqDataSetFromMatrix(countData = cd4_pseudobulk,
+                                colData = colData,
+                                design = ~ condition)
+# this runs the test
+dds <- DESeq(dds)
+dds
+```
+
+## Results
+
+### What does this mean?
+
+Results function examples:
+
+-   res \<- results(dds)
+
+-   res \<- results(dds, contrast = c("metadata_var", "opt1", "opt2"))
+
+-   res \<- results(dds, name = "defined_condition")
+
+Results output guide:
+
+-   Positive log2fold change are up-regulated
+
+-   Negative are down-regulated
+
+-   Can set the p-value to a certain threshold
+
+```{r}
+results(dds, contrast = c("condition", "Flu", "Normal"))
+```
+
+Extract results from the DESeq object
+
+```{r}
+# run 'resultsNames(dds)' to see "name" options
+# current options: "condition_Flu_vs_Normal"  "condition_nCoV_vs_Normal"
+# this pulls results from the DESeq object
+res <- results(dds, name = "condition_Flu_vs_Normal")
+res
+
+# Summary function 
+summary(res)
+```
+
+Save Results\
+**NOTE: Save all data so if a collaborator asks what the comparison was, you have the header stored or rerun analysis.**
+
+```{r}
+# Save intermediate files
+dir.create('pseudobulk_analysis')
+dir.create('pseudobulk_analysis/data')
+```
+
+```{r}
+# Comment out once created
+dir.create('pseudobulk_analysis/results')
+
+# Save as a R object
+saveRDS(object = res, 
+        file = 'pseudobulk_analysis/results/cd4_annot_pseudobulk_results.rds')
+
+# Filtering and rearranging for plotting
+restbl <- res %>% 
+  data.frame %>% 
+  rownames_to_column('gene')
+
+# Write data frame results to CSV
+write.csv(
+  restbl,
+  file='pseudobulk_analysis/results/cd4_annot_pseudobulk_results.csv'
+  )
+```
+
+## Visualize Results
+
+Volcano plot is one of the most utilized ways to visualize the results of differential expression analyses.
+
+### From CSV object
+
+```{r}
+res <- read_csv('pseudobulk_analysis/results/cd4_annot_pseudobulk_results.csv')
+```
+
+```{r fig.height=6, fig.width=9}
+library(EnhancedVolcano)
+EnhancedVolcano(res,
+                lab = res$gene,
+                x = 'log2FoldChange',
+                y = 'pvalue',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = 'Volcano Plot: CD4 T cells',
+                subtitle = ' Normal <  -  -  -  -  -  - -  -  -  |  -  -  -  -  -  -  -  -  -  > Flu      ',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 P-Value',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res$pvalue < 0.05 & abs(res$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant', 'Log2FC', 'P-Value', 'Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30') + 
+  theme(
+    plot.subtitle = element_text(hjust = 0.5), 
+    legend.position = 'bottom'
+  )
+
+```
+
+NOTE: There are many genes turned on in the infected group
+
+We use the raw p-value (pval) because the adjusted p-value (padj) loses some information when FDR-corrected.
+# https://support.bioconductor.org/p/62384/
+# https://support.bioconductor.org/p/98442/
+# https://www.biostars.org/p/190779/ 
+
+### From RDS object
+
+```{r}
+res <- readRDS('pseudobulk_analysis/results/cd4_annot_pseudobulk_results.rds')
+res
+```
+
+Volcano plot is often the ultimate goal of differential expression analysis.
+
+```{r fig.height=6, fig.width=9}
+library(EnhancedVolcano)
+EnhancedVolcano(res,
+                lab = rownames(res),
+                x = 'log2FoldChange',
+                y = 'pvalue',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = 'Volcano Plot: CD4 T cells',
+                subtitle = ' Normal <  -  -  -  -  -  - -  -  -  |  -  -  -  -  -  -  -  -  -  > Flu      ',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 P-Value',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res$pvalue < 0.05 & abs(res$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant', 'Log2FC', 'P-Value', 'Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30') + 
+  theme(
+    plot.subtitle = element_text(hjust = 0.5), 
+    legend.position = 'bottom'
+  )
+
+```
+
+## Automate this for pre-annotated cell types
+
+### Aggregate gene counts for each sample
+
+```{r}
+# Let's create pseudobulk profiles for all cell type by sample combinations
+annot_pseudobulk <- AggregateExpression(
+  se, # object name
+  group.by = c('sample','Celltype')
+  )$RNA # desired assay
+# NOTE: Can add "return.seurat = TRUE" and assign this to a new Seurat obj
+```
+
+### Prepare metadata
+
+Prep the data to create DESeq object
+
+```{r}
+# We have to rearrange the data to get it into the DESeq object. 
+# colData is the sample-level metadata
+
+sample_info <- strsplit(colnames(annot_pseudobulk), "_")
+
+# Define level order in a factor to ensure the correct conditions are compared
+# i.e. 'Normal' v 'Flu' and 'Normal' v 'nCoV'
+# Default levels priority is based on alphabetical order
+lvls <- c("Normal", "Flu", "nCoV")
+ftr <- str_split(colnames(annot_pseudobulk), pattern = " ", simplify = TRUE)
+```
+
+```{r}
+# 1 - Consolidate sample metadata
+colData <- data.frame(
+  sample = colnames(annot_pseudobulk), # i.e. 'Flu 1_B cell-IgGneg'
+  condition = factor(ftr[, 1], levels = lvls), # i.e. 'Flu'
+  donor_id = sapply(sample_info, `[`, 1), # i.e. 'Flu 1'
+  celltype = sapply(sample_info, `[`, 2) # i.e. 'B cell-IgGneg'
+)
+
+# Ensure unique rownames in colData for DESeqDataSet
+rownames(colData) <- colnames(annot_pseudobulk)
+
+colData <- colData %>%
+  left_join(se@meta.data %>%
+  dplyr::select('sample', 'Disease group') %>%
+              distinct()
+  ) %>%
+  column_to_rownames(var = 'sample')
+```
+
+### Run DESeq() and save results (.rds, .csv, .xlsx)
+
+```{r}
+# 2 - loop through Celltypes using lapply() - i.e. 'cluster' = "B cell-IgGneg"
+all_ct_ls <- lapply(unique(colData$celltype), function(cluster) {
+  # 3 - Initialize list of celltypes in aggregated matrix
+  split <- str_split_fixed(colnames(annot_pseudobulk),pattern='_',n=2)[,2]  
+  # 4 - Subset the aggregated matrix ('annot_pseudobulk') by cluster
+  bulk_subset <- annot_pseudobulk[,split %in% cluster ]
+  # 5 - Filter the subset matrix for genes with more than 0 counts
+  bulk_filter <- bulk_subset[sparseMatrixStats::rowSums2(bulk_subset) > 0, ]
+  # 6 - Subset the celltype metadata
+  data_subset <- colData %>% filter(celltype %in% cluster) 
+  # 7 - Initialize DESeq matrix
+  dds <- DESeqDataSetFromMatrix(countData = bulk_filter,
+                                colData = data_subset,
+                                design = ~ condition)
+  
+  # 8 - Manipulate strings to turn all spaces and special char to underscores
+  cluster <- stringr::str_replace(cluster, " ", "_")
+  c <- stringr::str_replace(cluster, "\\-", "_")
+  # 9 - Run DESeq()
+  dds <- DESeq(dds)
+  # resultsNames(dds) - Run to see list of tests
+  
+  # 10 - Calculate results
+  res <- results(dds, name = "condition_Flu_vs_Normal")  
+  
+  # 11 - Save R object, CSV file, and add CSV file to .xlsx
+  saveRDS(
+    res,
+    glue::glue("pseudobulk_analysis/results/{c}_fluVnorm_annot_pseudobulk.rds"))
+  
+  restbl <- res %>% data.frame %>% rownames_to_column('gene')
+  write_csv(
+    restbl,
+    glue::glue("pseudobulk_analysis/results/{c}_fluVnorm_annot_pseudobulk.csv"))
+  restbl
+})
+
+# 12 - Save .xlsx file here
+names(all_ct_ls) <- unique(colData$celltype)
+openxlsx::write.xlsx(
+  all_ct_ls,
+  file = "pseudobulk_analysis/results/flu_vs_normal_celltype.xlsx")
+```
+
+### Visualize results and save plots (.pdf)
+
+```{r fig.height = 6, fig.width = 9}
+res_ls <- list.files('pseudobulk_analysis/results/', pattern = "*.rds")
+suppressMessages({
+dir.create('pseudobulk_analysis/figures/')
+tmp <- lapply(res_ls, function(file) {
+    print(file)
+    res_df <- readRDS(glue::glue('pseudobulk_analysis/results/{file}'))
+    test <- strsplit(file,split='_fluVnorm')[[1]][1]
+    pdf(glue::glue("pseudobulk_analysis/figures/{test}_volcano.pdf"),width=9,height=6)
+
+    print(EnhancedVolcano(res_df,
+                lab = rownames(res_df),
+                x = 'log2FoldChange',
+                y = 'pvalue',
+                xlim = c(-8, 8),
+                ylim = c(0, 5),
+                title = glue::glue('Volcano Plot: {test}'),
+                subtitle = ' Normal <  -  -  -  -  -  - -  -  -  |  -  -  -  -  -  -  -  -  -  > Flu      ',
+                xlab = 'Log2 Fold Change',
+                ylab = '-log10 P-Value',
+                pCutoff = 0.05,
+                FCcutoff = 1.5,
+                pointSize = c(ifelse(res_df$pvalue < 0.05 & abs(res_df$log2FoldChange) > 1.5, 1.5, 1)),
+                labSize = 4.0,
+                col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+                colAlpha = 1,
+                legendLabels=c('Not Significant','Log2FC','P-Value','Log2FC & P-Value'),
+                legendPosition = 'right',
+                legendLabSize = 14,
+                drawConnectors = TRUE,
+                widthConnectors = 0.5,
+                colConnectors = 'grey30'))
+    dev.off()
+})
+    })
+```
+
+```{r}
+list.files('pseudobulk_analysis/figures/')
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
