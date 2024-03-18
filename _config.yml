@@ -1,11 +1,11 @@
 # For the title to show as is here I followed this - https://github.com/pages-themes/cayman/issues/134#issuecomment-999649937
-title: CDN Teaching Resources 🤓🧠
+title:  Workshop: Navigating the Single Cell Landscape
 
 description: In this page you can find the Quarto notebooks and rendered HTML files of all the teaching material 📚 created by the CDN so you can follow along in your learning journey!
 
 # https://github.com/pages-themes/cayman
-# remote_theme: pages-themes/cayman@v0.2.0
-theme: jekyll-theme-minimal
+remote_theme: pages-themes/cayman@v0.2.0
+# theme: jekyll-theme-minimal
 plugins:
     - jekyll-remote-theme # add this line to the plugins list if you already have one
     - jekyll-readme-index # https://github.com/benbalter/jekyll-readme-index If you have a readme file, and your site doesn't otherwise have an index file, this plugin instructs Jekyll to use the readme as the site's index. That's it. No more, no less.
