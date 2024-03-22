@@ -92,7 +92,14 @@ if (!requireNamespace("org.Hs.eg.db", quietly = TRUE)) {
 
 if (!requireNamespace("clusterProfiler", quietly = TRUE)) {
     BiocManager::install("clusterProfiler")
+}
 
+if (!requireNamespace("OmnipathR", quietly = TRUE)) {
+    BiocManager::install("OmnipathR")
+}
+
+if (!requireNamespace("ggpubr", quietly = TRUE)) {
+    install.packages("ggpubr")
 }
 
 
@@ -108,6 +115,7 @@ library(glue)
 library(tidyr)
 library(org.Hs.eg.db)
 library(clusterProfiler)
+library(ggpubr)
 
 set.seed(687)
 ```
@@ -126,7 +134,7 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS("../data/workshop-data.rds")
+se <- readRDS("../data/d8e35450-de43-451a-9979-276eac688bce.rds")
 ```
 
 Set color palettes
@@ -187,10 +195,7 @@ se <- se[, se$Celltype %in% c("CD8, non-EM-like", "CD8, EM-like", "NK cell")]
 First we need to normalize the data
 
 ```{r fig.width=12, fig.height=10}
-se <- NormalizeData(se, verbose = FALSE) %>%
-    FindVariableFeatures(nfeatures = 3000, verbose = FALSE) %>%
-    ScaleData(verbose = FALSE) %>%
-    RunPCA(verbose = FALSE)
+se <- NormalizeData(se, verbose = FALSE)
 
 VlnPlot(
     se,
@@ -204,10 +209,7 @@ Extract the normalized expression matrix and remove genes that are all 0s
 
 ```{r}
 library(Matrix)
-mtx <- se@assays$RNA@layers$data
-colnames(mtx) <- colnames(se)
-rownames(mtx) <- rownames(se)
-
+mtx <- se@assays$RNA$data
 # Remove genes that are all 0s
 mtx <- mtx[sparseMatrixStats::rowSums2(mtx) > 0, ]
 ```
@@ -305,27 +307,45 @@ We can also visualize this by cell type, condition and patient!
 ```{r fig.width=30, fig.height=25}
 # Preprocess dataset
 dd <- bind_cols(se@meta.data, se@reductions$FA@cell.embeddings) %>%
-        tidyr::pivot_longer(
-            cols = glue::glue("Factor_{1:ncol(nmf_ls$w)}"),
-            names_to = "k",
-            values_to = "loading") %>%
-        group_by(Celltype, disease, donor_id, k) %>%
-        summarise(median_loading = median(loading))
+    tidyr::pivot_longer(
+        cols = glue::glue("Factor_{1:ncol(nmf_ls$w)}"),
+        names_to = "k",
+        values_to = "loading") %>%
+    group_by(Celltype, disease, donor_id, k) %>%
+    summarise(median_loading = median(loading)) %>%
+    mutate(disease = factor(disease, levels = names(disease_pal)))
+
+my_comparisons <- list( c("influenza", "COVID-19"), c("influenza", "normal"), c("COVID-19", "normal") )
 
 lapply(glue::glue("Factor_{1:ncol(nmf_ls$w)}"), function(i) {
     dd %>%
         filter(k == i) %>%
-        ggplot(aes(x = disease, y = median_loading, fill = disease)) +
-        geom_boxplot(outlier.shape = NA, alpha = 0.7) +
-        geom_jitter(aes(color = donor_id), height = 0) +
-        facet_wrap(~ Celltype) +
+        ggboxplot(
+            x = "disease",
+            y = "median_loading",
+            fill = "disease",
+            outlier.shape = NA) +
+        geom_jitter(aes(color = donor_id), width = 0.2, height = 0) +
+        facet_wrap(~Celltype, scales = "free") +
+        geom_pwc(
+            method = "t_test",
+            hide.ns = FALSE,
+            label = "{if_else(is.na(p), 'ns', p.signif)}",
+            ) +
         scale_fill_manual(values = disease_pal) +
-        scale_color_manual(values = donor_pal) +
-        scale_x_discrete(limits = names(disease_pal)) +
+        scale_color_manual(values = donor_pal) + 
+        scale_y_continuous(expand = expansion(mult = c(0.05, 0.1))) +
         theme_classic() +
         labs(title = glue::glue("Factors by condition in {i}")) +
-        guides(fill="none")
-}) %>% patchwork::wrap_plots(ncol = 4)
+        guides(fill = "none", color = guide_legend(override.aes = list(size = 10))) +
+        theme(
+            strip.text.x = element_text(color = "black", size = 12, face = "bold"),
+            legend.text = element_text(color = "black", size = 15),
+            legend.title = element_blank()
+        )
+}) %>%
+    patchwork::wrap_plots(ncol = 3) +
+    patchwork::plot_layout(guides = "collect")
 ```
 
 Factors 5 & 7 seem interesting, lets explore them a bit more in depth!
@@ -454,10 +474,6 @@ lapply(names(gsea_ls), function(i) {
                             size = setSize,
                             color = p.adjust)) +
         ggplot2::geom_point() +
-        # ggplot2::geom_vline(
-        #     xintercept = 0,
-        #     linetype = "dashed",
-        #     color = "red") +
         scale_color_viridis_c(option = "plasma") +
         ggplot2::theme_minimal() +
         ggplot2::labs(title = i)

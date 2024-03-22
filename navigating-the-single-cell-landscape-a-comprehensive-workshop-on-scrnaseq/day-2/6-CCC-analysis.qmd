@@ -84,7 +84,7 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS("../data/workshop-data.rds")
+se <- readRDS("../data/d8e35450-de43-451a-9979-276eac688bce.rds")
 ```
 
 ## Analysis
@@ -112,31 +112,9 @@ rownames(mtx) <- symbol_id
 se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
 ```
 
+Pre-process the data:
 ```{r}
-# symbol_id <- mapIds(
-#     org.Hs.eg.db,
-#     keys = rownames(se), 
-#     column = "SYMBOL",
-#     keytype = "ENSEMBL",
-#     multiVals = "first")
-# 
-# # df <- data.frame(symbol = symbol_id, ensembl = names(symbol_id))
-# all(rownames(se) == names(symbol_id))
-# 
-# # re-create seurat object
-# mtx <- se@assays$RNA@data
-# rownames(mtx) <- symbol_id
-# 
-# # Remove NAs
-# sum(is.na(rownames(mtx)))
-# dim(mtx)
-# mtx <- mtx[!is.na(rownames(mtx)), ]
-# dim(mtx)
-# 
-# rownames(mtx) <- make.unique(rownames(mtx))
-# se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
-# 
-# sum(is.na(rownames(se)))
+se <- NormalizeData(se, verbose = FALSE)
 ```
 
 ### Split dataset
@@ -220,7 +198,7 @@ $$
 
 -   *K~h~* whose default value was set to be 0.5
 
--   AG is the average expression of the L-R agonists
+-   *AG* & *AN* is the average expression of the L-R agonists & antagonists
 
 #### CellChat Database
 

@@ -126,7 +126,7 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS("../data/workshop-data.rds")
+se <- readRDS("../data/d8e35450-de43-451a-9979-276eac688bce.rds")
 # Remove Uncategorized
 se <- se[, ! se$Celltype %in% c("Uncategorized1", "Uncategorized2")]
 se$Celltype <- as.character(se$Celltype)
