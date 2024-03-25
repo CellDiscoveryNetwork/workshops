@@ -54,3 +54,7 @@ editor_options:
         - State-of-the-art tools
         - Visualization of the results
         - Interpretation of the results
+    
+### Exit form day-2
+- Please take a moment to fill out the exit form for day 2 [here](https://docs.google.com/forms/d/e/1FAIpQLSdGDXb4dz0wV-qsBYo8Alqm010E-Y2V4aJ_8-VaSZa5NWOrCA/viewform?usp=sf_link). It really helps us plan better future workshops and improve the material of our current ones!
+    
