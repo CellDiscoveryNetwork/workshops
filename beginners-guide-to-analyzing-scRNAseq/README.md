@@ -1,4 +1,4 @@
-# Navigating the Single-Cell Landscape: A Comprehensive Workshop on scRNAseq
+# A Beginner's Guide to Analyzing scRNA-seq
 
 ## Day 1: June 4th 2024
 - **Where**: Karp 11 Conference Room
