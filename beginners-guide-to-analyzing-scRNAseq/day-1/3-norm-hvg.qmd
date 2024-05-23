@@ -225,13 +225,14 @@ se <- FindVariableFeatures(se, nfeatures = 3000, selection.method = "vst")
 top <- head(VariableFeatures(se), 25)
 
 # plot variable features with and without labels
+plot1 <- VariableFeaturePlot(se)
 plot2 <- LabelPoints(plot = plot1, points = top, repel = TRUE)
 plot2 +
     geom_smooth(method = "loess", error = FALSE) +
     scale_y_log10()
 ```
 
-Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data by specific cell types and *recomputing* HVG so that they are updated and represent the biological variability in this new dataset!
+Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data by specific cell types and *recomputing* HVG so that they are updated and represent the biological variability in this new dataset! 
 
 ## Session Info
 
