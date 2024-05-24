@@ -1,0 +1,150 @@
+---
+title: "R Session 1 Homework"
+author: "Marc Elosua-Bayés"
+date: "2/24/2022"
+output: html_document
+---
+
+Hello and welcome to your first R homework assignment! You should reference both
+your notes from the session and the [Base-R cheatsheet](https://github.com/rstudio/cheatsheets/blob/main/base-r.pdf) 
+to answer the following questions.
+
+## Part 1: Objects + Basic Math
+*Remember to reference the [cheat sheet](https://github.com/rstudio/cheatsheets/blob/main/base-r.pdf)
+ if you get stuck*  
+ 
+1. Generate a sequence from 3 to 71 and name it `my_sequence.`  
+```{r}
+
+```
+
+2. Generate a sequence from 3 to 71 that only has odd numbers, and call it `odds`.  
+```{r}
+
+```
+
+3. Find the sum of `odds`  
+```{r}
+
+```
+
+4. Find the product of the 7th and 11th element of `odds`  
+```{r}
+
+```
+
+## Part 2: `for` Loops and `if` statements
+*Remember to reference the [cheat sheet](https://github.com/rstudio/cheatsheets/blob/main/base-r.pdf)
+if you get stuck*  
+ 
+5. Write a for loop that prints out every fifth element of `odds` (i.e., the 
+5th element, the 10th element, the 15th element, etc)
+```{r}
+
+```
+
+6. Using a for loop, construct a vector of length 10, where the first element 
+is `100`, and every following element is double the square-root of the previous 
+one.
+```{r}
+n <- 100
+vec <- c()
+
+for (i in 1:10) {
+    
+    if (i == 1) {
+        vec <- c(vec, n)
+    } else {
+        vec <- c(vec, 2 * sqrt(vec[i - 1]))
+    }
+   
+}
+vec
+```
+
+7. Write an `if / else` statement that prints "Yay" if some value `x` is 
+greater than 10 and "Awesome" otherwise. Try setting `x` to 
+different values and try running it.
+```r
+x <- 5
+
+if () {
+    
+}
+```
+
+## Part 3: Functions
+*Remember to reference the [cheat sheet](https://github.com/rstudio/cheatsheets/blob/main/base-r.pdf)
+ if you get stuck*  
+ 
+Functions are defined like:
+```r
+name_of_function <- function(parameter) {
+  # do_something...
+}
+```
+
+Here's an example:
+```r
+foo <- function(x) {
+  x * 2 + 3 / 4
+}
+```
+
+The last calculation that happens in the function will be returned by default. 
+If you want, you can add an explicit `return` statement, like this:
+
+```r
+foo <- function(x) {
+  return(x * 2 + 3 / 4)
+}
+```
+or
+```r
+foo <- function(x) {
+  y <- x * 2 + 3 / 4
+  return(y)
+}
+```
+But you don't need to - all three of those examples will work exactly the same.
+
+8. Try it out! Define the above `foo` function in your environment, and try 
+running it with different parameters.
+```{r}
+
+```
+
+9. Add a second parameter (`y`) to `foo` that raises `x` to the `yth` power.
+```{r}
+
+```
+
+10. Moving on from `foo`, define a new function `foo2`, that returns `TRUE` if 
+the input is greater than 5.
+```{r}
+
+```
+
+To set a default value in a function, define it like:
+```r
+foo <- function(x = 1) {
+  x * 2 + 3 / 4
+}
+```
+
+11. Define and run the above `foo` function in your environment, and try running
+it without any parameters `foo()` and with other parameters `foo(3)`.
+```{r}
+
+```
+
+12. Edit your `foo2` function definition to have a default parameter value of 3.
+```{r}
+
+```
+
+## THAT'S ALL!
+
+We'll send around an answer key in a few days, but take a stab at getting through
+ what you can on your own. And if you have time, read Hadley Wickham's paper 
+ on [tidy data](https://cran.r-project.org/web/packages/tidyr/vignettes/tidy-data.html)!
