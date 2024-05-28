@@ -1,6 +1,5 @@
-install.packages("tidyverse")
-install.packages("palmerpenguins")
-
+if (!requireNamespace("palmerpenguins", quietly = TRUE))
+    install.packages("palmerpenguins")
 
 if (!requireNamespace("devtools", quietly = TRUE))
     install.packages("devtools")
