@@ -1,0 +1,242 @@
+---
+title: "3 - Normalization & Highly Variable Gene Selection"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+In this notebook we are going to look at two big concepts: 1) Why we need to normalize the data and how we do that and 2) once the data is normalized, why we subset our dataset to the highly variable genes (HVG) and how to go about it.
+
+**Key Takeaways**
+
+-   Data normalization is key to ...
+
+-   
+
+-   Differential gene expression metrics vary depending on the groups of cells we are comparing.
+
+-   P values obtained from carrying out DGE analysis between clusters are inflated and should not be used.
+
+
+## Libraries
+
+```{r message=FALSE, warning=FALSE}
+### Make sure all the packages are installed
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages("Seurat")
+
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages("tidyverse")
+
+if (!requireNamespace("sparseMatrixStats", quietly = TRUE))
+    install.packages("sparseMatrixStats")
+
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages("colorBlindness")
+
+if (!requireNamespace("RColorBrewer", quietly = TRUE))
+    install.packages("RColorBrewer")
+
+### Load all the necessary libraries
+library(Seurat)
+library(tidyverse)
+library(colorBlindness)
+library(RColorBrewer)
+```
+
+## Load data
+
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
+
+```{r message=FALSE, warning=FALSE, output=FALSE}
+# Download the data in data/ directory
+# download.file(
+#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+#     destfile = "../data/workshop-data.rds",
+#     method = "wget",
+#     extra = "-r -p --random-wait")
+# We can also use the CLI with the wget command below
+# wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
+
+se <- readRDS("../data/d8e35450-de43-451a-9979-276eac688bce.rds")
+```
+
+Generate a color palette for our cell types
+
+```{r}
+# https://www.datanovia.com/en/blog/easy-way-to-expand-color-palettes-in-r/
+# nb.cols <- length(unique(se$Celltype))
+# mycolors <- colorRampPalette(paletteMartin)(nb.cols)
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
+```
+
+## Analysis
+
+### Convert ENSEMBL IDs to Gene Symbols
+
+Right away we can see how ensembl ids are used in the rownames. Let's transform them into their matched symbols to make them human-readable:
+
+```{r}
+head(rownames(se))
+```
+
+Convert to gene symbols
+
+```{r}
+gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
+
+symbol_id <- data.frame(index = rownames(se)) %>%
+    left_join(gene_df, by = "index") %>%
+    pull(feature_name)
+
+# re-create seurat object
+mtx <- se@assays$RNA$data
+rownames(mtx) <- symbol_id
+se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+```
+
+### Data exploration
+
+Let's start by taking a look at the sequencing depth of our cells. By library depth we referr to the number of transcripts (UMIs) detected in each cell
+```{r}
+ggplot(se@meta.data, aes(x = nCount_RNA)) +
+    geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
+    scale_x_continuous(
+        transform = "log10",
+        labels = scales::unit_format(unit = "K", scale = 1e-3)) +
+    theme_classic()
+```
+
+Let's look at it by cell type as well
+```{r}
+ggplot(se@meta.data,
+       aes(x = nCount_RNA, color = Celltype, fill = Celltype)) +
+    geom_density(alpha = 0.7) +
+    geom_vline(xintercept = 3000, linetype = "dashed", color = "red") +
+    geom_vline(xintercept = 25000, linetype = "dashed", color = "red") +
+    geom_text(aes(x = 3000, y = 0, label = "3K"), nudge_y = -0.05, color = "black") +
+    geom_text(aes(x = 25000, y = 0, label = "25K"), nudge_y = -0.05, color = "black") +
+    scale_x_continuous(
+        transform = "log10",
+        labels = scales::unit_format(unit = "K", scale = 1e-3)) +
+    theme_classic() +
+    scale_color_manual(values = pal) +
+    scale_fill_manual(values = pal)
+```
+
+We can see how there is widespread variability in the library size across cells even from the same cell type. This is an important technical confounder we need to correct for. To correct for this, `Seurat` offers the function `NormalizeData` with normalization.method = *LogNormalize*. According to the documentation this function does the following - *Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale.factor. This is then natural-log transformed using log1p*
+
+Basically what [Seurat](https://github.com/satijalab/seurat/blob/1549dcb3075eaeac01c925c4b4bb73c73450fc50/R/preprocessing5.R#L265) is doing under the hood is:
+```{r, eval = FALSE}
+log1p(x = x / sum(x) * scale.factor)
+```
+
+Three things are happening:
+1. `x / sum(x)` : divides individual counts for each cell by the total counts for that cell
+2. `* scale.factor` : multiplies the results by a scaling factor (Default 1e4).
+3. `log1p` : computes the log of the resulting value adding a pseudocount of 1 in case there are 0s.
+
+We carry out these steps so that: 1) we account for technical variability in sequencing depth. Therefore we are now working with % of that gene vs all the rest. 2) so we're not working with small numbers (1e-4) which can rapidly decrease to 0 if we multiplied them for example. 3) stabilize the variance across different expression levels and thus reducing the influence of highly expressed genes and amplifying that of lowly expressed ones. As a bonus, using log-normalization is very interpretable since we know exactly what the values mean after applying the function.
+
+### Variance stabilization
+
+This post explains it very well - https://www.nxn.se/valent/2017/10/15/variance-stabilizing-scrna-seq-counts
+
+If we take a look at what variance stabilization means we can see the following. When the data is uncorrected:
+```{r fig.width=6, fig.height=6}
+se@assays$RNA$counts[1:5, 1:5]
+raw_sd <- sparseMatrixStats::rowSds(se@assays$RNA$counts)
+raw_mn <- sparseMatrixStats::rowMeans2(se@assays$RNA$counts)
+
+# Visualize
+ggplot(mapping = aes(x = raw_mn, y = raw_sd)) +
+    geom_point() +
+    theme_minimal() +
+    labs(
+        title = "Relation between raw gene expression mean and sd",
+        x = "Gene Expression Mean",
+        y = "Gene Expression SD"
+    )
+```
+
+As we can observe, in general there is this relationship between the mean and the sd of the genes. If we normalize the data we can see how this relationship is greatly reduced.
+
+```{r fig.width=6, fig.height=6}
+se <- NormalizeData(se, normalization.method = "LogNormalize", scale.factor = 1e4)
+
+se@assays$RNA$data[1:5, 1:5]
+norm_sd <- sparseMatrixStats::rowSds(se@assays$RNA$data)
+norm_mn <- sparseMatrixStats::rowMeans2(se@assays$RNA$data)
+
+# Visualize
+ggplot(mapping = aes(x = norm_mn, y = norm_sd)) +
+    geom_point() +
+    theme_minimal() +
+    labs(
+        title = "Relation between normalized gene expression mean and sd",
+        x = "Gene Expression Mean",
+        y = "Gene Expression SD"
+    )
+```
+
+Let's take a look at which are the most highly expressed genes and why we might not be interested in them that much:
+```{r fig.width=6, fig.height=6}
+names(raw_mn) <- rownames(se@assays$RNA$counts)
+data.frame(mean_expr = raw_mn) %>%
+    rownames_to_column("gene") %>%
+    arrange(desc(mean_expr)) %>%
+    head(50) %>%
+    ggplot(aes(x = mean_expr, y = forcats::fct_reorder(gene, mean_expr))) +
+    geom_point() +
+    theme_classic() +
+    labs(x = "Mean gene expression", y = "")
+```
+
+Most of these genes are housekeeping, mitochondrial and ribosomal, which in most cases we are not interested about.
+
+## Highly variable gene selection
+
+Subsetting our count matrix to highly variable genes is a key step for downstream analysis. We need to reduce the dimensions of the count matrix so that we can carry out downstream tasks such as PCA. The intutition behind selectin HVG is that those genes with highest variability capture high level biological variability in our datasets and can help us identify the populations present in our dataset. To do this we can use the `vst` method: *First, fits a line to the relationship of log(variance) and log(mean) using local polynomial regression (loess). Then standardizes the feature values using the observed mean and expected variance (given by the fitted line). Feature variance is then calculated on the standardized values after clipping to a maximum (see clip.max parameter).*
+
+We can see this in action below - Here we select 3000 HVG, in practice people select 2-5k genes in this step.
+```{r}
+se <- FindVariableFeatures(se, nfeatures = 3000, selection.method = "vst")
+
+# Identify the 50 most highly variable genes
+top <- head(VariableFeatures(se), 25)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(se)
+plot2 <- LabelPoints(plot = plot1, points = top, repel = TRUE)
+plot2 +
+    geom_smooth(method = "loess", error = FALSE) +
+    scale_y_log10()
+```
+
+Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data by specific cell types and *recomputing* HVG so that they are updated and represent the biological variability in this new dataset! 
+
+## Session Info
+
+```{r}
+sessionInfo()
+```
