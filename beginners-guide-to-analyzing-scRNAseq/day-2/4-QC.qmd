@@ -1,0 +1,283 @@
+---
+title: "4-QC"
+format: html
+editor: visual
+---
+
+## Quartose <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+se
+# Set color palette
+pal <- paletteMartin
+se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+se
+# Set color palette
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
+# Look at the first 25 cells for a couple of genes to understand ocunt matrix
+mtx[c("CD3D", "TCL1A", "MS4A1"), 1:30]
+# Find the metadata columns of interest
+colnames(se@meta.data)
+qc_metrics <- se@meta.data[,c('Percentage of mitochondrial gene', 'nFeature_RNA', 'nCount_RNA', 'Number of UMI', 'Number of Gene')]
+head(qc_metrics)
+# Assume you have a Seurat object named se
+gene_list <- rownames(se@assays$RNA@features)
+# Search for genes that start with "RPS"
+genes_starting_with_RPS <- grep("^MT-", gene_list, value = TRUE)
+# Print the genes starting with "RPS"
+print(genes_starting_with_RPS)
+se <- PercentageFeatureSet(se, pattern = "^MT-", col.name = "perc.mt")
+se <- PercentageFeatureSet(se, pattern = "^RPS |^RPL", col.name = "perc.ribo")
+se <- PercentageFeatureSet(se, pattern = "^HB[^(P)]", col.name = "perc.hb")
+se <- Seurat::NormalizeData(se, verbose = FALSE) %>%
+Seurat::FindVariableFeatures(selection.method = "vst", nfeatures = 3000, verbose = FALSE) %>%
+Seurat::ScaleData(verbose = FALSE) %>%
+Seurat::RunPCA(pc.genes = se@var.genes, npcs = 30, verbose = FALSE)
+# Also compute the UMAP embedding
+Seurat::ElbowPlot(se, ndims = 40)
+# Plot counts
+VlnPlot(se,
+group.by = "Sample ID",
+features = "nCount_RNA",
+# log = TRUE,
+ncol = 2,
+pt.size = 0,
+# y.max = 15000
+) + NoLegend()
+# Plot counts
+# Extract nCount_RNA values from the metadata
+nCount_RNA_values <- se@meta.data$nCount_RNA
+# Create a histogram of nCount_RNA values
+hist(nCount_RNA_values, breaks = 1000,
+main = "Distribution of nCount_RNA Across Cells",
+xlim = c(0,30000),
+xlab = "nCount_RNA", ylab = "Frequency",
+col = "skyblue",
+plot = TRUE)
+# Plot genes across samples
+VlnPlot(se,
+group.by = "Sample ID",
+features = "nFeature_RNA",
+pt.size = 0,
+) + NoLegend()
+# QFM: How do I plot these all at the same time?
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = "perc.mt",
+# log = TRUE,
+pt.size = 0,
+) + NoLegend()
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = "perc.ribo",
+# log = TRUE,
+pt.size = 0
+) + NoLegend()
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = "perc.hb",
+# log = TRUE,
+pt.size = 0
+) + NoLegend()
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = c("perc.mt", "perc.ribo", "perc.hb"),
+# log = TRUE,
+pt.size = 0
+) + NoLegend()
+# Marc's code
+se@meta.data %>%
+ggplot2::ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.mt)) +
+ggplot2::geom_point() +
+ggplot2::theme_classic() +
+ggplot2::scale_color_gradient(low = "yellow", high = "red")
+# Calculate the feature covariance
+se@meta.data %>%
+ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.ribo)) +
+geom_point() +
+theme_classic() +
+scale_color_gradient(low = "yellow", high = "red")
+# Calculate the feature covariance
+se@meta.data %>%
+ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.hb)) +
+geom_point() +
+theme_classic() +
+scale_color_gradient(low = "yellow", high = "red")
+library("DoubletFinder")
+# Find doublets
+## Pre-process Seurat object (standard) --------------------------------------------------------------------------------------
+# se <- CreateSeuratObject(kidney.data)
+# se <- NormalizeData(se)
+se <- FindVariableFeatures(se, selection.method = "vst", nfeatures = 2000)
+se <- ScaleData(se)
+se <- RunPCA(se)
+se <- RunUMAP(se, dims = 1:20)
+# ## Pre-process Seurat object (sctransform) -----------------------------------------------------------------------------------
+# se <- CreateSeuratObject(kidney.data)
+# se <- SCTransform(se)
+# se <- RunPCA(se)
+# se <- RunUMAP(se, dims = 1:10)
+## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
+sweep.res.list_kidney <- paramSweep(se, PCs = 1:20, sct = FALSE)
+sweep.stats_kidney <- summarizeSweep(sweep.res.list_kidney, GT = FALSE)
+bcmvn_kidney <- find.pK(sweep.stats_kidney)
+# ggplot(bcmvn_kidney, aes(pK, BCmetric, group = 1))+
+#   geom_point() +
+#   geom_line()
+pK <- bcmvn_kidney %>%
+filter(BCmetric == max(BCmetric)) %>%
+select(pK)
+pK <- as.numeric(as.character(pK[[1]]))
+## pK Identification (ground-truth) ------------------------------------------------------------------------------------------
+# sweep.res.list_kidney <- paramSweep(se, PCs = 1:10, sct = FALSE)
+# gt.calls <- se@meta.data[rownames(sweep.res.list_kidney[[1]]), "GT"].   ## GT is a vector containing "Singlet" and "Doublet" calls recorded using sample multiplexing classification and/or in silico geneotyping results
+# sweep.stats_kidney <- summarizeSweep(sweep.res.list_kidney, GT = TRUE, GT.calls = gt.calls)
+# bcmvn_kidney <- find.pK(sweep.stats_kidney)
+## Homotypic Doublet Proportion Estimate -------------------------------------------------------------------------------------
+annotations <- se@meta.data$seurat_clusters
+homotypic.prop <- modelHomotypic(annotations)           ## ex: annotations <- se@meta.data$ClusteringResults
+nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+## Run DoubletFinder with varying classification stringencies ----------------------------------------------------------------
+se_filtered <- doubletFinder(
+se,
+PCs = 1:20,
+pN = 0.25,
+pK = pK,
+nExp = nExp_poi,
+reuse.pANN = FALSE,
+sct = FALSE)
+# se <- doubletFinder(
+#   se,
+#   PCs = 1:10,
+#   pN = 0.25,
+#   pK = 0.09,
+#   nExp = nExp_poi.adj,
+#   reuse.pANN = "pANN_0.25_0.09_913",
+#   sct = FALSE)
+DimPlot(se_filtered, reduction = 'umap', group.by = "DF.classification...")
+DimPlot(se_filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.05-4468")
+DimPlot(se_filtered, reduction = 'umap', group.by = 'DF.classifications_0.25_0.05_4468')
+# Plot counts
+VlnPlot(se,
+group.by = "Sample ID",
+features = "nCount_RNA",
+# log = TRUE,
+ncol = 2,
+pt.size = 0,
+# y.max = 15000
+) + NoLegend()
+# Plot counts
+# Extract nCount_RNA values from the metadata
+nCount_RNA_values <- se@meta.data$nCount_RNA
+# Create a histogram of nCount_RNA values
+hist(nCount_RNA_values, breaks = 1000,
+main = "Distribution of nCount_RNA Across Cells",
+xlim = c(0,30000),
+xlab = "nCount_RNA", ylab = "Frequency",
+col = "skyblue",
+plot = TRUE)
+# Plot genes across samples
+VlnPlot(se,
+group.by = "Sample ID",
+features = "nFeature_RNA",
+pt.size = 0,
+) + NoLegend()
+# QFM: How do I plot these all at the same time?
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = "perc.mt",
+# log = TRUE,
+pt.size = 0,
+) + NoLegend()
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = "perc.ribo",
+# log = TRUE,
+pt.size = 0
+) + NoLegend()
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = "perc.hb",
+# log = TRUE,
+pt.size = 0
+) + NoLegend()
+# Plot features
+VlnPlot(se,
+group.by = "Sample ID",
+features = c("perc.mt", "perc.ribo", "perc.hb"),
+# log = TRUE,
+pt.size = 0
+) + NoLegend()
+se@meta.data %>%
+ggplot2::ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.mt)) +
+ggplot2::geom_point() +
+ggplot2::theme_classic() +
+ggplot2::scale_color_gradient(low = "yellow", high = "red")
+# Calculate the feature covariance
+se@meta.data %>%
+ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.ribo)) +
+geom_point() +
+theme_classic() +
+scale_color_gradient(low = "yellow", high = "red")
+# Calculate the feature covariance
+se@meta.data %>%
+ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.hb)) +
+geom_point() +
+theme_classic() +
+scale_color_gradient(low = "yellow", high = "red")
+table(se_filtered@meta.data$DF.classifications_0.25_0.05_4468)
+gc()
+rm(se_filtered);gc
+rm(se_filtered);gc()
+# Plot counts
+VlnPlot(se,
+group.by = "Sample ID",
+features = "nCount_RNA",
+# log = TRUE,
+ncol = 2,
+pt.size = 0,
+# y.max = 15000
+) + NoLegend()
+# Plot counts
+VlnPlot(se,
+group.by = "Sample ID",
+features = "nCount_RNA",
+# log = TRUE,
+ncol = 2,
+pt.size = 0,
+# y.max = 15000
+) + NoLegend()
+# Assume you have a Seurat object named se
+gene_list <- rownames(se@assays$RNA@features)
+# Search for genes that start with "RPS"
+genes_starting_with_RPS <- grep("^MT-", gene_list, value = TRUE)
+# Print the genes starting with "RPS"
+print(genes_starting_with_RPS)
+
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
