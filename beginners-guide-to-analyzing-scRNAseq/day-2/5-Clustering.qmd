@@ -1,0 +1,42 @@
+---
+title: "5-Clustering"
+format: html
+editor: visual
+author: Rose Hedderman
+---
+
+# Clustering
+
+## Load Libraries and Data
+
+```{r}
+
+```
+
+## Preprocessing
+
+### UMAP of Counts and QC Metrics
+
+### Look at different resolutions
+
+### QC based on 2 resolutions to make a decision
+
+TD: Cluster Metrics
+
+-   stacked bar/ diversity of samples per cluster
+
+    -   show what samples are in each cluster
+
+-   num cells per cluster
+
+-   !!! silhouette analysis!!
+
+    -   quantitative way to see how accurate your clusters
+
+### \>\>\> Annotate Seurat object with chosen resolution & DEGs
+
+### Session Info
+
+```{r}
+sessionInfo()
+```
