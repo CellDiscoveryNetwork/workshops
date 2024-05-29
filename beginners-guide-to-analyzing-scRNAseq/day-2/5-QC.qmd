@@ -1,5 +1,5 @@
 ---
-title: "4-QC"
+title: "5 - Quality Control"
 format: html
 editor: visual
 author: Rose Hedderman
@@ -87,6 +87,28 @@ names(pal) <- sort(unique(se$Celltype))
 # Look at the first 25 cells for a couple of genes to understand count matrix
 mtx[c("CD3D", "TCL1A", "MS4A1"), 1:30]
 ```
+### Add Batch Information
+
+```{r}
+# Make a dataframe and extract barcode and Sample ID metadata from se obj
+info <- data.frame(Barcode = colnames(se), "Sample ID" = se@meta.data$'Sample ID')
+colnames(info) <- gsub("\\.", " ", colnames(info))
+
+# Load in batch information
+batch_info <- read.csv("../data/batch_info.csv")
+# Rename batch_info column names to have a space instead of "."
+colnames(batch_info) <- gsub("\\.", " ", colnames(batch_info))
+batch_info <- batch_info %>%
+  select("Sample ID", "Experimental batch")
+# merge the batch_info with the info dataframe
+info <- merge(info, batch_info, by = "Sample ID")
+
+rownames(info) <- info$Barcode
+info <- info %>% select(-Barcode)
+
+# Add batch numbers to the metadata
+se <- AddMetaData(se, info)
+```
 
 ```{r}
 # Find the metadata columns of interest
@@ -111,14 +133,25 @@ se <- PercentageFeatureSet(se, pattern = "^HB[^(P)]", col.name = "perc.hb")
 se <- Seurat::NormalizeData(se, verbose = FALSE) %>%
   Seurat::FindVariableFeatures(selection.method = "vst", nfeatures = 3000, verbose = FALSE) %>%
   Seurat::ScaleData(verbose = FALSE) %>%
-  Seurat::RunPCA(pc.genes = se@var.genes, npcs = 30, verbose = FALSE)
+  Seurat::RunPCA(pc.genes = se@var.genes, npcs = 30, verbose = FALSE) %>%
+  Seurat::RunUMAP(dims = 1:30, verbose = FALSE)
+  
+# Plot UMAP colored by batch
+DimPlot(se, reduction = "umap", group.by = "Celltype") +
+  labs(title = "UMAP Plot Colored by Batch")
+
+```
+
+```{r}
 ```
 
 ```{r}
 # Also compute the UMAP embedding
 Seurat::ElbowPlot(se, ndims = 40)
 ```
+```{r}
 
+```
 ```{r, fig.width=8, fig.height=6}}
 # Plot counts
 VlnPlot(se,
@@ -219,51 +252,126 @@ se@meta.data %>%
 ```
 ### DoubletFinder
 
+
+```{r}
+```
+
+```{r}
+
+```
 #### Find Doublets for one Sample ID 
 ```{r}
-sample_ids <- unique(se@meta.data$'Sample ID')
-sample_ids
+library(DoubletFinder)
+# Find doublets
+exp_btch <- unique(se@meta.data$'Experimental batch')
+class(exp_btch)
+```
+
+
+```{r}
 
 doublet_info <- list()
-sample_id = "Flu 1"
-sample_seurat_object <- subset(se, cells = which(se@meta.data$'Sample ID' == sample_id))
+batch = 1
+batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
 # seurat_object <- CreateSeuratObject(counts = your_data_object)
-sample_seurat_object <- NormalizeData(sample_seurat_object)
-sample_seurat_object <- FindVariableFeatures(sample_seurat_object)
-sample_seurat_object <- ScaleData(sample_seurat_object)
-sample_seurat_object <- RunPCA(sample_seurat_object)
-sample_seurat_object <- FindNeighbors(sample_seurat_object)
-sample_seurat_object <- FindClusters(sample_seurat_object)
-Seurat::ElbowPlot(sample_seurat_object, ndims = 30)
-sample_seurat_object <- RunUMAP(sample_seurat_object, dims = 1:20)
-sweep.res.list_sample <- paramSweep(sample_seurat_object, PCs = 1:20, sct = FALSE)
+batch_seurat_object <- batch_seurat_object %>%
+  NormalizeData() %>%
+  FindVariableFeatures() %>%
+  ScaleData() %>%
+  RunPCA() %>%
+  FindNeighbors() %>%
+  FindClusters() 
+  # RunUMAP(., dims = 1:20)
+Seurat::ElbowPlot(batch_seurat_object, ndims = 30)
+DimPlot(se, reduction="umap", group.by = "Experimental batch")
+
+sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
 sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
 bcmvn_sample <- find.pK(sweep.stats_sample)
 # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-# ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
-#   geom_point() +
-#   geom_line()
+ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
+  geom_point() +
+  geom_line()
 
 pK <- bcmvn_sample %>%
   filter(BCmetric == max(BCmetric)) %>%
   select(pK)
 pK <- as.numeric(as.character(pK[[1]]))
 
-annotations <- sample_seurat_object@meta.data$seurat_clusters
+annotations <- batch_seurat_object@meta.data$seurat_clusters
 # annotations <- se@meta.data$cell_type
 homotypic.prop <- modelHomotypic(annotations)           ## ex: annotations <- se@meta.data$ClusteringResults
 nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
 nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
-se_sample <- doubletFinder(
-  sample_seurat_object,
-  PCs = 1:10,
-  pN = 0.25,
+se_sample_1 <- doubletFinder(
+  batch_seurat_object,
+  PCs = 1:20,
+  pN = 0.1,
   pK = pK,
   nExp = nExp_poi.adj,
   reuse.pANN = FALSE,
   sct = FALSE)
 ```
+
+```{r}
+values <- se_sample_1@meta.data$pANN_0.1_0.1_4180
+# Plot
+hist(values, breaks = 1000,
+  main = "Distribution of pANN_0.1_0.1_3932 Across Cells",
+  # xlim = c(0,1),
+  xlab = "pANN_0.1_0.1_4180", ylab = "Frequency",
+  col = "skyblue",
+  plot = TRUE)
+
+classifications <- data.frame(class = se_sample_1@meta.data$'DF.classifications_0.1_0.1_4180')
+table(classifications)
+# Plot the bar plot
+ggplot(classifications, aes(x = class)) +
+  geom_bar(fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of DF Classifications",
+       x = "DF Classifications",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+```{r, fig.height=5}
+# Plot UMAP colored by batch
+DimPlot(se_sample_1, reduction = "umap", group.by = "DF.classifications_0.1_0.1_4180") +
+  labs(title = "UMAP Plot Colored by Batch")
+
+```
+
+```{r, fig.height=5}
+# Plot UMAP by pANN
+FeaturePlot(se_sample_1, reduction = "umap", features = "pANN_0.1_0.1_4180") +
+  labs(title = "UMAP Plot Colored by pANN")
+```
+
+```{r}
+
+# colnames(se)
+cell_barcodes <- colnames(se)
+batch_ids <- data.frame(bc = substr(cell_barcodes, 1, 3))
+# batch_ids <- data.frame(bc = colnames(se))
+
+class(batch_ids)
+
+# classifications <- data.frame(class = se_sample@meta.data$'DF.classifications_0.25_0.16_3932')
+# table(classifications)
+# Plot the bar plot
+ggplot(batch_ids, aes(x = bc)) +
+  geom_bar(fill = "blue", color = "black", alpha = 0.7) +
+  labs(title = "Distribution of  Batches",
+       x = "Batches",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+```
+
+
 lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows(). 
 
 
