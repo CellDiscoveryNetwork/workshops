@@ -1,5 +1,5 @@
 ---
-title: "7 - Differential Gene Expression & Level 1 annotation"
+title: "7 - Differential Gene Expression & Level 1 Annotation"
 author: "CDN team"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format:
@@ -23,29 +23,23 @@ options(width = 1200)
 
 ## Introduction
 
-In this notebook we are going to look at how to interpret and visualize gene-level statistics obtained from differential expression analysis. We are not going to go into which method should be used to carry out differential gene expression analysis but we highly recommend giving a read to [A comparison of marker gene selection methods for single-cell RNA sequencing data](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-024-03183-0) by Jeffrey M. Pullin & Davis J. McCarthy if you're interested in digging deeper!
-
-Some other interesting papers and twitter discussions can be found here:
-
--   Why Seurat and Scanpy's log fold change calculations are discordant - <https://twitter.com/lpachter/status/1694387749967847874?s=46>.
-
--   Discrepancies between Seurat and Scanpy's logFC - <https://twitter.com/slavov_n/status/1582347828818456576>
-
--   Differences in wilcoxon rank sum test p-value calculations between Seurat and Scanpy - <https://twitter.com/Sanbomics/status/1693995213298266515>
-
--   [A comparison of marker gene selection methods for single-cell RNA sequencing data](https://genomebiology.biomedcentral.com/articles/10.1186/s13059-024-03183-0) - "*Overall, our results suggest that methods based on logistic regression, Student's t-test and the Wilcoxon rank-sum test all have strong performance.*"
-
--   [Do you really understand log2Fold change in single-cell RNAseq data?](https://divingintogeneticsandgenomics.com/post/do-you-really-understand-log2fold-change-in-single-cell-rnaseq-data/)
+In this notebook we are going to pick up from the clustering notebook and focus on how to annotate a single-cell dataset. We're briefly going to touch on how to carry out differential expression between clusters but for a more in depth explanation visit our [notebook](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/2-cluster-comparison.html) from a previous workshop. Annotating single-cell data is the most laborious part of the analysis. It requires in depth knowledge of the cell types making up your biological system and multiple rounds of iterative clustering and subsetting to get to a fine grained annotation. Luckily, there are some tools, like label transfer, that can be used to help speed up this process. These tools rely on using a relevant and previously annotated reference to help automate this annotation process. These automated methods work great for coarse cell type labels but don't perform quite as well when annotating fine grained cell states that may be not be found in our reference. Therefore, an approach combining both methodologies is usually used. A good resource going over this process is the paper by [Luecken, M, *et al.*](https://www.embopress.org/doi/full/10.15252/msb.20188746).
 
 **Key Takeaways**
 
 -   To annotate our clusters we need to determine which genes are differentially expressed in each one.
 
+-   Differentially expressed genes depend on which cell types we are comparing. The same cell type will have different differentially expressed genes if we change the other cell types in the dataset.
+
 -   We can quantify these differentially expressed genes using effect size and discriminatory power metrics such as log2FC and AUC.
 
--   Differential gene expression metrics vary depending on the groups of cells we are comparing.
-
 -   P values obtained from carrying out DGE analysis between clusters are inflated and should not be used.
+
+-   Annotation is a laborious process that uses automated and manual approache in which we use automated methods to coarsley label cells and manual annotation to identify unique cell states.
+
+-   Automated annotation requires relevant reference data that has been previously annotated. We will only be able to identify cell types that were anotated in the reference.
+
+-   Manual annotation is based on literature knowledge and digging through previous annotation efforts or field-relevant papers describing cell types of interest using other methods - bulk RNAseq, FACS...
 
 ## Libraries
 
@@ -69,6 +63,9 @@ if (!requireNamespace("DT", quietly = TRUE))
 if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
     BiocManager::install("ComplexHeatmap")
 
+if (!requireNamespace("openxlsx", quietly = TRUE))
+    BiocManager::install("openxlsx")
+
 if (!requireNamespace("presto", quietly = TRUE))
     devtools::install_github("immunogenomics/presto")
 
@@ -83,6 +80,7 @@ library(RColorBrewer)
 library(DT)
 library(ComplexHeatmap)
 library(SeuratData)
+library(openxlsx)
 ```
 
 ## Load data
@@ -223,6 +221,19 @@ top10 <- mgs %>%
 DoHeatmap(se, features = top10$gene) + NoLegend()
 ```
 
+Save marker genes to a spreadsheet
+```{r}
+mgs_ls <- lapply(unique(mgs$cluster), function(i) {
+    mgs %>% dplyr::filter(cluster == i)
+    })
+
+# Set names which will be the sheet name
+names(mgs_ls) <- unique(mgs$cluster)
+
+# Save marker genes to spreadsheet
+openxlsx::write.xlsx(mgs_ls, file = "../data/lvl1_mgs.xlsx")
+```
+
 ##### P-value interpretation
 
 More details can be obtained in [OSCA](https://bioconductor.org/books/3.17/OSCA.advanced/marker-detection-redux.html#p-value-invalidity).
@@ -274,13 +285,8 @@ saveRDS(
 
 #### Reference Mapping
 
-We download the reference data from [Zenodo](https://zenodo.org/records/4546839)
+We are going to download a reference human PBMC dataset using the `SeuratData` package. You can use whichever reference suits your dataset best.
 ```{r}
-# system("curl -O https://zenodo.org/records/4546839/files/ref.Rds")
-# Move it to the data directory
-# ref <- readRDS("data/ref.Rds")
-# ref
-
 SeuratData::AvailableData()
 SeuratData::InstallData("pbmcsca", force.reinstall = TRUE)
 SeuratData::InstalledData()
@@ -311,7 +317,7 @@ hvg <- union(VariableFeatures(se), VariableFeatures(ref))
 length(hvg)
 ```
 
-Reference mapping
+Reference mapping - there is very good explanation in the documentation of `?FindTransferAnchors`. Basically what we are doing here is embedding the cells into the same latent space. Anchors - defined as pairs of cells contained within each other's k-neighborhood - are identified. Lastly, with `TransferData` the shared nearest neighbors overlap between the anchors and the cells is used to obtain the that cell's predicted label.
 ```{r}
 # Find anchors in reference dataers
 anchors <- FindTransferAnchors(
@@ -450,7 +456,7 @@ FeaturePlot(
 
 VlnPlot(
     se,
-    features = c("HBA1", "HBA2", "HBB", "HBD"),
+    features = c("SHD", "SHC", "LILRA4", "CLEC4C", "IL3RA", "IRF4"),
     group.by = "RNA_snn_res.0.05") +
     dim_plt
 ```
@@ -570,11 +576,14 @@ hm_ls[[1]] + hm_ls[[2]] + hm_ls[[3]] + hm_ls[[4]] + hm_ls[[5]] + hm_ls[[6]]
 
 ### Annotation agreement
 Lastly let's see if our Manual annotation agrees with the reference annotation:
-```{r fig.width=12, fig.height=5}
-DimPlot(se, group.by = c("annotation_lvl1", "predicted.id"))
+```{r fig.width=12, fig.height=12}
+DimPlot(
+    se,
+    group.by = c("annotation_lvl1", "predicted.id", "Celltype"),
+    ncol = 2)
 ```
 
-We can also check the overlap as follows:
+We can also check the overlap between manual and automatic annotation as follows:
 ```{r}
 se@meta.data %>%
     # Count the instances each combination of annotations happen
@@ -585,9 +594,22 @@ se@meta.data %>%
     scale_fill_viridis_c() +
     theme_classic() +
     theme(legend.position = "none")
-    ```
+```
 
-## Extra
+Check the overlap between manual and the author provided annotation:
+```{r}
+se@meta.data %>%
+    # Count the instances each combination of annotations happen
+    dplyr::count(annotation_lvl1, Celltype) %>%
+    ggplot(aes(x = annotation_lvl1, y = Celltype, fill = n, color = n, label = n)) +
+    geom_tile(color = "lightgrey") +
+    geom_text(color = "lightgrey") +
+    scale_fill_viridis_c() +
+    theme_classic() +
+    theme(legend.position = "none")
+```
+
+## Extra!!!
 See below how the `avg_log2FC` calculation is done! Code extracted from [Seurat's codebase](https://github.com/satijalab/seurat/blob/41d19a8a55350bff444340d6ae7d7e03417d4173/R/differential_expression.R#L1114-L1117).
 
 ```{r, eval=FALSE}
