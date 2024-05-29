@@ -12,7 +12,7 @@ format:
     embed-resources: true
     self-contained-math: true
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -66,9 +66,14 @@ if (!requireNamespace("RColorBrewer", quietly = TRUE))
 if (!requireNamespace("DT", quietly = TRUE))
     install.packages("DT")
 
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+    BiocManager::install("ComplexHeatmap")
+
 if (!requireNamespace("presto", quietly = TRUE))
     devtools::install_github("immunogenomics/presto")
 
+if (!requireNamespace("SeuratData", quietly = TRUE))
+    devtools::install_github('satijalab/seurat-data')
 
 ### Load all the necessary libraries
 library(Seurat)
@@ -76,6 +81,8 @@ library(tidyverse)
 library(colorBlindness)
 library(RColorBrewer)
 library(DT)
+library(ComplexHeatmap)
+library(SeuratData)
 ```
 
 ## Load data
@@ -187,7 +194,7 @@ For the purpose of this tutorial we're going to go forward with resolution 0.05!
 
 ### DGE Wilcoxon
 
-The different implementations Seurat incorporates provides in `FindAllMarkers` compare the gene expression between 2 groups of cells. This one vs all strategy is very quick and returns the `avg_log2FC`. This `avg_log2FC` is computed as detailed [here](https://github.com/satijalab/seurat/issues/741) & [here](https://github.com/satijalab/seurat/issues/467). Since we're working with normalized data the log2FC can be directly computed by subtracting the average expression between both groups - $log(\frac{exp1}{exp2})=log(exp1)-log(exp2)$
+The different implementations Seurat incorporates provides in `FindAllMarkers` compare the gene expression between 2 groups of cells. This one vs all strategy is very quick and returns the `avg_log2FC`. This `avg_log2FC` is computed as detailed [here](https://github.com/satijalab/seurat/issues/741) & [here](https://github.com/satijalab/seurat/issues/467). Since we're working with normalized data the log2FC can be directly computed by subtracting the average expression between both groups - $log_{2}(\frac{exp1}{exp2})=log_{2}(Avg\_exp1)-log_{2}(Avg\_exp2)$
 
 ```{r}
 Idents(se) <- "RNA_snn_res.0.05"
@@ -216,9 +223,135 @@ top10 <- mgs %>%
 DoHeatmap(se, features = top10$gene) + NoLegend()
 ```
 
+##### P-value interpretation
+
+More details can be obtained in [OSCA](https://bioconductor.org/books/3.17/OSCA.advanced/marker-detection-redux.html#p-value-invalidity).
+
+P values obtained from DGE analysis are inflated and, therefore invalid in their interpretation. We can't use p-values to reject the Null Hypothesis since we are carrying out **data snooping**. This means that we are dividing the clusters based on their gene expression, and then computing p-values for the genes that are differentially expressed, even though we know these clusters have different gene expression patterns since we clustered the data based on them being different.
+
+A way to show this is by looking at how skewed the distributions of the p-values obtained is:
+
+```{r fig.width=9, fig.width=9, eval=TRUE}
+# Compute the p-values without he thresholds
+mgs2 <- FindAllMarkers(
+    se,
+    test.use = "wilcox",
+    only.pos = TRUE,
+    logfc.threshold = 0,
+    min.pct = 0,
+    return.thresh = 1,
+    max.cells.per.ident = 100 # use 100 cells per cell type for speed
+    )
+
+ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
+    # geom_histogram(alpha = 0.3, position = "identity") +
+    geom_density(alpha = 0.3) +
+    theme_minimal()
+
+ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
+    geom_histogram(alpha = 0.3, position = "identity") +
+    facet_wrap(~cluster, scales = "free") +
+    theme_minimal()
+```
+
 ### Annotation
 
-#### Cluster 0 & 4
+There are two main ways to annotate your single cell dataset which are usually used together to aid in the process:
+
+- Automatic cell type annotation: typicall requires a reference dataset representative of the samples we are trying to annotate. Some commonly used tools in R are `SingleR` which has very good [documentation](https://bioconductor.org/books/release/SingleRBook/introduction.html) and `Seurat`'s reference mapping either through their [Azimuth server](https://azimuth.hubmapconsortium.org/) or following their reference mapping [vignette](https://satijalab.org/seurat/articles/integration_mapping.html) which performs remarkably well.
+
+#### Azimuth
+We can use [Azimuth](https://azimuth.hubmapconsortium.org/) online app to manually use a reference dataset to annotate our dataset.
+
+To do so we need to save the counts matrix as an RDS file.
+```{r}
+se@assays$RNA$counts[1:15, 1:15]
+
+saveRDS(
+    object = se@assays$RNA$counts,
+    file = "../data/counts.rds")
+```
+
+#### Reference Mapping
+
+We download the reference data from [Zenodo](https://zenodo.org/records/4546839)
+```{r}
+# system("curl -O https://zenodo.org/records/4546839/files/ref.Rds")
+# Move it to the data directory
+# ref <- readRDS("data/ref.Rds")
+# ref
+
+SeuratData::AvailableData()
+SeuratData::InstallData("pbmcsca", force.reinstall = TRUE)
+SeuratData::InstalledData()
+ref <- LoadData("pbmcsca")
+```
+
+Look at the data
+```{r fig.width=12, fig.height=5}
+table(ref$CellType)
+```
+
+Preprocess data - Normalize, identify HVG and look at the Elbow plot.
+We start by normalizing the data just to make sure both datasets are processed the same way. We then use the union of the HVG to make sure we capture the biological variability of both datasets. Next we compute the UMAP, it is necessary to specify `return.model=TRUE`! Lastly, we look at the Elbow plot to assess how many dimensions to use in downstream analysis.
+```{r}
+# Renormalize data and find HVG to make sure 
+se <- NormalizeData(se) %>% FindVariableFeatures(method = "vst", nfeatures = 3000)
+ref <- NormalizeData(ref) %>%
+    FindVariableFeatures(method = "vst", nfeatures = 3000) %>%
+    ScaleData() %>%
+    RunPCA()
+
+ElbowPlot(ref, ndims = 30)
+
+ref <- ref %>% Seurat::RunUMAP(reduction = "pca", dims = 1:30, return.model = TRUE)
+
+# Use the union of HVG
+hvg <- union(VariableFeatures(se), VariableFeatures(ref))
+length(hvg)
+```
+
+Reference mapping
+```{r}
+# Find anchors in reference dataers
+anchors <- FindTransferAnchors(
+    reference = ref,
+    query = se,
+    dims = 1:30,
+    reference.reduction = "pca",
+    features = hvg,
+    normalization.method = "LogNormalize")
+
+# Extract the predictions
+predictions <- TransferData(
+    anchorset = anchors,
+    refdata = ref$CellType,
+    dims = 1:30)
+
+head(predictions)
+```
+
+Let's add these predictions to our seurat object
+```{r}
+colnames(predictions)
+se <- AddMetaData(
+    se,
+    metadata = predictions[, c("predicted.id", "prediction.score.max", "prediction.score.Unassigned")])
+```
+
+Look at the label transfer
+```{r fig.width=12, fig.height=5}
+DimPlot(se, group.by = c("Celltype", "predicted.id"))
+```
+
+Since we also got a confidence value for each cell we can visualize it
+```{r fig.width=12, fig.height=5}
+FeaturePlot(se, features = c("prediction.score.max", "prediction.score.Unassigned"))
+```
+
+#### Manual Annotation
+
+##### Cluster 0 & 4
 
 Let's look at genes that are differentially expressed
 ```{r fig.height=12, fig.width=15}
@@ -236,7 +369,7 @@ VlnPlot(
 
 Clusters 0 & 4 seem to have a lot of expression of T cell related genes so at this level 1 we are going to label them as T cells.
 
-#### Cluster 1
+##### Cluster 1
 Let's look at genes that are differentially expressed
 ```{r fig.height=12, fig.width=15}
 FeaturePlot(
@@ -253,7 +386,7 @@ VlnPlot(
 
 Cluster 1 is expressing a lot of monocyte-like genes, at this level 1 we are going to label them as monocytes.
 
-#### Cluster 2
+##### Cluster 2
 Let's look at genes that are differentially expressed
 ```{r fig.height=12, fig.width=15}
 FeaturePlot(
@@ -270,7 +403,7 @@ VlnPlot(
 
 Cluster 2 is expressing B cells genes
 
-#### Cluster 3
+##### Cluster 3
 
 Let's look at genes that are differentially expressed
 ```{r fig.height=12, fig.width=15}
@@ -288,7 +421,7 @@ VlnPlot(
 
 Cluster 3 is expressing platelet genes
 
-#### Cluster 5
+##### Cluster 5
 
 Let's look at genes that are differentially expressed
 ```{r fig.height=12, fig.width=12}
@@ -306,7 +439,7 @@ VlnPlot(
 
 Cluster 5 is expressing hemoglobin genes so they are likely RBC
 
-#### Cluster 6
+##### Cluster 6
 
 Let's look at genes that are differentially expressed
 ```{r fig.height=12, fig.width=12}
@@ -323,8 +456,6 @@ VlnPlot(
 ```
 
 Cluster 6 is expressing genes predominantly expressed by pDCs.
-
-
 
 ## Annotate
 According to the markers observed we can make a first general annotation
@@ -343,9 +474,11 @@ se@meta.data <- se@meta.data %>%
 
 DimPlot(se, group.by = "annotation_lvl1")
 ```
-### DotPlot summary
 
-```{r}
+### Summary genes
+
+We can visualize this as a dotplot
+```{r fig.width=9, fig.height=3}
 order <- c("T cells", "Monocytes", "B cells", "Platelets", "RBC", "pDCs")
 
 se$annotation_lvl1_ord <- factor(
@@ -355,7 +488,7 @@ se$annotation_lvl1_ord <- factor(
 ## Genes for DOTPLOT
 dplot_genes <- c(
     # T cell genes
-    "CD3D", "CD3E", "TRAC", "TRBC2", "CD8B", "CD4",
+    "CD3D", "CD3E", "TRAC", "TRBC1", "TRBC2", "CD8A", "CD8B", "CD4",
     # Monocytes
     "CD14", "S100A8", "VCAN", "LYZ", "MS4A6A",
     # B cells
@@ -379,6 +512,80 @@ Seurat::DotPlot(
   ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 60, hjust = 1)) +
   ggplot2::labs(x = "", y = "")
 ```
+
+We can also visualize this as a heatmap using Seurat's `DoHeatmap` function:
+```{r}
+Seurat::DoHeatmap(
+    se,
+    features = dplot_genes,
+    group.by = "annotation_lvl1_ord")
+```
+
+Or with `pheatmap`
+```{r fig.width=15, fig.height=8}
+# Cell types in the order the gdotplot genes are set
+ct_vec <- c("T cells", "Monocytes", "B cells", "Platelets", "RBC", "pDCs")
+
+lvl1_pal <- c("purple", "orange", "forestgreen", "lightblue", "darkred", "black")
+names(lvl1_pal) <- ct_vec
+# Subset to 30% of the dataset
+se_30 <- se[, sample(colnames(se), 0.5 * ncol(se))]
+
+hm_ls <- lapply(ct_vec, function(i) {
+    se_sub <- se_30[, se_30$annotation_lvl1 == i]
+    # Extract Gene Expression Matrix from Seurat Object
+    gene_expr <- GetAssayData(se_sub, assay = "RNA", slot = "scale.data")
+    
+    # Subset the genes intersecting between gene expression and genes of interest
+    g_int <- dplot_genes[dplot_genes %in% rownames(gene_expr)]
+    
+    # Subset expression matrix to only genes of interest
+    gene_expr <- gene_expr[g_int, ]
+    
+    # Add the score of the signature as annotation in the heatmap
+    colAnn <- ComplexHeatmap::HeatmapAnnotation(
+        df = se_sub@meta.data[, c("Celltype", "annotation_lvl1"), drop = FALSE],
+        # name = "Celltype",
+        which = 'column',
+        col = list("Celltype" = pal, "annotation_lvl1" = lvl1_pal),
+        show_annotation_name = FALSE)
+    
+    # Visualize the Heatmap with the genes and signature 
+    ComplexHeatmap::Heatmap(
+        as.matrix(gene_expr),
+        name = "Scaled Gene Expression",
+        # col = expr_cols,
+        cluster_rows = FALSE,
+        cluster_columns = TRUE,
+        # column_title = sig_name,
+        column_names_gp = gpar(fontsize = 14),
+        show_column_names = FALSE,
+        top_annotation = colAnn,
+        )
+})
+
+# Return ComplexHeatmap
+hm_ls[[1]] + hm_ls[[2]] + hm_ls[[3]] + hm_ls[[4]] + hm_ls[[5]] + hm_ls[[6]]
+```
+
+### Annotation agreement
+Lastly let's see if our Manual annotation agrees with the reference annotation:
+```{r fig.width=12, fig.height=5}
+DimPlot(se, group.by = c("annotation_lvl1", "predicted.id"))
+```
+
+We can also check the overlap as follows:
+```{r}
+se@meta.data %>%
+    # Count the instances each combination of annotations happen
+    dplyr::count(annotation_lvl1, predicted.id) %>%
+    ggplot(aes(x = annotation_lvl1, y = predicted.id, fill = n, color = n, label = n)) +
+    geom_tile(color = "lightgrey") +
+    geom_text(color = "lightgrey") +
+    scale_fill_viridis_c() +
+    theme_classic() +
+    theme(legend.position = "none")
+    ```
 
 ## Extra
 See below how the `avg_log2FC` calculation is done! Code extracted from [Seurat's codebase](https://github.com/satijalab/seurat/blob/41d19a8a55350bff444340d6ae7d7e03417d4173/R/differential_expression.R#L1114-L1117).
@@ -407,37 +614,6 @@ Check if its equal to the `avg_log2FC` obtained from `FindAllMarkers`:
 
 ```{r eval=FALSE}
 fc == mgs[mgs$cluster == "B cell, IgG+" & mgs$gene == "MS4A1", "avg_log2FC"]
-```
-
-##### Looking into the P-values
-
-More details can be obtained in [OSCA](https://bioconductor.org/books/3.17/OSCA.advanced/marker-detection-redux.html#p-value-invalidity).
-
-P values obtained from DGE analysis are inflated and, therefore invalid in their interpretation. We can't use p-values to reject the Null Hypothesis since we are carrying out **data snooping**. This means that we are dividing the clusters based on their gene expression, and then computing p-values from the genes that are differentially expressed, even though we already know these genes are differentially expressed since we clustered the data based on them being different.
-
-A way to show this is by looking at how skewed the distributions of the p-values obtained is:
-
-```{r fig.width=9, fig.width=9, eval=FALSE}
-# Compute the p-values without he thresholds
-mgs2 <- FindAllMarkers(
-    se,
-    test.use = "wilcox",
-    only.pos = TRUE,
-    logfc.threshold = 0,
-    min.pct = 0,
-    return.thresh = 1,
-    max.cells.per.ident = 100 # use 100 cells per cell type for speed
-    )
-
-ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
-    # geom_histogram(alpha = 0.3, position = "identity") +
-    geom_density(alpha = 0.3) +
-    theme_minimal()
-
-ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
-    geom_histogram(alpha = 0.3, position = "identity") +
-    facet_wrap(~cluster, scales = "free") +
-    theme_minimal()
 ```
 
 ## Session Info
