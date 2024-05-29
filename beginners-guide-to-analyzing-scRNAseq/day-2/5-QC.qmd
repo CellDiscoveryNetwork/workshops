@@ -90,7 +90,7 @@ mtx[c("CD3D", "TCL1A", "MS4A1"), 1:30]
 ### Add Batch Information
 
 ```{r}
-# Make a dataframe and extract barcode and Sample ID metadata from se obj
+# Make a data frame and extract barcode and Sample ID metadata from se obj
 info <- data.frame(Barcode = colnames(se), "Sample ID" = se@meta.data$'Sample ID')
 colnames(info) <- gsub("\\.", " ", colnames(info))
 
@@ -121,9 +121,9 @@ head(qc_metrics)
 # Assume you have a Seurat object named se
 gene_list <- rownames(se@assays$RNA@features)
 # Search for genes that start with "RPS"
-genes_starting_with_RPS <- grep("^MT-", gene_list, value = TRUE)
-# Print the genes starting with "RPS"
-print(genes_starting_with_RPS)
+# genes_starting_with_MT <- grep("^MT-", gene_list, value = TRUE)
+# # Print the genes starting with "RPS"
+# print(genes_starting_with_MT)
 se <- PercentageFeatureSet(se, pattern = "^MT-", col.name = "perc.mt")
 se <- PercentageFeatureSet(se, pattern = "^RPS |^RPL", col.name = "perc.ribo")
 se <- PercentageFeatureSet(se, pattern = "^HB[^(P)]", col.name = "perc.hb")
@@ -142,15 +142,10 @@ DimPlot(se, reduction = "umap", group.by = "Celltype") +
 
 ```
 
-```{r}
-```
 
 ```{r}
 # Also compute the UMAP embedding
 Seurat::ElbowPlot(se, ndims = 40)
-```
-```{r}
-
 ```
 ```{r, fig.width=8, fig.height=6}}
 # Plot counts
@@ -250,15 +245,10 @@ se@meta.data %>%
   theme_classic() +
   scale_color_gradient(low = "yellow", high = "red", limits = c(0, 100))
 ```
+
+
 ### DoubletFinder
 
-
-```{r}
-```
-
-```{r}
-
-```
 #### Find Doublets for one Sample ID 
 ```{r}
 library(DoubletFinder)
@@ -271,47 +261,118 @@ class(exp_btch)
 ```{r}
 
 doublet_info <- list()
-batch = 1
-batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
-# seurat_object <- CreateSeuratObject(counts = your_data_object)
-batch_seurat_object <- batch_seurat_object %>%
-  NormalizeData() %>%
-  FindVariableFeatures() %>%
-  ScaleData() %>%
-  RunPCA() %>%
-  FindNeighbors() %>%
-  FindClusters() 
-  # RunUMAP(., dims = 1:20)
-Seurat::ElbowPlot(batch_seurat_object, ndims = 30)
-DimPlot(se, reduction="umap", group.by = "Experimental batch")
+# batch = 1
+process_batch <- function(batch) {
+  batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
+  # seurat_object <- CreateSeuratObject(counts = your_data_object)
+  batch_seurat_object <- batch_seurat_object %>%
+    NormalizeData() %>%
+    FindVariableFeatures() %>%
+    ScaleData() %>%
+    RunPCA() %>%
+    FindNeighbors() %>%
+    FindClusters() 
+    # RunUMAP(., dims = 1:20)
+  Seurat::ElbowPlot(batch_seurat_object, ndims = 30)
+  DimPlot(se, reduction="umap", group.by = "Experimental batch")
+  
+  sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
+  sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
+  bcmvn_sample <- find.pK(sweep.stats_sample)
+  # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
+  ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
+    geom_point() +
+    geom_line()
+  
+  pK <- bcmvn_sample %>%
+    filter(BCmetric == max(BCmetric)) %>%
+    select(pK)
+  pK <- as.numeric(as.character(pK[[1]]))
+  
+  annotations <- batch_seurat_object@meta.data$seurat_clusters
+  # annotations <- se@meta.data$cell_type
+  homotypic.prop <- modelHomotypic(annotations)           ## ex: annotations <- se@meta.data$ClusteringResults
+  nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+  nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+  
+  batch_seurat_object <- doubletFinder(
+    batch_seurat_object,
+    PCs = 1:20,
+    pN = 0.1,
+    pK = pK,
+    nExp = nExp_poi.adj,
+    reuse.pANN = FALSE,
+    sct = FALSE)
 
-sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
-sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
-bcmvn_sample <- find.pK(sweep.stats_sample)
-# Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
-  geom_point() +
-  geom_line()
+  mt <- batch_seurat_object@meta.data[,c("")]
+  info <- data.frame(Barcode = colnames(batch_seurat_object), "Sample ID" = batch_seurat_object@meta.data$'Sample ID')
+  colnames(info) <- gsub("\\.", " ", colnames(info))
+  doublet_info <- c(batch_seurat_object@meta.data$'Doublet_Class',)
+  
+  # Add doublet information to larger seurat object here
+  pANN <- colnames(batch_seurat_object@meta.data) %>% 
+    keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data)))
+  DF_class <- colnames(batch_seurat_object@meta.data) %>% 
+    keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data)))
+  # Extract values "0.1", "0.1", and "1000"
+  params <- gsub("^pANN_", "", pANN)  # Remove "pANN_"
+  params <- strsplit(params, "_")[[1]]  # Split by "_"
+  pN <- params[1]  # Extract "0.1"
+  pK <- params[2]  # Extract "0.1"
+  doublet_run <- params[3]  # Extract "1000"
+  
+  # Create new columns "pN", "pK", and "doublet_run"
+  colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == pANN] <- "pANN"
+  colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == DF_class] <- "DF_class"
+  batch_seurat_object@meta.data$pN <- pN
+  batch_seurat_object@meta.data$pK <- pK
+  batch_seurat_object@meta.data$doublet_run <- doublet_run
+  
+  # Return DF of doublet information here
+  df <- data.frame(
+    Barcode = colnames(batch_seurat_object),
+    batch_seurat_object@meta.data$'Experimental batch', 
+    batch_seurat_object@meta.data$'pANN', 
+    batch_seurat_object@meta.data$'DF_class',
+    batch_seurat_object@meta.data$'doublet_run',
+    batch_seurat_object@meta.data$pK,
+    batch_seurat_object@meta.data$pN
+    )
+  return(df)
+  
+}
 
-pK <- bcmvn_sample %>%
-  filter(BCmetric == max(BCmetric)) %>%
-  select(pK)
-pK <- as.numeric(as.character(pK[[1]]))
+processed_doublets <- lapply(exp_btch, process_batch)
 
-annotations <- batch_seurat_object@meta.data$seurat_clusters
-# annotations <- se@meta.data$cell_type
-homotypic.prop <- modelHomotypic(annotations)           ## ex: annotations <- se@meta.data$ClusteringResults
-nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
-nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+# Print renamed column
+print(names(seurat_obj@meta.data))
+# # Make a data frame and extract barcode and Sample ID metadata from se obj
+# info <- data.frame(Barcode = colnames(se), "Sample ID" = se@meta.data$'Sample ID')
+# colnames(info) <- gsub("\\.", " ", colnames(info))
+# 
+# # Load in batch information
+# batch_info <- read.csv("../data/batch_info.csv")
+# # Rename batch_info column names to have a space instead of "."
+# colnames(batch_info) <- gsub("\\.", " ", colnames(batch_info))
+# batch_info <- batch_info %>%
+#   select("Sample ID", "Experimental batch")
+# # merge the batch_info with the info dataframe
+# info <- merge(info, batch_info, by = "Sample ID")
+# 
+# rownames(info) <- info$Barcode
+# info <- info %>% select(-Barcode)
+# 
+# # Add batch numbers to the metadata
+# se <- AddMetaData(se, info)
 
-se_sample_1 <- doubletFinder(
-  batch_seurat_object,
-  PCs = 1:20,
-  pN = 0.1,
-  pK = pK,
-  nExp = nExp_poi.adj,
-  reuse.pANN = FALSE,
-  sct = FALSE)
+```
+
+```{r}
+
+
+```
+
+```{r}
 ```
 
 ```{r}
