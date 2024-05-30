@@ -24,6 +24,8 @@ if (!requireNamespace("colorBlindness", quietly = TRUE))
     install.packages('colorBlindness')
 if (!requireNamespace("RColorBrewer", quietly = TRUE))
     install.packages('RColorBrewer')
+if (!requireNamespace("cluster", quietly = TRUE))
+    install.packages('cluster')
 ```
 
 ```{r}
@@ -33,8 +35,13 @@ suppressPackageStartupMessages({
   library(RColorBrewer)
   library(colorBlindness)
   library(DoubletFinder)
+  library(cluster)
 })
 set.seed(687)
+
+# Set color palette
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
 ```
 
 Load Data
@@ -50,6 +57,7 @@ rownames(mtx) <- genes[match(row.names(mtx),genes$index), ]$feature_name
 se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
 
 se
+rm(mtx)
 ```
 ## Preprocessing
 
@@ -60,9 +68,11 @@ se <- se %>%
         method = "vst",
         nfeatures = 3000,
         verbose = FALSE) %>%
-    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
+    ScaleData(verbose = FALSE) %>%
     RunPCA(verbose = FALSE) %>%
-    RunUMAP(dims = 1:30, verbose = FALSE)
+    FindNeighbors %>%
+    FindClusters(resolution = 0.5) %>%
+    RunUMAP(dims = 1:30, verbose = FALSE, n.components=3L)
 
 ElbowPlot(se, ndims = 50)
 ```
@@ -70,27 +80,26 @@ ElbowPlot(se, ndims = 50)
 ### UMAP of Counts and QC Metrics
 
 ```{r}
-d1 <- DimPlot(se, 
-        reduction='umap', 
-        group.by='batch',
-        cols = pal)
-
-d2 <- DimPlot(se, 
-        reduction='umap', 
-        group.by='DF_class')
-
-d3 <- DimPlot(se, 
-        reduction='umap', 
-        group.by='Sample ID') 
-
-d1 | d2 | d3
+# d1 <- DimPlot(se, 
+#         reduction='umap', 
+#         group.by='batch',
+#         cols = pal)
+# 
+# d2 <- DimPlot(se, 
+#         reduction='umap', 
+#         group.by='DF_class')
+# 
+# d3 <- DimPlot(se, 
+#         reduction='umap', 
+#         group.by='Sample ID') 
+# 
+# d1 | d2 | d3
 ```
 
 ```{r}
 d4 <- DimPlot(se, 
         reduction='umap', 
-        group.by='Celltype',
-        cols = pal)
+        group.by='cell_type')
 
 d5 <- DimPlot(se, 
         reduction='umap', 
@@ -180,7 +189,7 @@ sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(se@met
 
 se <- AddMetaData(se, sil_ids)
 
-FeaturePlot(se, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1), option = "magma") | d2
+FeaturePlot(se, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1), option = "magma") | d5
 ```
 
 ## Session Info

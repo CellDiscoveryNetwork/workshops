@@ -68,14 +68,15 @@ names(pal) <- sort(unique(se$Celltype))
 
 #### According to 'Current best practices in single-cell RNA-seq', we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitchondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.
 
-In public datasets, use 'colnames()' to find the processing and metadata already analyzed. 
+In public datasets, use 'colnames()' to find the processing and metadata already analyzed.
+
 ```{r}
 # Find the metadata columns of interest
 colnames(se@meta.data)
 ```
 
-1 - Number of UMIs
-nCount_RNA is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low nCount_RNA values may be dying or dead cells, while cells with high nCount_RNA values may be doublets.
+1 - Number of UMIs nCount_RNA is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low nCount_RNA values may be dying or dead cells, while cells with high nCount_RNA values may be doublets.
+
 ```{r}
 ggplot(se@meta.data, aes(x = nCount_RNA)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
@@ -85,8 +86,8 @@ ggplot(se@meta.data, aes(x = nCount_RNA)) +
     theme_classic()
 ```
 
-2 - Number of genes
-nFeature_RNA is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low nFeature_RNA values may be dying or dead cells, while cells with high nFeature_RNA values may be doublets.
+2 - Number of genes nFeature_RNA is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low nFeature_RNA values may be dying or dead cells, while cells with high nFeature_RNA values may be doublets.
+
 ```{r}
 ggplot(se@meta.data, aes(x = nFeature_RNA)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
@@ -150,6 +151,7 @@ VlnPlot(se,
   pt.size = 0
   ) + NoLegend()
 ```
+
 With these distributions, something notable is going on in Flu 5. Let's perform other quality control visualizations to see if we can find out what is happening.
 
 Another way to visualize these distributions is:
@@ -162,6 +164,7 @@ se@meta.data %>%
     ggplot2::theme_classic() +
     ggplot2::scale_color_gradient(low = "yellow", high = "red", limits = c(0, 20))
 ```
+
 The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.
 
 ```{r}
@@ -189,13 +192,14 @@ se@meta.data %>%
   geom_point() +
   theme_classic() 
 ```
+
 After looking at the cell type distribution, the hemoglobin concentration makes sense as it corrspends to erythocytes which are high in hemoglobin.
 
 ### Add Batch Information
 
 Preprocessed Seurat object's will often contain information about what batch the samples were processed in as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified in "Celltype" = "Uncategorized 1". Because they did not include the doublet information in the metadata, we will add it in this section. Doublet detection and removal is sensitive because you don't want to remove any valuable outliers but still take into consideration the noisiness of the data.
 
-To define doublets, packages in both R and Python run algorithms per batch. This is why we imported the batch information so we could subset the larger object and filter out doublets per batch. 
+To define doublets, packages in both R and Python run algorithms per batch. This is why we imported the batch information so we could subset the larger object and filter out doublets per batch.
 
 ```{r}
 # Make a data frame and extract barcode and Sample ID metadata from se obj
@@ -225,10 +229,9 @@ info <- info %>% select(-Barcode)
 se <- AddMetaData(se, info)
 ```
 
-### DoubletFinder 
+### DoubletFinder
 
-There are many different packages that can be used ot detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called "doubletFinder" that takes in a Seurat object and returns a Seurat object with doublet information in the metadata. 
-
+There are many different packages that can be used ot detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called "doubletFinder" that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.
 
 ```{r}
 library(DoubletFinder)
@@ -342,7 +345,6 @@ se <- AddMetaData(
   )
 ```
 
-
 ### Perform Preprocessing
 
 ```{r}
@@ -370,12 +372,11 @@ FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN")
 # Plot UMAP by cell type
 DimPlot(se, reduction = "umap", group.by = "cell_type") +
-  labs(title = "UMAP Plot Colored by Batch")
+  labs(title = "UMAP Plot Colored by Cell Type")
 
 # DimPlot(se, reduction = "umap", group.by = "Celltype") +
 #   labs(title = "UMAP Plot Colored by Batch")
 ```
-
 
 lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows().
 
@@ -388,6 +389,7 @@ pK parameter = the proportion of cells that are doublets This metric determines 
 pANN = proportion of artificial nearest neighbors.
 
 ## Resave Seurat object
+
 ```{r}
 saveRDS(se, '../data/workshop-data.rds')
 ```
