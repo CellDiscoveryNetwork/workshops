@@ -23,18 +23,37 @@ options(width = 1200)
 
 ## Introduction
 
-In this notebook we are going to look at two big concepts: 1) Why we need to normalize the data and how we do that and 2) once the data is normalized, why we subset our dataset to the highly variable genes (HVG) and how to go about it.
+In this notebook we are going to look at two big concepts: 1) Why we need to normalize the data and how we do that and 2) once the data is normalized, why we subset our data to the highly variable genes (HVG) and how to go about it. Normalization is a key step in the analysis. 
 
-**Key Takeaways**
+1) The analysis starts with a count matrix representing how many UMIs per gene were detected for each cell. These gene counts can be affected by technical variation such as the molecule capture rate, reverse transcription efficiency and sequencing depth. Therefore, when comparing gene expression between cells we need to adjust for library size.
 
--   Data normalization is key to ...
+2) Feature selection is necessary to reduce the dimensionality of the dataset while preserving as much biological information as possible. Highly variable genes are selected following the assumption that genes that vary throughout the data will represent different cell types. Genes that have a homogeneous expression are less interesting.
 
--   
 
--   Differential gene expression metrics vary depending on the groups of cells we are comparing.
+### Glossay
 
--   P values obtained from carrying out DGE analysis between clusters are inflated and should not be used.
+- **Unique molecular identifier (UMI)**: unique molecular barcode added to each transcript before PCR amplification to correct for biases during that process.
 
+- **Library size**: total number of UMIs detected for each cell.
+
+- **Library complexity**: number of genes that have expression > 0 in each cell. The more genes detected in a cell the more complex a cell is. Exampled of low complexity cells are platelets and red blood cells which can be confounded with low quality cells if not assessed properly.
+
+
+### Key Takeaways
+
+-   Data normalization is key to correct for library size variability induced by technical artifacts.
+
+-   Log(x+1) is typically carried out after library size correction, this has three important effects:
+
+    1. Distances in between log values represent log fold changes
+    
+    2. Log transformation mitigates the mean-variance relationship
+    
+    3. Reduces the skewness of the data fulfilling the assumptions of downstream tools
+
+-   Feature selection is the first step to reduce the dimensionality of our data.
+
+-   We select highly variable gens following the assumption that genes that have variable expression are representative of cellular heterogeneity within our data.
 
 ## Libraries
 
@@ -163,36 +182,36 @@ This post explains it very well - https://www.nxn.se/valent/2017/10/15/variance-
 
 If we take a look at what variance stabilization means we can see the following. When the data is uncorrected:
 ```{r fig.width=6, fig.height=6}
-se@assays$RNA$counts[1:5, 1:5]
+se@assays$RNA$counts[1:15, 1:15]
 raw_sd <- sparseMatrixStats::rowSds(se@assays$RNA$counts)
 raw_mn <- sparseMatrixStats::rowMeans2(se@assays$RNA$counts)
 
 # Visualize
 ggplot(mapping = aes(x = raw_mn, y = raw_sd)) +
-    geom_point() +
+    geom_point(alpha = 0.25) +
     theme_minimal() +
     labs(
-        title = "Relation between raw gene expression mean and sd",
+        title = "Relation between raw gene expression Mean and Standard Deviation",
         x = "Gene Expression Mean",
         y = "Gene Expression SD"
     )
 ```
 
-As we can observe, in general there is this relationship between the mean and the sd of the genes. If we normalize the data we can see how this relationship is greatly reduced.
+As we can observe, in general there is this relationship between the mean and the sd of the genes. If we normalize the data we can see how this relationship is greatly mitigated.
 
 ```{r fig.width=6, fig.height=6}
 se <- NormalizeData(se, normalization.method = "LogNormalize", scale.factor = 1e4)
 
-se@assays$RNA$data[1:5, 1:5]
+se@assays$RNA$data[1:15, 1:15]
 norm_sd <- sparseMatrixStats::rowSds(se@assays$RNA$data)
 norm_mn <- sparseMatrixStats::rowMeans2(se@assays$RNA$data)
 
 # Visualize
 ggplot(mapping = aes(x = norm_mn, y = norm_sd)) +
-    geom_point() +
+    geom_point(alpha = 0.25) +
     theme_minimal() +
     labs(
-        title = "Relation between normalized gene expression mean and sd",
+        title = "Relation between normalized gene expression Mean and Standard Deviation",
         x = "Gene Expression Mean",
         y = "Gene Expression SD"
     )
