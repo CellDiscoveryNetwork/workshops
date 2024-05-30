@@ -15,7 +15,11 @@ author: Rose Hedderman
 
 ## Loading Libraries and Data
 
-```{r, eval=FALSE}
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
 if (!requireNamespace("tidyverse", quietly = TRUE))
     install.packages('tidyverse')
 if (!requireNamespace("Seurat", quietly = TRUE))
@@ -147,7 +151,7 @@ DimPlot(se, reduction = "umap", group.by = "Celltype") +
 # Also compute the UMAP embedding
 Seurat::ElbowPlot(se, ndims = 40)
 ```
-```{r, fig.width=8, fig.height=6}}
+```{r, fig.width=8, fig.height=6}
 # Plot counts
 VlnPlot(se,
   group.by = "Sample ID",
@@ -169,7 +173,7 @@ hist(nCount_RNA_values, breaks = 1000,
   plot = TRUE)
 ```
 
-```{r, fig.width=8, fig.height=6}}
+```{r, fig.width=8, fig.height=6}
 # Plot genes across samples
 VlnPlot(se,
   group.by = "Sample ID",
@@ -178,7 +182,7 @@ VlnPlot(se,
   ) + NoLegend()
 ```
 
-```{r, fig.width=8, fig.height=6}}
+```{r, fig.width=8, fig.height=6}
 # QFM: How do I plot these all at the same time?
 # Plot features
 VlnPlot(se,
@@ -189,7 +193,7 @@ VlnPlot(se,
   ) + NoLegend()
 ```
 
-```{r, fig.width=8, fig.height=6}}
+```{r, fig.width=8, fig.height=6}
 # Plot features
 VlnPlot(se,
   group.by = "Sample ID",
@@ -199,7 +203,7 @@ VlnPlot(se,
   ) + NoLegend()
 ```
 
-```{r, fig.width=8, fig.height=6}}
+```{r, fig.width=8, fig.height=6}
 # Plot features
 VlnPlot(se,
   group.by = "Sample ID",
@@ -304,10 +308,10 @@ process_batch <- function(batch) {
     reuse.pANN = FALSE,
     sct = FALSE)
 
-  mt <- batch_seurat_object@meta.data[,c("")]
-  info <- data.frame(Barcode = colnames(batch_seurat_object), "Sample ID" = batch_seurat_object@meta.data$'Sample ID')
-  colnames(info) <- gsub("\\.", " ", colnames(info))
-  doublet_info <- c(batch_seurat_object@meta.data$'Doublet_Class',)
+  # mt <- batch_seurat_object@meta.data[,c("")]
+  # info <- data.frame(Barcode = colnames(batch_seurat_object), "Sample ID" = batch_seurat_object@meta.data$'Sample ID')
+  # colnames(info) <- gsub("\\.", " ", colnames(info))
+  # doublet_info <- c(batch_seurat_object@meta.data$'Doublet_Class',)
   
   # Add doublet information to larger seurat object here
   pANN <- colnames(batch_seurat_object@meta.data) %>% 
@@ -331,21 +335,31 @@ process_batch <- function(batch) {
   # Return DF of doublet information here
   df <- data.frame(
     Barcode = colnames(batch_seurat_object),
-    batch_seurat_object@meta.data$'Experimental batch', 
-    batch_seurat_object@meta.data$'pANN', 
-    batch_seurat_object@meta.data$'DF_class',
-    batch_seurat_object@meta.data$'doublet_run',
-    batch_seurat_object@meta.data$pK,
-    batch_seurat_object@meta.data$pN
+    batch = batch_seurat_object@meta.data$'Experimental batch', 
+    pANN = batch_seurat_object@meta.data$'pANN', 
+    DF_class = batch_seurat_object@meta.data$'DF_class',
+    doublet_run = batch_seurat_object@meta.data$doublet_run,
+    pK = batch_seurat_object@meta.data$pK,
+    pN = batch_seurat_object@meta.data$pN
     )
-  return(df)
+  
+  # Add metadata to main Seurat object
+  # db <- bind_rows(processed_doublets)
+  rownames(df) <- df$Barcode
+  df <- df %>% select(-Barcode)
+  se <- AddMetaData(
+    object = se, 
+    metadata = df
+  )
+
+  return(batch)
   
 }
 
 processed_doublets <- lapply(exp_btch, process_batch)
 
 # Print renamed column
-print(names(seurat_obj@meta.data))
+# print(names(seurat_obj@meta.data))
 # # Make a data frame and extract barcode and Sample ID metadata from se obj
 # info <- data.frame(Barcode = colnames(se), "Sample ID" = se@meta.data$'Sample ID')
 # colnames(info) <- gsub("\\.", " ", colnames(info))
@@ -368,7 +382,18 @@ print(names(seurat_obj@meta.data))
 ```
 
 ```{r}
+# # Add metadata to main Seurat object
+# # db <- bind_rows(processed_doublets)
+# rownames(df) <- df$Barcode
+# # test <- se@meta.data %>%
+# #   left_join(db, by = "Barcode") %>%
+# #   column_to_rownames("Barcode")
+# test <- AddMetaData(
+#   object = se,
+#   metadata = db
+```
 
+```{r}
 
 ```
 
