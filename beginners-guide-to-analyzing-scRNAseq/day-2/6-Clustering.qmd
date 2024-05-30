@@ -9,33 +9,181 @@ author: Rose Hedderman
 
 ## Load Libraries and Data
 
-```{r}
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Libraries
+```{r}
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages('tidyverse')
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages('Seurat')
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages('colorBlindness')
+if (!requireNamespace("RColorBrewer", quietly = TRUE))
+    install.packages('RColorBrewer')
+```
+
+```{r}
+suppressPackageStartupMessages({
+  library(Seurat)
+  library(tidyverse)
+  library(RColorBrewer)
+  library(colorBlindness)
+  library(DoubletFinder)
+})
+set.seed(687)
+```
+
+Load Data
+```{r}
+se <- readRDS('../data/workshop-data.rds')
+# Load a provided gene conversion table to convert ENSG to readable gene symbols
+genes <- read_csv('../data/cov_flu_gene_names_table.csv') 
+
+# Remake Seurat object
+mtx <- se@assays$RNA@data
+rownames(mtx) <- genes[match(row.names(mtx),genes$index), ]$feature_name
+
+se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+
+se
+```
 ## Preprocessing
 
+```{r}
+se <- se %>%
+    NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
+    RunPCA(verbose = FALSE) %>%
+    RunUMAP(dims = 1:30, verbose = FALSE)
+
+ElbowPlot(se, ndims = 50)
+```
+
 ### UMAP of Counts and QC Metrics
+
+```{r}
+d1 <- DimPlot(se, 
+        reduction='umap', 
+        group.by='batch',
+        cols = pal)
+
+d2 <- DimPlot(se, 
+        reduction='umap', 
+        group.by='DF_class')
+
+d3 <- DimPlot(se, 
+        reduction='umap', 
+        group.by='Sample ID') 
+
+d1 | d2 | d3
+```
+
+```{r}
+d4 <- DimPlot(se, 
+        reduction='umap', 
+        group.by='Celltype',
+        cols = pal)
+
+d5 <- DimPlot(se, 
+        reduction='umap', 
+        group.by='seurat_clusters')
+
+d6 <- DimPlot(se, 
+        reduction='umap', 
+        group.by='Sample ID') 
+
+d4 | d5 | d6
+```
+
+## Clustering
 
 ### Look at different resolutions
 
 ### QC based on 2 resolutions to make a decision
 
-TD: Cluster Metrics
+### Annotate Seurat object with chosen resolution & DEGs
 
--   stacked bar/ diversity of samples per cluster
 
-    -   show what samples are in each cluster
+## Cluster Metrics
 
--   num cells per cluster
+### Cluster Diversity
+1 - Number of Cells in each Cluster
 
--   !!! silhouette analysis!!
+2 - Which samples are in each cluster
 
-    -   quantitative way to see how accurate your clusters
+3 - Stacked Bar Plot of Cluster Diversity
 
-### \>\>\> Annotate Seurat object with chosen resolution & DEGs
+### Silhouette Analysis
+As covered in the last workshop, silhouette analysis is a way to measure how similar an object is to its own cluster compared to other clusters. The silhouette value ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters.
 
-### Session Info
+```{r}
+seurat_clusters <- se@meta.data$seurat_clusters
+pca_embeddings <- Embeddings(se, reduction = 'pca')
+
+# Calculate silhouette widths
+sil_scores <- silhouette(x = as.numeric(seurat_clusters), dist = dist(pca_embeddings))
+
+# Extract silhouette scores
+silhouette_data <- as.data.frame(sil_scores)
+# Recover cell type names
+silhouette_data$seurat_clusters <- as.character(seurat_clusters)
+
+row.names(silhouette_data) <- row.names(pca_embeddings)
+
+silhouette_arranged <- silhouette_data %>% 
+  group_by(seurat_clusters) %>% 
+  arrange(-sil_width)
+```
+
+```{r}
+overall_average <- silhouette_arranged %>% 
+  ungroup %>% 
+  summarize(ave = as.numeric(mean(sil_width))) %>% 
+  pull(ave)
+
+full_plot <- ggplot(silhouette_arranged, 
+                    aes(x = sil_width, 
+                        y = seurat_clusters, 
+                        fill = seurat_clusters, 
+                        group = seurat_clusters)) +
+    geom_bar(stat = "identity", position = 'dodge2') +
+    geom_vline(xintercept = overall_average,
+               color = 'red',
+               linetype = 'longdash') +
+    theme_minimal() +
+    labs(title = "Silhouette Analysis",
+        y = "Cluster",
+        x = "Silhouette width",
+        fill = "Cluster") +
+    theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 20),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        axis.title.y = element_text(size = 20),
+        legend.position = "None")
+
+full_plot
+```
+
+Look at silhouette scores on a UMAP
+```{r}
+se$CellID <- row.names(se@meta.data)
+
+sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(se@meta.data)
+
+se <- AddMetaData(se, sil_ids)
+
+FeaturePlot(se, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1), option = "magma") | d2
+```
+
+## Session Info
 
 ```{r}
 sessionInfo()

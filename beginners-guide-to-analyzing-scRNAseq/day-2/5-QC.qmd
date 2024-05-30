@@ -224,6 +224,7 @@ info <- info %>% select(-Barcode)
 # Add batch numbers to the metadata
 se <- AddMetaData(se, info)
 ```
+
 ### DoubletFinder 
 
 There are many different packages that can be used ot detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called "doubletFinder" that takes in a Seurat object and returns a Seurat object with doublet information in the metadata. 
@@ -316,13 +317,13 @@ process_batch <- function(batch) {
   # Add metadata to main Seurat object
   # db <- bind_rows(processed_doublets)
   rownames(df) <- df$Barcode
-  df <- df %>% select(-Barcode)
-  se <- AddMetaData(
-    object = se, 
-    metadata = df
-  )
+  # df <- df %>% select(-Barcode)
+  # se <- AddMetaData(
+  #   object = se, 
+  #   metadata = df
+  # )
 
-  return(batch)
+  return(df)
   
 }
 
@@ -330,9 +331,35 @@ processed_doublets <- lapply(exp_btch, process_batch)
 
 ```
 
+```{r}
+# Add doublet information to the main seurat object
+test <- bind_rows(processed_doublets)
+rownames(test) <- test$Barcode
+test <- test %>% select(-Barcode)
+se <- AddMetaData(
+    object = se, 
+    metadata = test
+  )
+```
+
+
+### Perform Preprocessing
+
+```{r}
+se <- se %>%
+    NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
+    RunPCA(verbose = FALSE) %>%
+    RunUMAP(dims = 1:30, verbose = FALSE)
+```
+
 ```{r, fig.height=5}
 # Plot UMAP colored by batch
-DimPlot(se, reduction = "umap", group.by = "DF_class") +
+DimPlot(se, reduction = "umap", group.by = 'DF_class') +
   labs(title = "UMAP Plot Colored by Batch")
 
 ```
@@ -341,11 +368,12 @@ DimPlot(se, reduction = "umap", group.by = "DF_class") +
 # Plot UMAP by pANN
 FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN")
-# Plot UMAP by pANN
+# Plot UMAP by cell type
 DimPlot(se, reduction = "umap", group.by = "cell_type") +
   labs(title = "UMAP Plot Colored by Batch")
-DimPlot(se, reduction = "umap", group.by = "Celltype") +
-  labs(title = "UMAP Plot Colored by Batch")
+
+# DimPlot(se, reduction = "umap", group.by = "Celltype") +
+#   labs(title = "UMAP Plot Colored by Batch")
 ```
 
 
@@ -357,153 +385,11 @@ The DoubletFinder vignette includes sctransform pre-processing steps that can be
 
 pK parameter = the proportion of cells that are doublets This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets. pN parameter = default number of doublets we expect to find K(?) = expected number of doublets
 
-```{r}
-## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
-sweep.res.list_flu <- paramSweep(se, PCs = 1:10, sct = FALSE)
-sweep.stats_flu <- summarizeSweep(sweep.res.list_flu, GT = FALSE)
-bcmvn_flu <- find.pK(sweep.stats_flu)
-# Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-ggplot(bcmvn_flu, aes(pK, BCmetric, group = 1))+
-  geom_point() +
-  geom_line()
-```
-
-```{r}
-pK <- bcmvn_flu %>%
-  filter(BCmetric == max(BCmetric)) %>%
-  select(pK)
-pK <- as.numeric(as.character(pK[[1]]))
-```
-
-```{r}
-## pK Identification (ground-truth) ------------------------------------------------------------------------------------------
-# sweep.res.list_kidney <- paramSweep(se, PCs = 1:10, sct = FALSE)
-# gt.calls <- se@meta.data[rownames(sweep.res.list_kidney[[1]]), "GT"].   ## GT is a vector containing "Singlet" and "Doublet" calls recorded using sample multiplexing classification and/or in silico geneotyping results
-# sweep.stats_kidney <- summarizeSweep(sweep.res.list_kidney, GT = TRUE, GT.calls = gt.calls)
-# bcmvn_kidney <- find.pK(sweep.stats_kidney)
-```
-
-```{r}
-## Homotypic Doublet Proportion Estimate based on user-defined/metadata-found cell clusters -------------------------------------------------------------------------------------
-annotations <- se@meta.data$seurat_clusters
-# annotations <- se@meta.data$cell_type
-homotypic.prop <- modelHomotypic(annotations)           ## ex: annotations <- se@meta.data$ClusteringResults
-nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
-nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
-```
-
 pANN = proportion of artificial nearest neighbors.
 
+## Resave Seurat object
 ```{r}
-# Plot counts
-VlnPlot(se,
-  group.by = "Sample ID",
-  features = "nCount_RNA",
-  # log = TRUE,
-  ncol = 2,
-  pt.size = 0,
-  # y.max = 15000
-  ) + NoLegend()
-```
-
-```{r}
-# Plot counts
-# Extract nCount_RNA values from the metadata
-nCount_RNA_values <- se@meta.data$nCount_RNA
-# Create a histogram of nCount_RNA values
-hist(nCount_RNA_values, breaks = 1000,
-main = "Distribution of nCount_RNA Across Cells",
-xlim = c(0,30000),
-xlab = "nCount_RNA", ylab = "Frequency",
-col = "skyblue",
-plot = TRUE)
-```
-
-```{r}
-# Plot genes across samples
-VlnPlot(se,
-group.by = "Sample ID",
-features = "nFeature_RNA",
-pt.size = 0,
-) + NoLegend()
-```
-
-```{r}
-# QFM: How do I plot these all at the same time?
-# Plot features
-VlnPlot(se,
-group.by = "Sample ID",
-features = "perc.mt",
-# log = TRUE,
-pt.size = 0,
-) + NoLegend()
-# Plot features
-VlnPlot(se,
-group.by = "Sample ID",
-features = "perc.ribo",
-# log = TRUE,
-pt.size = 0
-) + NoLegend()
-# Plot features
-VlnPlot(se,
-group.by = "Sample ID",
-features = "perc.hb",
-# log = TRUE,
-pt.size = 0
-) + NoLegend()
-# Plot features
-VlnPlot(se,
-group.by = "Sample ID",
-features = c("perc.mt", "perc.ribo", "perc.hb"),
-# log = TRUE,
-pt.size = 0
-) + NoLegend()
-se@meta.data %>%
-ggplot2::ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.mt)) +
-ggplot2::geom_point() +
-ggplot2::theme_classic() +
-ggplot2::scale_color_gradient(low = "yellow", high = "red")
-# Calculate the feature covariance
-se@meta.data %>%
-ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.ribo)) +
-geom_point() +
-theme_classic() +
-scale_color_gradient(low = "yellow", high = "red")
-# Calculate the feature covariance
-se@meta.data %>%
-ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.hb)) +
-geom_point() +
-theme_classic() +
-scale_color_gradient(low = "yellow", high = "red")
-table(se_filtered@meta.data$DF.classifications_0.25_0.05_4468)
-gc()
-rm(se_filtered);gc
-rm(se_filtered);gc()
-# Plot counts
-VlnPlot(se,
-group.by = "Sample ID",
-features = "nCount_RNA",
-# log = TRUE,
-ncol = 2,
-pt.size = 0,
-# y.max = 15000
-) + NoLegend()
-# Plot counts
-VlnPlot(se,
-group.by = "Sample ID",
-features = "nCount_RNA",
-# log = TRUE,
-ncol = 2,
-pt.size = 0,
-# y.max = 15000
-) + NoLegend()
-# Assume you have a Seurat object named se
-gene_list <- rownames(se@assays$RNA@features)
-# Search for genes that start with "RPS"
-genes_starting_with_RPS <- grep("^MT-", gene_list, value = TRUE)
-# Print the genes starting with "RPS"
-print(genes_starting_with_RPS)
-
+saveRDS(se, '../data/workshop-data.rds')
 ```
 
 ### Session Info
