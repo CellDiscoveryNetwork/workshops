@@ -277,9 +277,9 @@ We can use [Azimuth](https://azimuth.hubmapconsortium.org/) online app to manual
 To do so we need to save the counts matrix as an RDS file.
 ```{r}
 se@assays$RNA$counts[1:15, 1:15]
-
 saveRDS(
-    object = se@assays$RNA$counts,
+    # subsample our data for a quick example
+    object = se[, sample(colnames(se), .3 * ncol(se))]@assays$RNA$counts,
     file = "../data/counts.rds")
 ```
 
@@ -288,7 +288,7 @@ saveRDS(
 We are going to download a reference human PBMC dataset using the `SeuratData` package. You can use whichever reference suits your dataset best.
 ```{r}
 SeuratData::AvailableData()
-SeuratData::InstallData("pbmcsca", force.reinstall = TRUE)
+# SeuratData::InstallData("pbmcsca", force.reinstall = TRUE)
 SeuratData::InstalledData()
 ref <- LoadData("pbmcsca")
 ```
