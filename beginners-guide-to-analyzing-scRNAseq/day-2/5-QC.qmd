@@ -24,26 +24,10 @@ if (!requireNamespace("tidyverse", quietly = TRUE))
     install.packages('tidyverse')
 if (!requireNamespace("Seurat", quietly = TRUE))
     install.packages('Seurat')
-# if (!requireNamespace("plotly", quietly = TRUE))
-#     install.packages('plotly')
 if (!requireNamespace("colorBlindness", quietly = TRUE))
     install.packages('colorBlindness')
-# if (!requireNamespace("cluster", quietly = TRUE))
-#     install.packages('cluster') # The cluster package provides tools to calculate clustering metrics, here used for silhouette analysis
 if (!requireNamespace("RColorBrewer", quietly = TRUE))
     install.packages('RColorBrewer')
-# if (!requireNamespace("scales", quietly = TRUE))
-#     install.packages('scales')
-# if (!requireNamespace("viridis", quietly = TRUE))
-#     install.packages('viridis')
-# if (!requireNamespace("ARBOL", quietly = TRUE))
-#     devtools::install_github('jo-m-lab/ARBOL') # ARBOL is used to plot clusters.
-# if (!requireNamespace("presto", quietly = TRUE))
-#     devtools::install_github('immunogenomics/presto') # presto is used to speed up Wilcoxon tests for marker gene calculation in Seurat
-# if (!requireNamespace("vegan", quietly = TRUE))
-#     BiocManager::install('vegan') # vegan is a community ecological analysis package that provides many tools for dissimilarity, ordination, and diversity analysis, we will use it for diversity analysis here
-# if (!requireNamespace("DT", quietly = TRUE))
-#     install.packages('DT')
 ```
 
 ```{r}
@@ -52,12 +36,7 @@ suppressPackageStartupMessages({
   library(tidyverse)
   library(RColorBrewer)
   library(colorBlindness)
-  # library(ARBOL)
-  # library(plotly)
-  # library(scales)
-  # library(viridis)
-  # library(vegan)
-  # library(cluster)
+  library(DoubletFinder)
 })
 set.seed(687)
 ```
@@ -77,7 +56,7 @@ se
 ```
 
 ```{r}
-# rm(mtx)
+rm(mtx)
 # Set color palette
 pal <- paletteMartin
 names(pal) <- sort(unique(se$Celltype))
@@ -87,104 +66,53 @@ names(pal) <- sort(unique(se$Celltype))
 
 ### Filter out the overexpressed genes
 
-```{r}
-# Look at the first 25 cells for a couple of genes to understand count matrix
-mtx[c("CD3D", "TCL1A", "MS4A1"), 1:30]
-```
-### Add Batch Information
+#### According to 'Current best practices in single-cell RNA-seq', we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitchondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.
 
-```{r}
-# Make a data frame and extract barcode and Sample ID metadata from se obj
-info <- data.frame(Barcode = colnames(se), "Sample ID" = se@meta.data$'Sample ID')
-colnames(info) <- gsub("\\.", " ", colnames(info))
-
-# Load in batch information
-batch_info <- read.csv("../data/batch_info.csv")
-# Rename batch_info column names to have a space instead of "."
-colnames(batch_info) <- gsub("\\.", " ", colnames(batch_info))
-batch_info <- batch_info %>%
-  select("Sample ID", "Experimental batch")
-# merge the batch_info with the info dataframe
-info <- merge(info, batch_info, by = "Sample ID")
-
-rownames(info) <- info$Barcode
-info <- info %>% select(-Barcode)
-
-# Add batch numbers to the metadata
-se <- AddMetaData(se, info)
-```
-
+In public datasets, use 'colnames()' to find the processing and metadata already analyzed. 
 ```{r}
 # Find the metadata columns of interest
 colnames(se@meta.data)
-qc_metrics <- se@meta.data[,c('Percentage of mitochondrial gene', 'nFeature_RNA', 'nCount_RNA', 'Number of UMI', 'Number of Gene')]
-head(qc_metrics)
 ```
 
+1 - Number of UMIs
+nCount_RNA is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low nCount_RNA values may be dying or dead cells, while cells with high nCount_RNA values may be doublets.
 ```{r}
-# Assume you have a Seurat object named se
-gene_list <- rownames(se@assays$RNA@features)
-# Search for genes that start with "RPS"
-# genes_starting_with_MT <- grep("^MT-", gene_list, value = TRUE)
-# # Print the genes starting with "RPS"
-# print(genes_starting_with_MT)
+ggplot(se@meta.data, aes(x = nCount_RNA)) +
+    geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
+    scale_x_continuous(
+        transform = "log10",
+        labels = scales::unit_format(unit = "K", scale = 1e-3)) +
+    theme_classic()
+```
+
+2 - Number of genes
+nFeature_RNA is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low nFeature_RNA values may be dying or dead cells, while cells with high nFeature_RNA values may be doublets.
+```{r}
+ggplot(se@meta.data, aes(x = nFeature_RNA)) +
+    geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
+    scale_x_continuous(
+        transform = "log10",
+        labels = scales::unit_format(unit = "K", scale = 1e-3)) +
+    theme_classic()
+```
+
+3 - Percentage of mitochondrial genes
+
+Notice the object already has 'Percent of mitochondrial genes' calculated. We are going to calculate them again to show how to do it.
+
+Seurat's "PercentageFeatureSet" function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression to filter these out by gene name.
+
+```{r}
+# Calculate the percentage of mitochondrial genes
 se <- PercentageFeatureSet(se, pattern = "^MT-", col.name = "perc.mt")
+# Calculate the percentage of ribosomal genes
 se <- PercentageFeatureSet(se, pattern = "^RPS |^RPL", col.name = "perc.ribo")
+# Calculate the percentage of hemoglobin genes
 se <- PercentageFeatureSet(se, pattern = "^HB[^(P)]", col.name = "perc.hb")
 ```
 
-```{r}
-se <- Seurat::NormalizeData(se, verbose = FALSE) %>%
-  Seurat::FindVariableFeatures(selection.method = "vst", nfeatures = 3000, verbose = FALSE) %>%
-  Seurat::ScaleData(verbose = FALSE) %>%
-  Seurat::RunPCA(pc.genes = se@var.genes, npcs = 30, verbose = FALSE) %>%
-  Seurat::RunUMAP(dims = 1:30, verbose = FALSE)
-  
-# Plot UMAP colored by batch
-DimPlot(se, reduction = "umap", group.by = "Celltype") +
-  labs(title = "UMAP Plot Colored by Batch")
-
-```
-
-
-```{r}
-# Also compute the UMAP embedding
-Seurat::ElbowPlot(se, ndims = 40)
-```
 ```{r, fig.width=8, fig.height=6}
-# Plot counts
-VlnPlot(se,
-  group.by = "Sample ID",
-  features = "nCount_RNA",
-  pt.size = 0
-  ) + NoLegend()
-```
-
-```{r}
-# Plot counts
-# Extract nCount_RNA values from the metadata
-nCount_RNA_values <- se@meta.data$nCount_RNA
-# Create a histogram of nCount_RNA values
-hist(nCount_RNA_values, breaks = 1000,
-  main = "Distribution of nCount_RNA Across Cells",
-  xlim = c(0,30000),
-  xlab = "nCount_RNA", ylab = "Frequency",
-  col = "skyblue",
-  plot = TRUE)
-```
-
-```{r, fig.width=8, fig.height=6}
-# Plot genes across samples
-VlnPlot(se,
-  group.by = "Sample ID",
-  features = "nFeature_RNA",
-  pt.size = 0,
-  ) + NoLegend()
-```
-
-```{r, fig.width=8, fig.height=6}
-# QFM: How do I plot these all at the same time?
-# Plot features
+# Plot Percent of mitochondrial genes by Sample
 VlnPlot(se,
   group.by = "Sample ID",
   features = "perc.mt",
@@ -194,7 +122,7 @@ VlnPlot(se,
 ```
 
 ```{r, fig.width=8, fig.height=6}
-# Plot features
+# Plot Percent of ribosomal genes by Sample
 VlnPlot(se,
   group.by = "Sample ID",
   features = "perc.ribo",
@@ -204,7 +132,7 @@ VlnPlot(se,
 ```
 
 ```{r, fig.width=8, fig.height=6}
-# Plot features
+# Plot Percent of hemoglobin genes by Sample
 VlnPlot(se,
   group.by = "Sample ID",
   features = "perc.hb",
@@ -214,7 +142,7 @@ VlnPlot(se,
 ```
 
 ```{r}
-# Plot features
+# Plot features by Sample together
 VlnPlot(se,
   group.by = "Sample ID",
   features = c("perc.mt", "perc.ribo", "perc.hb"),
@@ -222,18 +150,22 @@ VlnPlot(se,
   pt.size = 0
   ) + NoLegend()
 ```
+With these distributions, something notable is going on in Flu 5. Let's perform other quality control visualizations to see if we can find out what is happening.
+
+Another way to visualize these distributions is:
 
 ```{r}
-# Marc's code
+# Percent Mitochondrial Genes
 se@meta.data %>%
   ggplot2::ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.mt)) +
     ggplot2::geom_point() +
     ggplot2::theme_classic() +
     ggplot2::scale_color_gradient(low = "yellow", high = "red", limits = c(0, 20))
 ```
+The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.
 
 ```{r}
-# Calculate the feature covariance
+# Percent Ribosomal Genes
 se@meta.data %>%
   ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.ribo)) +
     geom_point() +
@@ -242,7 +174,7 @@ se@meta.data %>%
 ```
 
 ```{r}
-# Calculate the feature covariance
+# Percent Hemoglobin Genes
 se@meta.data %>%
   ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.hb)) +
   geom_point() +
@@ -250,10 +182,53 @@ se@meta.data %>%
   scale_color_gradient(low = "yellow", high = "red", limits = c(0, 100))
 ```
 
+```{r}
+# Plot by cell type
+se@meta.data %>%
+  ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = cell_type)) +
+  geom_point() +
+  theme_classic() 
+```
+After looking at the cell type distribution, the hemoglobin concentration makes sense as it corrspends to erythocytes which are high in hemoglobin.
 
-### DoubletFinder
+### Add Batch Information
 
-#### Find Doublets for one Sample ID 
+Preprocessed Seurat object's will often contain information about what batch the samples were processed in as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified in "Celltype" = "Uncategorized 1". Because they did not include the doublet information in the metadata, we will add it in this section. Doublet detection and removal is sensitive because you don't want to remove any valuable outliers but still take into consideration the noisiness of the data.
+
+To define doublets, packages in both R and Python run algorithms per batch. This is why we imported the batch information so we could subset the larger object and filter out doublets per batch. 
+
+```{r}
+# Make a data frame and extract barcode and Sample ID metadata from se obj
+info <- data.frame(Barcode = colnames(se), "Sample ID" = se@meta.data$'Sample ID')
+colnames(info) <- gsub("\\.", " ", colnames(info))
+
+# Load in batch information
+batch_info <- read.csv("../data/batch_info.csv")
+
+# Rename batch_info column names to have a space instead of "."
+colnames(batch_info) <- gsub("\\.", " ", colnames(batch_info))
+
+batch_info <- batch_info %>%
+  select("Sample ID", "Experimental batch")
+
+head(batch_info)
+```
+
+```{r}
+# merge the batch_info with the info dataframe
+info <- merge(info, batch_info, by = "Sample ID")
+
+rownames(info) <- info$Barcode
+info <- info %>% select(-Barcode)
+
+# Add batch numbers to the metadata
+se <- AddMetaData(se, info)
+```
+### DoubletFinder 
+
+There are many different packages that can be used ot detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called "doubletFinder" that takes in a Seurat object and returns a Seurat object with doublet information in the metadata. 
+
+
 ```{r}
 library(DoubletFinder)
 # Find doublets
@@ -261,11 +236,7 @@ exp_btch <- unique(se@meta.data$'Experimental batch')
 class(exp_btch)
 ```
 
-
 ```{r}
-
-doublet_info <- list()
-# batch = 1
 process_batch <- function(batch) {
   batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
   # seurat_object <- CreateSeuratObject(counts = your_data_object)
@@ -276,17 +247,16 @@ process_batch <- function(batch) {
     RunPCA() %>%
     FindNeighbors() %>%
     FindClusters() 
-    # RunUMAP(., dims = 1:20)
-  Seurat::ElbowPlot(batch_seurat_object, ndims = 30)
-  DimPlot(se, reduction="umap", group.by = "Experimental batch")
+  # Seurat::ElbowPlot(batch_seurat_object, ndims = 30)
+  # DimPlot(se, reduction="umap", group.by = "Experimental batch")
   
   sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
   sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
   bcmvn_sample <- find.pK(sweep.stats_sample)
   # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-  ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
-    geom_point() +
-    geom_line()
+  # ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
+  #   geom_point() +
+  #   geom_line()
   
   pK <- bcmvn_sample %>%
     filter(BCmetric == max(BCmetric)) %>%
@@ -302,7 +272,7 @@ process_batch <- function(batch) {
   batch_seurat_object <- doubletFinder(
     batch_seurat_object,
     PCs = 1:20,
-    pN = 0.1,
+    pN = 0.25,
     pK = pK,
     nExp = nExp_poi.adj,
     reuse.pANN = FALSE,
@@ -358,188 +328,34 @@ process_batch <- function(batch) {
 
 processed_doublets <- lapply(exp_btch, process_batch)
 
-# Print renamed column
-# print(names(seurat_obj@meta.data))
-# # Make a data frame and extract barcode and Sample ID metadata from se obj
-# info <- data.frame(Barcode = colnames(se), "Sample ID" = se@meta.data$'Sample ID')
-# colnames(info) <- gsub("\\.", " ", colnames(info))
-# 
-# # Load in batch information
-# batch_info <- read.csv("../data/batch_info.csv")
-# # Rename batch_info column names to have a space instead of "."
-# colnames(batch_info) <- gsub("\\.", " ", colnames(batch_info))
-# batch_info <- batch_info %>%
-#   select("Sample ID", "Experimental batch")
-# # merge the batch_info with the info dataframe
-# info <- merge(info, batch_info, by = "Sample ID")
-# 
-# rownames(info) <- info$Barcode
-# info <- info %>% select(-Barcode)
-# 
-# # Add batch numbers to the metadata
-# se <- AddMetaData(se, info)
-
-```
-
-```{r}
-# # Add metadata to main Seurat object
-# # db <- bind_rows(processed_doublets)
-# rownames(df) <- df$Barcode
-# # test <- se@meta.data %>%
-# #   left_join(db, by = "Barcode") %>%
-# #   column_to_rownames("Barcode")
-# test <- AddMetaData(
-#   object = se,
-#   metadata = db
-```
-
-```{r}
-
-```
-
-```{r}
-```
-
-```{r}
-values <- se_sample_1@meta.data$pANN_0.1_0.1_4180
-# Plot
-hist(values, breaks = 1000,
-  main = "Distribution of pANN_0.1_0.1_3932 Across Cells",
-  # xlim = c(0,1),
-  xlab = "pANN_0.1_0.1_4180", ylab = "Frequency",
-  col = "skyblue",
-  plot = TRUE)
-
-classifications <- data.frame(class = se_sample_1@meta.data$'DF.classifications_0.1_0.1_4180')
-table(classifications)
-# Plot the bar plot
-ggplot(classifications, aes(x = class)) +
-  geom_bar(fill = "blue", color = "black", alpha = 0.7) +
-  labs(title = "Distribution of DF Classifications",
-       x = "DF Classifications",
-       y = "Frequency") +
-  theme_minimal()
 ```
 
 ```{r, fig.height=5}
 # Plot UMAP colored by batch
-DimPlot(se_sample_1, reduction = "umap", group.by = "DF.classifications_0.1_0.1_4180") +
+DimPlot(se, reduction = "umap", group.by = "DF_class") +
   labs(title = "UMAP Plot Colored by Batch")
 
 ```
 
 ```{r, fig.height=5}
 # Plot UMAP by pANN
-FeaturePlot(se_sample_1, reduction = "umap", features = "pANN_0.1_0.1_4180") +
+FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN")
-```
-
-```{r}
-
-# colnames(se)
-cell_barcodes <- colnames(se)
-batch_ids <- data.frame(bc = substr(cell_barcodes, 1, 3))
-# batch_ids <- data.frame(bc = colnames(se))
-
-class(batch_ids)
-
-# classifications <- data.frame(class = se_sample@meta.data$'DF.classifications_0.25_0.16_3932')
-# table(classifications)
-# Plot the bar plot
-ggplot(batch_ids, aes(x = bc)) +
-  geom_bar(fill = "blue", color = "black", alpha = 0.7) +
-  labs(title = "Distribution of  Batches",
-       x = "Batches",
-       y = "Frequency") +
-  theme_minimal()
-```
-
-```{r}
+# Plot UMAP by pANN
+DimPlot(se, reduction = "umap", group.by = "cell_type") +
+  labs(title = "UMAP Plot Colored by Batch")
+DimPlot(se, reduction = "umap", group.by = "Celltype") +
+  labs(title = "UMAP Plot Colored by Batch")
 ```
 
 
-lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows(). 
-
-
-```{r}
-lapply(sample_id in sample_ids) {
-    print(sample_id)
-    # Subset the original Seurat object to include only the cells from the current sample
-    sample_seurat_object <- subset(se, cells = which(se@meta.data$'Sample ID' == sample_id))
-    
-    # Perform doublet detection on the current sample using DoubletFinder or any other method
-    # sample_id = "Flu 1"
-    # sample_seurat_object <- subset(se, cells = which(se@meta.data$'Sample ID' == sample_id))
-    # seurat_object <- CreateSeuratObject(counts = your_data_object)
-    sample_seurat_object <- sample_seurat_object %>% 
-      NormalizeData() %>%
-      FindVariableFeatures() %>%
-      ScaleData() %>% 
-      RunPCA() %>% 
-      FindNeighbors() %>% 
-      FindClusters() %>% 
-      RunUMAP(., dims = 1:20)
-    
-    sweep.res.list_sample <- paramSweep(sample_seurat_object, PCs = 1:20, sct = FALSE)
-    sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
-    bcmvn_sample <- find.pK(sweep.stats_sample)
-    # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-    # ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
-    #   geom_point() +
-    #   geom_line()
-    
-    pK <- bcmvn_sample %>%
-      filter(BCmetric == max(BCmetric)) %>%
-      select(pK)
-    pK <- as.numeric(as.character(pK[[1]]))
-    
-    annotations <- sample_seurat_object@meta.data$seurat_clusters
-    homotypic.prop <- modelHomotypic(annotations)           
-    nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
-    nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
-    
-    sample_seurat_object <- doubletFinder(
-      sample_seurat_object,
-      PCs = 1:20,
-      pN = 0.25,
-      pK = pK,
-      nExp = nExp_poi.adj,
-      reuse.pANN = FALSE,
-      sct = FALSE)
-    
-    # Extract metadata from 'se1'
-    metadata_to_add <- sample_seurat_object@meta.data[, c("pANN_0.25_0.22_4025", "^DF\\.classifications")]
-
-    # Add metadata to 'se2' as new columns
-    se2 <- AddMetaData(object = se2, metadata = metadata_to_add)
-    
-    # Optionally, you can add doublet information to the original Seurat object or perform any other operations
-    
-    # Delete the intermediary objects to minimize memory usage
-    rm(sample_seurat_object)
-}
-```
-
-#### Find Doublets for all Sample IDs
-
-```{r}
-```{r}
-library("DoubletFinder")
-# Find doublets
-## Pre-process Seurat object with added steps from DoubletFinder vignette
-
-## Here,  "seurat_clusters" are defined
-se <- FindNeighbors(se, dims = 1:20)
-se <- FindClusters(se, algorithm = 1) 
-se <- RunUMAP(se, dims = 1:20)
-```
+lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows().
 
 The DoubletFinder vignette includes sctransform pre-processing steps that can be used instead.
 
 ### pK Parameter
-pK parameter = the proportion of cells that are doublets
-This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets.
-pN parameter = default number of doublets we expect to find K(?) = expected number of doublets 
+
+pK parameter = the proportion of cells that are doublets This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets. pN parameter = default number of doublets we expect to find K(?) = expected number of doublets
 
 ```{r}
 ## pK Identification (no ground-truth) ---------------------------------------------------------------------------------------
@@ -575,43 +391,19 @@ homotypic.prop <- modelHomotypic(annotations)           ## ex: annotations <- se
 nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
 nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 ```
-pANN = proportion of artificial nearest neighbors.
-```{r}
-## Run DoubletFinder with varying classification stringencies ----------------------------------------------------------------
-se_filtered <- doubletFinder(
-  se,
-  PCs = 1:10,
-  pN = 0.25,
-  pK = pK,
-  nExp = nExp_poi.adj,
-  reuse.pANN = FALSE,
-  sct = FALSE)
-# se <- doubletFinder(
-#   se,
-#   PCs = 1:10,
-#   pN = 0.25,
-#   pK = 0.09,
-#   nExp = nExp_poi.adj,
-#   reuse.pANN = "pANN_0.25_0.09_913",
-#   sct = FALSE)
-```
 
-```{r}
-DimPlot(se_filtered, reduction = 'umap', group.by = "DF.classification...")
-DimPlot(se_filtered, reduction = 'umap', group.by = "DF.classifications_0.25_0.05-4468")
-DimPlot(se_filtered, reduction = 'umap', group.by = 'DF.classifications_0.25_0.05_4468')
-```
+pANN = proportion of artificial nearest neighbors.
 
 ```{r}
 # Plot counts
 VlnPlot(se,
-group.by = "Sample ID",
-features = "nCount_RNA",
-# log = TRUE,
-ncol = 2,
-pt.size = 0,
-# y.max = 15000
-) + NoLegend()
+  group.by = "Sample ID",
+  features = "nCount_RNA",
+  # log = TRUE,
+  ncol = 2,
+  pt.size = 0,
+  # y.max = 15000
+  ) + NoLegend()
 ```
 
 ```{r}

@@ -15,7 +15,7 @@ editor_options:
   chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+```{r setup, include=FALSE}
 
 knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
                       message = FALSE, warning = FALSE, cache = FALSE)
@@ -35,7 +35,6 @@ In this notebook we are going to look at two big concepts: 1) Why we need to nor
 -   Differential gene expression metrics vary depending on the groups of cells we are comparing.
 
 -   P values obtained from carrying out DGE analysis between clusters are inflated and should not be used.
-
 
 ## Libraries
 
@@ -77,7 +76,7 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS("../data/d8e35450-de43-451a-9979-276eac688bce.rds")
+se <- readRDS("../data/workshop-data.rds")
 ```
 
 Generate a color palette for our cell types
@@ -118,6 +117,7 @@ se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
 ### Data exploration
 
 Let's start by taking a look at the sequencing depth of our cells. By library depth we referr to the number of transcripts (UMIs) detected in each cell
+
 ```{r}
 ggplot(se@meta.data, aes(x = nCount_RNA)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
@@ -128,6 +128,7 @@ ggplot(se@meta.data, aes(x = nCount_RNA)) +
 ```
 
 Let's look at it by cell type as well
+
 ```{r}
 ggplot(se@meta.data,
        aes(x = nCount_RNA, color = Celltype, fill = Celltype)) +
@@ -147,14 +148,12 @@ ggplot(se@meta.data,
 We can see how there is widespread variability in the library size across cells even from the same cell type. This is an important technical confounder we need to correct for. To correct for this, `Seurat` offers the function `NormalizeData` with normalization.method = *LogNormalize*. According to the documentation this function does the following - *Feature counts for each cell are divided by the total counts for that cell and multiplied by the scale.factor. This is then natural-log transformed using log1p*
 
 Basically what [Seurat](https://github.com/satijalab/seurat/blob/1549dcb3075eaeac01c925c4b4bb73c73450fc50/R/preprocessing5.R#L265) is doing under the hood is:
+
 ```{r, eval = FALSE}
 log1p(x = x / sum(x) * scale.factor)
 ```
 
-Three things are happening:
-1. `x / sum(x)` : divides individual counts for each cell by the total counts for that cell
-2. `* scale.factor` : multiplies the results by a scaling factor (Default 1e4).
-3. `log1p` : computes the log of the resulting value adding a pseudocount of 1 in case there are 0s.
+Three things are happening: 1. `x / sum(x)` : divides individual counts for each cell by the total counts for that cell 2. `* scale.factor` : multiplies the results by a scaling factor (Default 1e4). 3. `log1p` : computes the log of the resulting value adding a pseudocount of 1 in case there are 0s.
 
 We carry out these steps so that: 1) we account for technical variability in sequencing depth. Therefore we are now working with % of that gene vs all the rest. 2) so we're not working with small numbers (1e-4) which can rapidly decrease to 0 if we multiplied them for example. 3) stabilize the variance across different expression levels and thus reducing the influence of highly expressed genes and amplifying that of lowly expressed ones. As a bonus, using log-normalization is very interpretable since we know exactly what the values mean after applying the function.
 
@@ -163,6 +162,7 @@ We carry out these steps so that: 1) we account for technical variability in seq
 This post explains it very well - https://www.nxn.se/valent/2017/10/15/variance-stabilizing-scrna-seq-counts
 
 If we take a look at what variance stabilization means we can see the following. When the data is uncorrected:
+
 ```{r fig.width=6, fig.height=6}
 se@assays$RNA$counts[1:5, 1:5]
 raw_sd <- sparseMatrixStats::rowSds(se@assays$RNA$counts)
@@ -200,6 +200,7 @@ ggplot(mapping = aes(x = norm_mn, y = norm_sd)) +
 ```
 
 Let's take a look at which are the most highly expressed genes and why we might not be interested in them that much:
+
 ```{r fig.width=6, fig.height=6}
 names(raw_mn) <- rownames(se@assays$RNA$counts)
 data.frame(mean_expr = raw_mn) %>%
@@ -216,9 +217,10 @@ Most of these genes are housekeeping, mitochondrial and ribosomal, which in most
 
 ## Highly variable gene selection
 
-Subsetting our count matrix to highly variable genes is a key step for downstream analysis. We need to reduce the dimensions of the count matrix so that we can carry out downstream tasks such as PCA. The intutition behind selectin HVG is that those genes with highest variability capture high level biological variability in our datasets and can help us identify the populations present in our dataset. To do this we can use the `vst` method: *First, fits a line to the relationship of log(variance) and log(mean) using local polynomial regression (loess). Then standardizes the feature values using the observed mean and expected variance (given by the fitted line). Feature variance is then calculated on the standardized values after clipping to a maximum (see clip.max parameter).*
+Subsetting our count matrix to highly variable genes is a key step for downstream analysis. We need to reduce the dimensions of the count matrix so that we can carry out downstream tasks such as PCA. The intutition behind selecting HVG is that those genes with highest variability capture high level biological variability in our datasets and can help us identify the populations present in our dataset. To do this we can use the `vst` method: *First, fits a line to the relationship of log(variance) and log(mean) using local polynomial regression (loess). Then standardizes the feature values using the observed mean and expected variance (given by the fitted line). Feature variance is then calculated on the standardized values after clipping to a maximum (see clip.max parameter).*
 
 We can see this in action below - Here we select 3000 HVG, in practice people select 2-5k genes in this step.
+
 ```{r}
 se <- FindVariableFeatures(se, nfeatures = 3000, selection.method = "vst")
 
@@ -233,7 +235,7 @@ plot2 +
     scale_y_log10()
 ```
 
-Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data by specific cell types and *recomputing* HVG so that they are updated and represent the biological variability in this new dataset! 
+Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data by specific cell types and *recomputing* HVG so that they are updated and represent the biological variability in this new dataset!
 
 ## Session Info
 
