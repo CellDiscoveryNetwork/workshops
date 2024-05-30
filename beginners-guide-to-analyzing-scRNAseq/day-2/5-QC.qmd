@@ -371,7 +371,7 @@ DimPlot(se, reduction = "umap", group.by = 'DF_class') +
 FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN")
 # Plot UMAP by cell type
-DimPlot(se, reduction = "umap", group.by = "cell_type") +
+DimPlot(se, reduction = "umap", group.by = "Celltype") +
   labs(title = "UMAP Plot Colored by Cell Type")
 
 # DimPlot(se, reduction = "umap", group.by = "Celltype") +
@@ -391,7 +391,7 @@ pANN = proportion of artificial nearest neighbors.
 ## Resave Seurat object
 
 ```{r}
-saveRDS(se, '../data/workshop-data.rds')
+saveRDS(se, '../data/workshop-data-withDFinfo.rds')
 ```
 
 ### Session Info

@@ -30,6 +30,7 @@ if (!requireNamespace("cluster", quietly = TRUE))
 
 ```{r}
 suppressPackageStartupMessages({
+  library(dplyr)
   library(Seurat)
   library(tidyverse)
   library(RColorBrewer)
@@ -46,33 +47,36 @@ names(pal) <- sort(unique(se$Celltype))
 
 Load Data
 ```{r}
-se <- readRDS('../data/workshop-data.rds')
-# Load a provided gene conversion table to convert ENSG to readable gene symbols
-genes <- read_csv('../data/cov_flu_gene_names_table.csv') 
+# Load the Seurat object with doublet and batch information
+se <- readRDS('../data/workshop-data-withDFinfo.rds')
+se 
 
-# Remake Seurat object
-mtx <- se@assays$RNA@data
-rownames(mtx) <- genes[match(row.names(mtx),genes$index), ]$feature_name
-
-se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
-
-se
-rm(mtx)
+# # Load a provided gene conversion table to convert ENSG to readable gene symbols
+# genes <- read_csv('../data/cov_flu_gene_names_table.csv') 
+# 
+# # Remake Seurat object
+# mtx <- se@assays$RNA@data
+# rownames(mtx) <- genes[match(row.names(mtx),genes$index), ]$feature_name
+# 
+# se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
+# 
+# se
+# rm(mtx)
 ```
 ## Preprocessing
 
 ```{r}
-se <- se %>%
-    NormalizeData(verbose = FALSE) %>%
-    FindVariableFeatures(
-        method = "vst",
-        nfeatures = 3000,
-        verbose = FALSE) %>%
-    ScaleData(verbose = FALSE) %>%
-    RunPCA(verbose = FALSE) %>%
-    FindNeighbors %>%
-    FindClusters(resolution = 0.5) %>%
-    RunUMAP(dims = 1:30, verbose = FALSE, n.components=3L)
+# se <- se %>%
+#     NormalizeData(verbose = FALSE) %>%
+#     FindVariableFeatures(
+#         method = "vst",
+#         nfeatures = 3000,
+#         verbose = FALSE) %>%
+#     ScaleData(verbose = FALSE) %>%
+#     RunPCA(verbose = FALSE) %>%
+#     FindNeighbors %>%
+#     FindClusters(resolution = 0.5) %>%
+#     RunUMAP(dims = 1:30, verbose = FALSE, n.components=3L)
 
 ElbowPlot(se, ndims = 50)
 ```
@@ -80,36 +84,28 @@ ElbowPlot(se, ndims = 50)
 ### UMAP of Counts and QC Metrics
 
 ```{r}
-# d1 <- DimPlot(se, 
-#         reduction='umap', 
-#         group.by='batch',
-#         cols = pal)
-# 
-# d2 <- DimPlot(se, 
-#         reduction='umap', 
-#         group.by='DF_class')
-# 
-# d3 <- DimPlot(se, 
-#         reduction='umap', 
-#         group.by='Sample ID') 
-# 
-# d1 | d2 | d3
-```
+library(ggplot2)
 
-```{r}
-d4 <- DimPlot(se, 
-        reduction='umap', 
-        group.by='cell_type')
+# Convert the 'batch' variable to a character
+se@meta.data$batch <- as.character(se@meta.data$batch)
+d1 <- DimPlot(se,
+        reduction='umap',
+        group.by='batch')
 
-d5 <- DimPlot(se, 
-        reduction='umap', 
-        group.by='seurat_clusters')
+d2 <- DimPlot(se,
+        reduction='umap',
+        group.by='DF_class')
 
-d6 <- DimPlot(se, 
-        reduction='umap', 
-        group.by='Sample ID') 
+d3 <- DimPlot(se,
+        reduction='umap',
+        group.by='Sample ID')
 
-d4 | d5 | d6
+d4 <- DimPlot(se,
+        reduction='umap',
+        group.by='Celltype')
+
+d1 | d2
+d3 | d4
 ```
 
 ## Clustering

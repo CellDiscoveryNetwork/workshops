@@ -1,0 +1,2892 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.4.550">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Rose Hedderman">
+
+<title>5 - Quality Control</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="5-QC_files/libs/clipboard/clipboard.min.js"></script>
+<script src="5-QC_files/libs/quarto-html/quarto.js"></script>
+<script src="5-QC_files/libs/quarto-html/popper.min.js"></script>
+<script src="5-QC_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="5-QC_files/libs/quarto-html/anchor.min.js"></script>
+<link href="5-QC_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="5-QC_files/libs/quarto-html/quarto-syntax-highlighting.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="5-QC_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="5-QC_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="5-QC_files/libs/bootstrap/bootstrap.min.css" rel="stylesheet" id="quarto-bootstrap" data-mode="light">
+
+
+</head>
+
+<body class="fullcontent">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">5 - Quality Control</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Rose Hedderman </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="quality-control" class="level1">
+<h1>Quality Control</h1>
+<section id="introduction" class="level2">
+<h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
+<section id="information" class="level3">
+<h3 class="anchored" data-anchor-id="information">Information</h3>
+</section>
+<section id="key-takeaways" class="level3">
+<h3 class="anchored" data-anchor-id="key-takeaways">Key Takeaways</h3>
+</section>
+</section>
+<section id="loading-libraries-and-data" class="level2">
+<h2 class="anchored" data-anchor-id="loading-libraries-and-data">Loading Libraries and Data</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"tidyverse"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">install.packages</span>(<span class="st">'tidyverse'</span>)</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"Seurat"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">install.packages</span>(<span class="st">'Seurat'</span>)</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"colorBlindness"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">install.packages</span>(<span class="st">'colorBlindness'</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="cf">if</span> (<span class="sc">!</span><span class="fu">requireNamespace</span>(<span class="st">"RColorBrewer"</span>, <span class="at">quietly =</span> <span class="cn">TRUE</span>))</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">install.packages</span>(<span class="st">'RColorBrewer'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">suppressPackageStartupMessages</span>({</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">library</span>(Seurat)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">library</span>(tidyverse)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">library</span>(RColorBrewer)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">library</span>(colorBlindness)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">library</span>(DoubletFinder)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>})</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: package 'SeuratObject' was built under R version 4.3.3</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb4"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">687</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">readRDS</span>(<span class="st">'../data/workshop-data.rds'</span>)</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Load a provided gene conversion table to convert ENSG to readable gene symbols</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>genes <span class="ot">&lt;-</span> <span class="fu">read_csv</span>(<span class="st">'../data/cov_flu_gene_names_table.csv'</span>) </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Rows: 33234 Columns: 2
+── Column specification ────────────────────────────────────────────────────────
+Delimiter: ","
+chr (2): index, feature_name
+
+ℹ Use `spec()` to retrieve the full column specification for this data.
+ℹ Specify the column types or set `show_col_types = FALSE` to quiet this message.</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb7"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Remake Seurat object</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>mtx <span class="ot">&lt;-</span> se<span class="sc">@</span>assays<span class="sc">$</span>RNA<span class="sc">@</span>data</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(mtx) <span class="ot">&lt;-</span> genes[<span class="fu">match</span>(<span class="fu">row.names</span>(mtx),genes<span class="sc">$</span>index), ]<span class="sc">$</span>feature_name</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">CreateSeuratObject</span>(<span class="at">counts =</span> mtx, <span class="at">meta.data =</span> se<span class="sc">@</span>meta.data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Feature names cannot have underscores ('_'), replacing with dashes
+('-')</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb9"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>se</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>An object of class Seurat 
+33234 features across 59572 samples within 1 assay 
+Active assay: RNA (33234 features, 0 variable features)
+ 1 layer present: counts</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb11"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span>(mtx)</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Set color palette</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>pal <span class="ot">&lt;-</span> paletteMartin</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(pal) <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">unique</span>(se<span class="sc">$</span>Celltype))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="preprocessing" class="level2">
+<h2 class="anchored" data-anchor-id="preprocessing">Preprocessing</h2>
+<section id="filter-out-the-overexpressed-genes" class="level3">
+<h3 class="anchored" data-anchor-id="filter-out-the-overexpressed-genes">Filter out the overexpressed genes</h3>
+<section id="according-to-current-best-practices-in-single-cell-rna-seq-we-want-to-look-at-the-number-of-counts-per-barcode-the-number-of-genes-per-barcode-and-the-percentage-of-mitchondrial-genes-per-barcode.-these-distributions-will-help-us-determine-the-quality-of-the-data-by-allowing-us-to-see-outliers.-these-outliers-could-be-dying-cells-with-high-mitochondrial-counts-or-doublets-with-high-gene-counts." class="level4">
+<h4 class="anchored" data-anchor-id="according-to-current-best-practices-in-single-cell-rna-seq-we-want-to-look-at-the-number-of-counts-per-barcode-the-number-of-genes-per-barcode-and-the-percentage-of-mitchondrial-genes-per-barcode.-these-distributions-will-help-us-determine-the-quality-of-the-data-by-allowing-us-to-see-outliers.-these-outliers-could-be-dying-cells-with-high-mitochondrial-counts-or-doublets-with-high-gene-counts.">According to ‘Current best practices in single-cell RNA-seq’, we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitchondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.</h4>
+<p>In public datasets, use ‘colnames()’ to find the processing and metadata already analyzed.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Find the metadata columns of interest</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(se<span class="sc">@</span>meta.data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "orig.ident"                              
+ [2] "nCount_RNA"                              
+ [3] "nFeature_RNA"                            
+ [4] "Sample ID"                               
+ [5] "Disease group"                           
+ [6] "Comorbidity"                             
+ [7] "Hospital day"                            
+ [8] "WBC per microL"                          
+ [9] "Neutrophil per microL (%)"               
+[10] "Lymphocyte per microL (%)"               
+[11] "Monocyte prt microL (%)"                 
+[12] "C-reactive protein (mg per dL)"          
+[13] "Chest X-ray"                             
+[14] "Treatment"                               
+[15] "Respiratory rate (BPM)"                  
+[16] "O2 saturation"                           
+[17] "O2 supplement"                           
+[18] "Temperature"                             
+[19] "Systolic BP"                             
+[20] "Heart rate (BPM)"                        
+[21] "Consciousness"                           
+[22] "NEWS score"                              
+[23] "Severity"                                
+[24] "Celltype"                                
+[25] "Number of UMI"                           
+[26] "Number of Gene"                          
+[27] "Percentage of mitochondrial gene"        
+[28] "Age"                                     
+[29] "tissue_ontology_term_id"                 
+[30] "assay_ontology_term_id"                  
+[31] "disease_ontology_term_id"                
+[32] "cell_type_ontology_term_id"              
+[33] "self_reported_ethnicity_ontology_term_id"
+[34] "development_stage_ontology_term_id"      
+[35] "sex_ontology_term_id"                    
+[36] "is_primary_data"                         
+[37] "organism_ontology_term_id"               
+[38] "donor_id"                                
+[39] "suspension_type"                         
+[40] "tissue_type"                             
+[41] "cell_type"                               
+[42] "assay"                                   
+[43] "disease"                                 
+[44] "organism"                                
+[45] "sex"                                     
+[46] "tissue"                                  
+[47] "self_reported_ethnicity"                 
+[48] "development_stage"                       
+[49] "observation_joinid"                      </code></pre>
+</div>
+</div>
+<p>1 - Number of UMIs nCount_RNA is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low nCount_RNA values may be dying or dead cells, while cells with high nCount_RNA values may be doublets.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA)) <span class="sc">+</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_x_continuous</span>(</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">transform =</span> <span class="st">"log10"</span>,</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>)) <span class="sc">+</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-6-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>2 - Number of genes nFeature_RNA is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low nFeature_RNA values may be dying or dead cells, while cells with high nFeature_RNA values may be doublets.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> nFeature_RNA)) <span class="sc">+</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_x_continuous</span>(</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">transform =</span> <span class="st">"log10"</span>,</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>)) <span class="sc">+</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-7-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>3 - Percentage of mitochondrial genes</p>
+<p>Notice the object already has ‘Percent of mitochondrial genes’ calculated. We are going to calculate them again to show how to do it.</p>
+<p>Seurat’s “PercentageFeatureSet” function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression to filter these out by gene name.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of mitochondrial genes</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^MT-"</span>, <span class="at">col.name =</span> <span class="st">"perc.mt"</span>)</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of ribosomal genes</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^RPS |^RPL"</span>, <span class="at">col.name =</span> <span class="st">"perc.ribo"</span>)</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of hemoglobin genes</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^HB[^(P)]"</span>, <span class="at">col.name =</span> <span class="st">"perc.hb"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of mitochondrial genes by Sample</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.mt"</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span>,</span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
+utilizing "counts" layer instead.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-9-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of ribosomal genes by Sample</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.ribo"</span>,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
+utilizing "counts" layer instead.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-10-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of hemoglobin genes by Sample</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.hb"</span>,</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
+utilizing "counts" layer instead.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-11-1.png" class="img-fluid figure-img" width="768"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot features by Sample together</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"perc.mt"</span>, <span class="st">"perc.ribo"</span>, <span class="st">"perc.hb"</span>),</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
+utilizing "counts" layer instead.</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>With these distributions, something notable is going on in Flu 5. Let’s perform other quality control visualizations to see if we can find out what is happening.</p>
+<p>Another way to visualize these distributions is:</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Mitochondrial Genes</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.mt)) <span class="sc">+</span></span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">20</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-13-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Ribosomal Genes</span></span>
+<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.ribo)) <span class="sc">+</span></span>
+<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">50</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Hemoglobin Genes</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.hb)) <span class="sc">+</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-15-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot by cell type</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> cell_type)) <span class="sc">+</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>After looking at the cell type distribution, the hemoglobin concentration makes sense as it corrspends to erythocytes which are high in hemoglobin.</p>
+</section>
+</section>
+<section id="add-batch-information" class="level3">
+<h3 class="anchored" data-anchor-id="add-batch-information">Add Batch Information</h3>
+<p>Preprocessed Seurat object’s will often contain information about what batch the samples were processed in as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified in “Celltype” = “Uncategorized 1”. Because they did not include the doublet information in the metadata, we will add it in this section. Doublet detection and removal is sensitive because you don’t want to remove any valuable outliers but still take into consideration the noisiness of the data.</p>
+<p>To define doublets, packages in both R and Python run algorithms per batch. This is why we imported the batch information so we could subset the larger object and filter out doublets per batch.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Make a data frame and extract barcode and Sample ID metadata from se obj</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Barcode =</span> <span class="fu">colnames</span>(se), <span class="st">"Sample ID"</span> <span class="ot">=</span> se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Sample ID'</span>)</span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(info) <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">."</span>, <span class="st">" "</span>, <span class="fu">colnames</span>(info))</span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Load in batch information</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>batch_info <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"../data/batch_info.csv"</span>)</span>
+<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename batch_info column names to have a space instead of "."</span></span>
+<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(batch_info) <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">."</span>, <span class="st">" "</span>, <span class="fu">colnames</span>(batch_info))</span>
+<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>batch_info <span class="ot">&lt;-</span> batch_info <span class="sc">%&gt;%</span></span>
+<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="st">"Sample ID"</span>, <span class="st">"Experimental batch"</span>)</span>
+<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(batch_info)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>  Sample ID Experimental batch
+1     Flu 1                  1
+2     Flu 2                  1
+3     Flu 3                  2
+4     Flu 4                  2
+5     Flu 5                  2
+6    nCoV 1                  1</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># merge the batch_info with the info dataframe</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">merge</span>(info, batch_info, <span class="at">by =</span> <span class="st">"Sample ID"</span>)</span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(info) <span class="ot">&lt;-</span> info<span class="sc">$</span>Barcode</span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> info <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Add batch numbers to the metadata</span></span>
+<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(se, info)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="doubletfinder" class="level3">
+<h3 class="anchored" data-anchor-id="doubletfinder">DoubletFinder</h3>
+<p>There are many different packages that can be used ot detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called “doubletFinder” that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DoubletFinder)</span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Find doublets</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>exp_btch <span class="ot">&lt;-</span> <span class="fu">unique</span>(se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span>)</span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="fu">class</span>(exp_btch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "integer"</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>process_batch <span class="ot">&lt;-</span> <span class="cf">function</span>(batch) {</span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> <span class="fu">subset</span>(se, <span class="at">cells =</span> <span class="fu">which</span>(se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span> <span class="sc">==</span> batch))</span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># seurat_object &lt;- CreateSeuratObject(counts = your_data_object)</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> batch_seurat_object <span class="sc">%&gt;%</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindNeighbors</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindClusters</span>() </span>
+<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Seurat::ElbowPlot(batch_seurat_object, ndims = 30)</span></span>
+<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># DimPlot(se, reduction="umap", group.by = "Experimental batch")</span></span>
+<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>  sweep.res.list_sample <span class="ot">&lt;-</span> <span class="fu">paramSweep</span>(batch_seurat_object, <span class="at">PCs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>, <span class="at">sct =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>  sweep.stats_sample <span class="ot">&lt;-</span> <span class="fu">summarizeSweep</span>(sweep.res.list_sample, <span class="at">GT =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>  bcmvn_sample <span class="ot">&lt;-</span> <span class="fu">find.pK</span>(sweep.stats_sample)</span>
+<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.</span></span>
+<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+</span></span>
+<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   geom_point() +</span></span>
+<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   geom_line()</span></span>
+<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> bcmvn_sample <span class="sc">%&gt;%</span></span>
+<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(BCmetric <span class="sc">==</span> <span class="fu">max</span>(BCmetric)) <span class="sc">%&gt;%</span></span>
+<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(pK)</span>
+<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(pK[[<span class="dv">1</span>]]))</span>
+<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>  annotations <span class="ot">&lt;-</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>seurat_clusters</span>
+<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># annotations &lt;- se@meta.data$cell_type</span></span>
+<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a>  homotypic.prop <span class="ot">&lt;-</span> <span class="fu">modelHomotypic</span>(annotations)           <span class="do">## ex: annotations &lt;- se@meta.data$ClusteringResults</span></span>
+<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>  nExp_poi <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fl">0.075</span><span class="sc">*</span><span class="fu">nrow</span>(se<span class="sc">@</span>meta.data))  <span class="do">## Assuming 7.5% doublet formation rate - tailor for your dataset</span></span>
+<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>  nExp_poi.adj <span class="ot">&lt;-</span> <span class="fu">round</span>(nExp_poi<span class="sc">*</span>(<span class="dv">1</span><span class="sc">-</span>homotypic.prop))</span>
+<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> <span class="fu">doubletFinder</span>(</span>
+<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>    batch_seurat_object,</span>
+<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">PCs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>,</span>
+<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">pN =</span> <span class="fl">0.25</span>,</span>
+<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">pK =</span> pK,</span>
+<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">nExp =</span> nExp_poi.adj,</span>
+<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">reuse.pANN =</span> <span class="cn">FALSE</span>,</span>
+<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">sct =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a>  <span class="co"># mt &lt;- batch_seurat_object@meta.data[,c("")]</span></span>
+<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a>  <span class="co"># info &lt;- data.frame(Barcode = colnames(batch_seurat_object), "Sample ID" = batch_seurat_object@meta.data$'Sample ID')</span></span>
+<span id="cb34-44"><a href="#cb34-44" aria-hidden="true" tabindex="-1"></a>  <span class="co"># colnames(info) &lt;- gsub("\\.", " ", colnames(info))</span></span>
+<span id="cb34-45"><a href="#cb34-45" aria-hidden="true" tabindex="-1"></a>  <span class="co"># doublet_info &lt;- c(batch_seurat_object@meta.data$'Doublet_Class',)</span></span>
+<span id="cb34-46"><a href="#cb34-46" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-47"><a href="#cb34-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add doublet information to larger seurat object here</span></span>
+<span id="cb34-48"><a href="#cb34-48" aria-hidden="true" tabindex="-1"></a>  pANN <span class="ot">&lt;-</span> <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">%&gt;%</span> </span>
+<span id="cb34-49"><a href="#cb34-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">keep</span>(<span class="fu">grepl</span>(<span class="st">'^pANN*'</span>, <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)))</span>
+<span id="cb34-50"><a href="#cb34-50" aria-hidden="true" tabindex="-1"></a>  DF_class <span class="ot">&lt;-</span> <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">%&gt;%</span> </span>
+<span id="cb34-51"><a href="#cb34-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">keep</span>(<span class="fu">grepl</span>(<span class="st">'^DF.classifications*'</span>, <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)))</span>
+<span id="cb34-52"><a href="#cb34-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extract values "0.1", "0.1", and "1000"</span></span>
+<span id="cb34-53"><a href="#cb34-53" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"^pANN_"</span>, <span class="st">""</span>, pANN)  <span class="co"># Remove "pANN_"</span></span>
+<span id="cb34-54"><a href="#cb34-54" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(params, <span class="st">"_"</span>)[[<span class="dv">1</span>]]  <span class="co"># Split by "_"</span></span>
+<span id="cb34-55"><a href="#cb34-55" aria-hidden="true" tabindex="-1"></a>  pN <span class="ot">&lt;-</span> params[<span class="dv">1</span>]  <span class="co"># Extract "0.1"</span></span>
+<span id="cb34-56"><a href="#cb34-56" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> params[<span class="dv">2</span>]  <span class="co"># Extract "0.1"</span></span>
+<span id="cb34-57"><a href="#cb34-57" aria-hidden="true" tabindex="-1"></a>  doublet_run <span class="ot">&lt;-</span> params[<span class="dv">3</span>]  <span class="co"># Extract "1000"</span></span>
+<span id="cb34-58"><a href="#cb34-58" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-59"><a href="#cb34-59" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Create new columns "pN", "pK", and "doublet_run"</span></span>
+<span id="cb34-60"><a href="#cb34-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)[<span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">==</span> pANN] <span class="ot">&lt;-</span> <span class="st">"pANN"</span></span>
+<span id="cb34-61"><a href="#cb34-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)[<span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">==</span> DF_class] <span class="ot">&lt;-</span> <span class="st">"DF_class"</span></span>
+<span id="cb34-62"><a href="#cb34-62" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pN <span class="ot">&lt;-</span> pN</span>
+<span id="cb34-63"><a href="#cb34-63" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pK <span class="ot">&lt;-</span> pK</span>
+<span id="cb34-64"><a href="#cb34-64" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>doublet_run <span class="ot">&lt;-</span> doublet_run</span>
+<span id="cb34-65"><a href="#cb34-65" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-66"><a href="#cb34-66" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Return DF of doublet information here</span></span>
+<span id="cb34-67"><a href="#cb34-67" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb34-68"><a href="#cb34-68" aria-hidden="true" tabindex="-1"></a>    <span class="at">Barcode =</span> <span class="fu">colnames</span>(batch_seurat_object),</span>
+<span id="cb34-69"><a href="#cb34-69" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span>, </span>
+<span id="cb34-70"><a href="#cb34-70" aria-hidden="true" tabindex="-1"></a>    <span class="at">pANN =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'pANN'</span>, </span>
+<span id="cb34-71"><a href="#cb34-71" aria-hidden="true" tabindex="-1"></a>    <span class="at">DF_class =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'DF_class'</span>,</span>
+<span id="cb34-72"><a href="#cb34-72" aria-hidden="true" tabindex="-1"></a>    <span class="at">doublet_run =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>doublet_run,</span>
+<span id="cb34-73"><a href="#cb34-73" aria-hidden="true" tabindex="-1"></a>    <span class="at">pK =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pK,</span>
+<span id="cb34-74"><a href="#cb34-74" aria-hidden="true" tabindex="-1"></a>    <span class="at">pN =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pN</span>
+<span id="cb34-75"><a href="#cb34-75" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb34-76"><a href="#cb34-76" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-77"><a href="#cb34-77" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add metadata to main Seurat object</span></span>
+<span id="cb34-78"><a href="#cb34-78" aria-hidden="true" tabindex="-1"></a>  <span class="co"># db &lt;- bind_rows(processed_doublets)</span></span>
+<span id="cb34-79"><a href="#cb34-79" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rownames</span>(df) <span class="ot">&lt;-</span> df<span class="sc">$</span>Barcode</span>
+<span id="cb34-80"><a href="#cb34-80" aria-hidden="true" tabindex="-1"></a>  <span class="co"># df &lt;- df %&gt;% select(-Barcode)</span></span>
+<span id="cb34-81"><a href="#cb34-81" aria-hidden="true" tabindex="-1"></a>  <span class="co"># se &lt;- AddMetaData(</span></span>
+<span id="cb34-82"><a href="#cb34-82" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   object = se, </span></span>
+<span id="cb34-83"><a href="#cb34-83" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   metadata = df</span></span>
+<span id="cb34-84"><a href="#cb34-84" aria-hidden="true" tabindex="-1"></a>  <span class="co"># )</span></span>
+<span id="cb34-85"><a href="#cb34-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-86"><a href="#cb34-86" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(df)</span>
+<span id="cb34-87"><a href="#cb34-87" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb34-88"><a href="#cb34-88" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb34-89"><a href="#cb34-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb34-90"><a href="#cb34-90" aria-hidden="true" tabindex="-1"></a>processed_doublets <span class="ot">&lt;-</span> <span class="fu">lapply</span>(exp_btch, process_batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>PC_ 1 
+Positive:  IL32, TRBC2, CD69, CST7, CCL5, CD247, NKG7, CTSW, IFITM1, CD7 
+       GZMA, CD3D, LCK, GZMH, PRF1, GZMB, GNLY, HOPX, CD3G, C12orf75 
+       TRBC1, KLRD1, FGFBP2, ISG20, TRAC, CD2, KLRB1, ITM2A, IL7R, CREM 
+Negative:  LYZ, FCN1, CST3, CTSS, AIF1, SERPINA1, TYMP, S100A9, SPI1, LST1 
+       CSTA, PSAP, CYBB, S100A8, GRN, CFD, NCF2, S100A11, CPVL, CD68 
+       FTL, CFP, FGL2, MAFB, BRI3, RP11-1143G9.4, TKT, FCGRT, MPEG1, MNDA 
+PC_ 2 
+Positive:  CAVIN2, GNG11, TUBB1, ACRBP, H2AC6, PF4, GP9, TMEM40, PPBP, PTCRA 
+       CMTM5, RGS18, TSC22D1, NRGN, H3C10, C2orf88, H2BC11, SPARC, ESAM, PRKAR2B 
+       TREML1, MTURN, SMOX, BEX3, AP003068.23, MAP3K7CL, CTTN, CLEC1B, CLU, MMD 
+Negative:  TYMS, HSP90AA1, PCLAF, CORO1A, LDHA, PPIA, S100A4, GZMA, PPIB, STMN1 
+       BIRC5, MKI67, TK1, PFN1, CDT1, HSPA8, RRM2, ZWINT, PCNA, CALR 
+       NPM1, PSME2, NKG7, CFL1, ATP5MC3, SNRPB, SUB1, YBX1, RAN, CDCA5 
+PC_ 3 
+Positive:  TYMS, H2AC6, PCLAF, ACRBP, CAVIN2, TUBB1, TMEM40, GNG11, PF4, GP9 
+       PTCRA, RGS18, TSC22D1, RGS10, BIRC5, PPBP, MKI67, CMTM5, RRM2, TK1 
+       H3C10, H2BC11, CDT1, LIMS1, NRGN, PGRMC1, ZWINT, C2orf88, GRAP2, ESAM 
+Negative:  CD79A, LINC00926, MS4A1, IGHM, TNFRSF13C, IGHD, LTB, BANK1, RALGPS2, TCL1A 
+       AFF3, CD22, VPREB3, CD79B, FCER2, FCRL1, CD74, PAX5, ADAM28, NIBAN3 
+       BLK, GNG7, CD83, CCR7, HLA-DQB1, P2RX5, BCL11A, CD40, TCF4, IGKC 
+PC_ 4 
+Positive:  NKG7, CST7, CTSW, CD247, CD7, PRF1, KLRD1, FGFBP2, GNLY, GZMB 
+       CCL5, S100A4, KLRB1, SPON2, GZMA, S1PR5, GZMH, KLRF1, CCL4, IFITM1 
+       HOPX, TRDC, CLIC3, TYROBP, TNFAIP3, CMC1, IL2RB, FCGR3A, ADGRG1, DUSP2 
+Negative:  CD79A, MS4A1, LINC00926, TNFRSF13C, IGHM, BANK1, IGHD, CD79B, IGKC, RALGPS2 
+       AFF3, CD22, HLA-DRA, GNG7, TCL1A, VPREB3, TCF4, BLK, FCER2, CD74 
+       HLA-DQA1, NIBAN3, HLA-DQB1, FCRL1, CD40, PAX5, COBLL1, BCL11A, P2RX5, ADAM28 
+PC_ 5 
+Positive:  IL7R, TRAC, S100A12, VCAN, MAL, S100A8, CD3D, CD3G, CAMK4, LEF1 
+       LDHB, VIM, CD14, CD28, CD163, TCF7, TRAT1, NOSIP, CD5, TRABD2A 
+       THBS1, CKAP4, BCL11B, IL1R2, S100A9, SLC2A3, CSF3R, SELL, EREG, AQP3 
+Negative:  FCGR3A, RHOC, CDKN1C, HLA-DPA1, HLA-DPB1, CD79B, GZMB, HES4, SPON2, KLRF1 
+       HLA-DQA1, FGFBP2, PRF1, IGFBP7, CTSC, CSF1R, CHST2, TCF7L2, CD74, KLRD1 
+       CKB, S1PR5, GNLY, SIGLEC10, CLIC3, RRAS, CTSW, HLA-DRB1, NKG7, FCER1G </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing nearest neighbor graph</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing SNN</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+
+Number of nodes: 18752
+Number of edges: 616465
+
+Running Louvain algorithm...
+Maximum modularity in 10 random starts: 0.9052
+Number of communities: 19
+Elapsed time: 2 seconds</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: fields</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: spam</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Spam version 2.10-0 (2023-10-23) is loaded.
+Type 'help( Spam)' or 'demo( spam)' for a short introduction 
+and overview of this package.
+Help for individual functions is also obtained by adding the
+suffix '.spam' to the function name, e.g. 'help( chol.spam)'.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Attaching package: 'spam'</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>The following objects are masked from 'package:base':
+
+    backsolve, forwardsolve</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: viridisLite</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>
+Try help(fields) to get started.</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: parallel</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Creating artificial doublets for pN = 5%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 10%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 15%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 20%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 25%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 30%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: KernSmooth</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>KernSmooth 2.23 loaded
+Copyright M. P. Wand 1997-2009</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Loading required package: ROCR</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL
+[1] "Creating 6251 artificial doublets..."
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Computing pANN..."
+[1] "Classifying doublets.."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>PC_ 1 
+Positive:  FCN1, LYZ, AIF1, RP11-1143G9.4, CTSS, SERPINA1, CYBB, TYMP, LST1, S100A9 
+       GRN, CSTA, SPI1, MNDA, CD14, VCAN, PSAP, S100A8, MPEG1, CFD 
+       FGL2, NCF2, TKT, MS4A6A, S100A11, APLP2, DUSP6, CLEC7A, MAFB, CFP 
+Negative:  CCL5, IL32, SYNE2, TRBC2, GZMM, CST7, CD3E, CTSW, GZMA, CD247 
+       GZMH, CXCR4, C12orf75, ARL4C, CD69, TRBC1, PRF1, GZMB, NKG7, HOPX 
+       LCK, CD2, RORA, FGFBP2, GNLY, KLRD1, LAT, CD7, SPOCK2, PDLIM1 
+PC_ 2 
+Positive:  PF4, CAVIN2, NRGN, GNG11, RGS18, H2AC6, TUBB1, PPBP, ACRBP, GP9 
+       CMTM5, TMEM40, TSC22D1, PTCRA, RUFY1, LIMS1, CLEC1B, RAB32, MTURN, MPP1 
+       C2orf88, PRKAR2B, H3C10, TREML1, H2BC11, CLU, ESAM, ITGA2B, BEX3, FTH1 
+Negative:  NPM1, RPLP0, HSP90AA1, ARL4C, NKG7, IL32, GZMA, GZMM, HSP90AB1, PPIB 
+       GZMH, GZMB, CD247, SYNE2, PRF1, CST7, HOPX, CD3E, GNLY, HSPA8 
+       FGFBP2, CXCR4, CALR, TRBC2, KLRD1, LCK, TRBC1, CTSW, CD2, CD7 
+PC_ 3 
+Positive:  CD79A, MS4A1, IGHM, LINC00926, IGHD, TNFRSF13C, BANK1, CD79B, RALGPS2, AFF3 
+       CD22, VPREB3, TCL1A, HLA-DQA1, NIBAN3, HLA-DQB1, PAX5, FCRL1, BLK, TCF4 
+       FCER2, HLA-DRA, LTB, CD74, GNG7, CD83, SPIB, CD40, IGKC, BCL11A 
+Negative:  CCL5, NKG7, CST7, GZMH, GZMA, GZMB, CTSW, PRF1, GZMM, FGFBP2 
+       GNLY, KLRD1, IL32, CD247, HOPX, ANXA1, KLRF1, TRDC, TRBC1, CD7 
+       ARL4C, CLIC3, CD3E, ADGRG1, ACTB, MATK, SPON2, FCGR3A, CMC1, LCK 
+PC_ 4 
+Positive:  ALAS2, HBA2, AHSP, HBA1, HBB, CA1, SLC4A1, HBM, SELENBP1, SLC25A37 
+       CXCL8, BPGM, G0S2, KLRF1, KLRD1, FGFBP2, FCGR3B, TRDC, DCAF12, CST7 
+       ADGRG1, GZMM, GYPB, GNLY, KLRB1, DUSP1, S1PR5, PRF1, SPON2, CCL4 
+Negative:  PCLAF, TYMS, MKI67, ZWINT, RRM2, STMN1, TK1, BIRC5, CLSPN, NUSAP1 
+       TOP2A, CDT1, CENPF, KIF11, CCNB2, CDK1, CENPM, SPC25, PCNA, H1-5 
+       GINS2, CDCA5, NCAPG, KIFC1, TPX2, SKA3, TUBA1B, MYBL2, ASPM, CDKN3 
+PC_ 5 
+Positive:  HBB, ALAS2, HBA2, AHSP, HBA1, CA1, SLC4A1, SLC25A37, HBM, SELENBP1 
+       RETN, MKI67, HP, BIRC5, PCLAF, IL7R, S100A12, DCAF12, TYMS, HBD 
+       SLC25A39, MAL, S100A8, RRM2, CYP1B1, ZWINT, SELL, TOP2A, CENPF, GYPB 
+Negative:  FCGR3A, HLA-DPB1, HLA-DPA1, RHOC, HLA-DRB1, HLA-DQA1, HLA-DRB5, HLA-DQB1, CD74, KLRF1 
+       KLRD1, GZMB, HLA-DRA, FGFBP2, ABI3, CX3CR1, PRF1, GNLY, TRDC, CCL4 
+       HES4, CLIC3, SPON2, ID2, HLA-DQA2, HLA-DMA, GZMH, PLAC8, CTSW, CD83 </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing nearest neighbor graph</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing SNN</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+
+Number of nodes: 16507
+Number of edges: 535537
+
+Running Louvain algorithm...
+Maximum modularity in 10 random starts: 0.9040
+Number of communities: 22
+Elapsed time: 1 seconds
+[1] "Creating artificial doublets for pN = 5%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 10%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 15%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 20%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 25%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 30%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL
+[1] "Creating 5502 artificial doublets..."
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Computing pANN..."
+[1] "Classifying doublets.."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>PC_ 1 
+Positive:  FCN1, LYZ, S100A9, SERPINA1, CST3, AIF1, MNDA, S100A8, CYBB, CTSS 
+       VCAN, GRN, MS4A6A, LST1, CSTA, FCER1G, TYMP, CEBPD, NAMPT, CLEC12A 
+       NCF2, RP11-1143G9.4, MAFB, CD14, TKT, FGL2, S100A11, CD68, SPI1, BRI3 
+Negative:  CCL5, IL32, NKG7, GZMA, CTSW, GZMH, TRBC2, CD247, C12orf75, PRF1 
+       GZMB, HOPX, CD69, KLRD1, FGFBP2, GNLY, CD2, CD3D, NPM1, UBB 
+       CD3G, CD7, TRBC1, CCL4, TRAC, KLRG1, DUSP2, TRGC2, CD8A, FKBP11 
+PC_ 2 
+Positive:  CD79A, MS4A1, IGHM, BANK1, IGHD, LINC00926, TNFRSF13C, CD79B, RALGPS2, AFF3 
+       NIBAN3, TCL1A, BCL11A, IGKC, PAX5, CD22, FCER2, CD83, HLA-DRA, TCF4 
+       FCRL1, BLK, HLA-DMB, VPREB3, P2RX5, HLA-DQB1, CD74, CD40, GNG7, NFKBID 
+Negative:  S100A4, NKG7, CCL5, GZMA, ANXA1, GZMH, IL32, PRF1, FGFBP2, CTSW 
+       GZMB, KLRD1, CD247, GNLY, ID2, HOPX, S100A6, CCL4, CD2, GAPDH 
+       CD7, LGALS1, C12orf75, SPON2, TRBC1, S100A10, CD3D, CLIC3, ACTG1, CMC1 
+PC_ 3 
+Positive:  PTMA, HLA-DPA1, HLA-DPB1, RPLP0, PPIA, HLA-DRB1, CD74, NPM1, CORO1A, YBX1 
+       HLA-DRA, HLA-DQB1, PSME2, SUB1, PPIB, SLC25A5, LY6E, HLA-DQA1, GSTP1, RAN 
+       EIF5A, CALR, HLA-DMA, HMGN2, ATP5MC3, HSP90B1, HMGB1, FCGR3A, HSPA8, ACTG1 
+Negative:  ALAS2, HBA1, HBA2, SLC4A1, HBB, CA1, TMCC2, SLC25A37, AHSP, TRIM58 
+       HBM, HBD, GMPR, HBQ1, SNCA, DMTN, CA2, SLC40A1, SPTA1, MPP1 
+       HMBS, ANK1, DCAF12, PDZK1IP1, TAL1, HSPA1B, ANKRD9, RANBP10, GYPB, CPEB4 
+PC_ 4 
+Positive:  TUBB1, GNG11, CAVIN2, PF4, CDKN1C, GP9, PPBP, ACRBP, CMTM5, CTSL 
+       TREML1, SPARC, H2AC6, MGLL, PRKAR2B, NRGN, TMEM40, CSF1R, RHOC, HES4 
+       PTGS1, GMPR, PTCRA, NAP1L1, TSC22D1, FCGR3A, MTURN, TIMP1, MPIG6B, BEX3 
+Negative:  S100A12, GCA, ALOX5AP, IL1R2, EGR1, FOS, CREB5, IRS2, SELL, PLBD1 
+       CYP1B1, MCEMP1, KLF6, DUSP1, IER2, VCAN, FOSB, MEGF9, MCL1, S100A8 
+       VNN2, SLC2A3, BASP1, SOCS3, FKBP5, FPR2, CRISPLD2, CLEC4E, RGS2, HMGB2 
+PC_ 5 
+Positive:  PF4, GNG11, CAVIN2, PPBP, TUBB1, GP9, CMTM5, TREML1, SPARC, ACRBP 
+       TMEM40, NRGN, BEX3, TSC22D1, MYL9, CLU, MPIG6B, H2AC6, RGS18, PTCRA 
+       ITGA2B, PRKAR2B, PTGS1, CTTN, CLEC1B, MTURN, C2orf88, H2BC11, CD9, ESAM 
+Negative:  SLC4A1, ALAS2, CA1, AHSP, HBA2, HBM, HBB, HBA1, SPTA1, HMBS 
+       TMCC2, SLC25A39, SLC25A37, HSPA1B, GYPB, RANBP10, GYPA, SLC2A1, CTSL, TFRC 
+       TNS1, CPEB4, GLRX5, MARCHF8, XPO7, EPB42, SELENBP1, DCAF12, FAM210B, PIM1 </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing nearest neighbor graph</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing SNN</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+
+Number of nodes: 8624
+Number of edges: 286940
+
+Running Louvain algorithm...
+Maximum modularity in 10 random starts: 0.8967
+Number of communities: 19
+Elapsed time: 0 seconds
+[1] "Creating artificial doublets for pN = 5%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 10%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 15%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 20%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 25%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 30%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-20-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL
+[1] "Creating 2875 artificial doublets..."
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Computing pANN..."
+[1] "Classifying doublets.."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>PC_ 1 
+Positive:  CD3E, IL32, CD69, TRBC2, CCL5, GZMM, NPM1, ISG20, RORA, CD3D 
+       LCK, IFITM1, CD247, CD7, SPOCK2, IL7R, CD2, CD3G, TRAC, CST7 
+       ITM2A, C12orf75, GZMA, CTSW, LTB, HOPX, TRBC1, CD6, LDHB, GZMH 
+Negative:  FCN1, LYZ, VCAN, SERPINA1, AIF1, S100A9, GRN, CTSS, S100A8, SPI1 
+       CD14, MNDA, LST1, TYMP, CYBB, FTL, CST3, TMEM176B, FPR1, CSTA 
+       MS4A6A, S100A12, BRI3, APLP2, NCF2, TYROBP, CEBPD, CFP, RP11-1143G9.4, CTSB 
+PC_ 2 
+Positive:  PF4, GNG11, PPBP, NRGN, CMTM5, CAVIN2, TUBB1, GP9, TREML1, CLEC1B 
+       TMEM40, MYL9, SPARC, ACRBP, MTURN, PRKAR2B, NXF3, RGS18, ITGA2B, H2AC6 
+       PTCRA, LIMS1, SNCA, BEX3, MPIG6B, PDLIM1, CLU, PTGS1, ESAM, TSPAN33 
+Negative:  NKG7, GZMA, IL32, HSP90AA1, PLAAT4, HSPA8, CST7, PSME2, GZMH, PRF1 
+       GZMB, PSMB9, SUB1, LCK, S100A10, CD2, CD3E, GZMM, FGFBP2, S100A4 
+       NPM1, KLRD1, GNLY, IFITM1, CD3D, CTSW, ITGB7, LDHA, TRAC, TAP1 
+PC_ 3 
+Positive:  CD79A, MS4A1, TNFRSF13C, IGHM, LINC00926, IGHD, RALGPS2, BLK, CD79B, BANK1 
+       VPREB3, FCER2, AFF3, NIBAN3, CD22, SPIB, ADAM28, FCRLA, P2RX5, NFKBID 
+       GNG7, TCL1A, CD83, BCL11A, POU2AF1, LTB, FCRL1, HLA-DOB, PAX5, CCR7 
+Negative:  CCL5, GZMA, NKG7, PRF1, ACTB, GZMH, GZMB, CST7, C12orf75, FGFBP2 
+       CTSW, LAT, GAPDH, RAP1B, PLAAT4, KLRD1, ACTG1, CTSC, GNLY, LAIR2 
+       IL32, LAG3, DYNLL1, CLIC3, LCK, CD2, SLC9A3R1, GZMM, ADGRG1, TAP1 
+PC_ 4 
+Positive:  IL7R, RGCC, MAL, RORA, SPOCK2, CD7, CD3E, KLRB1, ALAS2, TCF7 
+       LEF1, AHSP, S100A4, TOB1, SLC4A1, TRABD2A, HBM, TRAT1, TSHZ2, GATA3 
+       SLC25A37, CA1, TXK, NELL2, FOS, CREM, SELENBP1, XIST, AP3M2, S100A6 
+Negative:  CD79A, CD74, HLA-DRA, HLA-DRB1, MS4A1, HLA-DPB1, HLA-DPA1, HLA-DQA1, HLA-DQB1, BANK1 
+       CD79B, IGHM, TYMS, TNFRSF13C, LINC00926, PCLAF, HLA-DRB5, IGHD, BLK, RRM2 
+       HLA-DMA, P2RX5, SPIB, FCRLA, STMN1, RALGPS2, POU2AF1, ZWINT, VPREB3, MKI67 
+PC_ 5 
+Positive:  TYMS, PCLAF, RRM2, ZWINT, CDT1, TK1, BIRC5, MKI67, TOP2A, CLSPN 
+       STMN1, CDK1, CDCA5, GINS2, PKMYT1, CCNA2, SPC25, CENPM, MYBL2, NUSAP1 
+       IL7R, CDC45, CCNB2, MND1, UHRF1, MAL, KIFC1, DTL, CDC6, UBE2T 
+Negative:  HLA-DPB1, FGFBP2, HLA-DPA1, FCGR3A, GZMB, KLRD1, PRF1, SPON2, CTSW, GZMH 
+       GNLY, NKG7, CLIC3, HLA-DRB1, CD74, HLA-DQA1, CCL4, ADGRG1, CST7, KLRF1 
+       TTC38, HOPX, GZMA, PRSS23, CCL5, HLA-DRA, FCRL6, TRDC, HLA-DQB1, S1PR5 </code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing nearest neighbor graph</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Computing SNN</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+
+Number of nodes: 15689
+Number of edges: 524420
+
+Running Louvain algorithm...
+Maximum modularity in 10 random starts: 0.9105
+Number of communities: 21
+Elapsed time: 1 seconds
+[1] "Creating artificial doublets for pN = 5%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 10%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 15%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 20%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 25%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."
+[1] "Creating artificial doublets for pN = 30%"
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-20-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Defining neighborhoods..."
+[1] "Computing pANN across all pK..."
+[1] "pK = 0.001..."
+[1] "pK = 0.005..."
+[1] "pK = 0.01..."
+[1] "pK = 0.02..."
+[1] "pK = 0.03..."
+[1] "pK = 0.04..."
+[1] "pK = 0.05..."
+[1] "pK = 0.06..."
+[1] "pK = 0.07..."
+[1] "pK = 0.08..."
+[1] "pK = 0.09..."
+[1] "pK = 0.1..."
+[1] "pK = 0.11..."
+[1] "pK = 0.12..."
+[1] "pK = 0.13..."
+[1] "pK = 0.14..."
+[1] "pK = 0.15..."
+[1] "pK = 0.16..."
+[1] "pK = 0.17..."
+[1] "pK = 0.18..."
+[1] "pK = 0.19..."
+[1] "pK = 0.2..."
+[1] "pK = 0.21..."
+[1] "pK = 0.22..."
+[1] "pK = 0.23..."
+[1] "pK = 0.24..."
+[1] "pK = 0.25..."
+[1] "pK = 0.26..."
+[1] "pK = 0.27..."
+[1] "pK = 0.28..."
+[1] "pK = 0.29..."
+[1] "pK = 0.3..."</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>NULL
+[1] "Creating 5230 artificial doublets..."
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Normalizing layer: counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Finding variable genes..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Finding variable features for layer counts</code></pre>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Scaling data..."</code></pre>
+</div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Centering and scaling data matrix</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-20-4.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-stdout">
+<pre><code>[1] "Running PCA..."
+[1] "Calculating PC distance matrix..."
+[1] "Computing pANN..."
+[1] "Classifying doublets.."</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb247"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb247-1"><a href="#cb247-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add doublet information to the main seurat object</span></span>
+<span id="cb247-2"><a href="#cb247-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(processed_doublets)</span>
+<span id="cb247-3"><a href="#cb247-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(test) <span class="ot">&lt;-</span> test<span class="sc">$</span>Barcode</span>
+<span id="cb247-4"><a href="#cb247-4" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> test <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
+<span id="cb247-5"><a href="#cb247-5" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(</span>
+<span id="cb247-6"><a href="#cb247-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">object =</span> se, </span>
+<span id="cb247-7"><a href="#cb247-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">metadata =</span> test</span>
+<span id="cb247-8"><a href="#cb247-8" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="perform-preprocessing" class="level3">
+<h3 class="anchored" data-anchor-id="perform-preprocessing">Perform Preprocessing</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb248"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb248-1"><a href="#cb248-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> se <span class="sc">%&gt;%</span></span>
+<span id="cb248-2"><a href="#cb248-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb248-3"><a href="#cb248-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>(</span>
+<span id="cb248-4"><a href="#cb248-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"vst"</span>,</span>
+<span id="cb248-5"><a href="#cb248-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">nfeatures =</span> <span class="dv">3000</span>,</span>
+<span id="cb248-6"><a href="#cb248-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb248-7"><a href="#cb248-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>, <span class="at">features =</span> <span class="fu">VariableFeatures</span>(.)) <span class="sc">%&gt;%</span></span>
+<span id="cb248-8"><a href="#cb248-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb248-9"><a href="#cb248-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunUMAP</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric
+To use Python UMAP via reticulate, set umap.method to 'umap-learn' and metric to 'correlation'
+This message will be shown once per session</code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb250"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb250-1"><a href="#cb250-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP colored by batch</span></span>
+<span id="cb250-2"><a href="#cb250-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">'DF_class'</span>) <span class="sc">+</span></span>
+<span id="cb250-3"><a href="#cb250-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Batch"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb251"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb251-1"><a href="#cb251-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by pANN</span></span>
+<span id="cb251-2"><a href="#cb251-2" aria-hidden="true" tabindex="-1"></a><span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
+<span id="cb251-3"><a href="#cb251-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb252"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb252-1"><a href="#cb252-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by cell type</span></span>
+<span id="cb252-2"><a href="#cb252-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">"cell_type"</span>) <span class="sc">+</span></span>
+<span id="cb252-3"><a href="#cb252-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Cell Type"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb253"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb253-1"><a href="#cb253-1" aria-hidden="true" tabindex="-1"></a><span class="co"># DimPlot(se, reduction = "umap", group.by = "Celltype") +</span></span>
+<span id="cb253-2"><a href="#cb253-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   labs(title = "UMAP Plot Colored by Batch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<p>lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows().</p>
+<p>The DoubletFinder vignette includes sctransform pre-processing steps that can be used instead.</p>
+</section>
+<section id="pk-parameter" class="level3">
+<h3 class="anchored" data-anchor-id="pk-parameter">pK Parameter</h3>
+<p>pK parameter = the proportion of cells that are doublets This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets. pN parameter = default number of doublets we expect to find K(?) = expected number of doublets</p>
+<p>pANN = proportion of artificial nearest neighbors.</p>
+</section>
+</section>
+<section id="resave-seurat-object" class="level2">
+<h2 class="anchored" data-anchor-id="resave-seurat-object">Resave Seurat object</h2>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb254"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb254-1"><a href="#cb254-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(se, <span class="st">'../data/workshop-data-withDFinfo.rds'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+<section id="session-info" class="level3">
+<h3 class="anchored" data-anchor-id="session-info">Session Info</h3>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb255"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb255-1"><a href="#cb255-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R version 4.3.2 (2023-10-31)
+Platform: aarch64-apple-darwin20 (64-bit)
+Running under: macOS Sonoma 14.5
+
+Matrix products: default
+BLAS:   /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRblas.0.dylib 
+LAPACK: /Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/lib/libRlapack.dylib;  LAPACK version 3.11.0
+
+locale:
+[1] en_US.UTF-8/en_US.UTF-8/en_US.UTF-8/C/en_US.UTF-8/en_US.UTF-8
+
+time zone: America/New_York
+tzcode source: internal
+
+attached base packages:
+[1] parallel  stats     graphics  grDevices utils     datasets  methods  
+[8] base     
+
+other attached packages:
+ [1] ROCR_1.0-11          KernSmooth_2.23-22   fields_15.2         
+ [4] viridisLite_0.4.2    spam_2.10-0          DoubletFinder_2.0.4 
+ [7] colorBlindness_0.1.9 RColorBrewer_1.1-3   lubridate_1.9.3     
+[10] forcats_1.0.0        stringr_1.5.1        dplyr_1.1.4         
+[13] purrr_1.0.2          readr_2.1.5          tidyr_1.3.1         
+[16] tibble_3.2.1         ggplot2_3.5.1        tidyverse_2.0.0     
+[19] Seurat_5.0.3         SeuratObject_5.0.2   sp_2.1-4            
+
+loaded via a namespace (and not attached):
+  [1] rstudioapi_0.16.0      jsonlite_1.8.8         magrittr_2.0.3        
+  [4] spatstat.utils_3.0-4   farver_2.1.2           rmarkdown_2.27        
+  [7] vctrs_0.6.5            spatstat.explore_3.2-7 htmltools_0.5.8.1     
+ [10] gridGraphics_0.5-1     sctransform_0.4.1      parallelly_1.37.1     
+ [13] htmlwidgets_1.6.4      ica_1.0-3              plyr_1.8.9            
+ [16] plotly_4.10.4          zoo_1.8-12             igraph_2.0.3          
+ [19] mime_0.12              lifecycle_1.0.4        pkgconfig_2.0.3       
+ [22] Matrix_1.6-5           R6_2.5.1               fastmap_1.2.0         
+ [25] fitdistrplus_1.1-11    future_1.33.2          shiny_1.8.1.1         
+ [28] digest_0.6.35          colorspace_2.1-0       patchwork_1.2.0       
+ [31] tensor_1.5             RSpectra_0.16-1        irlba_2.3.5.1         
+ [34] labeling_0.4.3         progressr_0.14.0       fansi_1.0.6           
+ [37] spatstat.sparse_3.0-3  timechange_0.3.0       httr_1.4.7            
+ [40] polyclip_1.10-6        abind_1.4-5            compiler_4.3.2        
+ [43] bit64_4.0.5            withr_3.0.0            fastDummies_1.7.3     
+ [46] maps_3.4.2             MASS_7.3-60.0.1        tools_4.3.2           
+ [49] lmtest_0.9-40          httpuv_1.6.15          future.apply_1.11.2   
+ [52] goftest_1.2-3          glue_1.7.0             nlme_3.1-164          
+ [55] promises_1.3.0         grid_4.3.2             Rtsne_0.17            
+ [58] cluster_2.1.6          reshape2_1.4.4         generics_0.1.3        
+ [61] gtable_0.3.5           spatstat.data_3.0-4    tzdb_0.4.0            
+ [64] data.table_1.15.4      hms_1.1.3              utf8_1.2.4            
+ [67] spatstat.geom_3.2-9    RcppAnnoy_0.0.22       ggrepel_0.9.5         
+ [70] RANN_2.6.1             pillar_1.9.0           RcppHNSW_0.6.0        
+ [73] vroom_1.6.5            later_1.3.2            splines_4.3.2         
+ [76] lattice_0.22-6         survival_3.6-4         bit_4.0.5             
+ [79] deldir_2.0-4           tidyselect_1.2.1       miniUI_0.1.1.1        
+ [82] pbapply_1.7-2          knitr_1.45             gridExtra_2.3         
+ [85] scattermore_1.2        xfun_0.44              matrixStats_1.3.0     
+ [88] stringi_1.8.4          lazyeval_0.2.2         yaml_2.3.8            
+ [91] evaluate_0.23          codetools_0.2-20       cli_3.6.2             
+ [94] uwot_0.1.16            xtable_1.8-4           reticulate_1.36.1     
+ [97] munsell_0.5.1          Rcpp_1.0.12            globals_0.16.3        
+[100] spatstat.random_3.2-3  png_0.1-8              dotCall64_1.1-1       
+[103] listenv_0.9.1          scales_1.3.0           ggridges_0.5.6        
+[106] crayon_1.5.2           leiden_0.4.3.1         rlang_1.1.3           
+[109] cowplot_1.1.3         </code></pre>
+</div>
+</div>
+</section>
+</section>
+</section>
+
+</main>
+<!-- /main column -->
+<script id="quarto-html-after-body" type="application/javascript">
+window.document.addEventListener("DOMContentLoaded", function (event) {
+  const toggleBodyColorMode = (bsSheetEl) => {
+    const mode = bsSheetEl.getAttribute("data-mode");
+    const bodyEl = window.document.querySelector("body");
+    if (mode === "dark") {
+      bodyEl.classList.add("quarto-dark");
+      bodyEl.classList.remove("quarto-light");
+    } else {
+      bodyEl.classList.add("quarto-light");
+      bodyEl.classList.remove("quarto-dark");
+    }
+  }
+  const toggleBodyColorPrimary = () => {
+    const bsSheetEl = window.document.querySelector("link#quarto-bootstrap");
+    if (bsSheetEl) {
+      toggleBodyColorMode(bsSheetEl);
+    }
+  }
+  toggleBodyColorPrimary();  
+  const icon = "";
+  const anchorJS = new window.AnchorJS();
+  anchorJS.options = {
+    placement: 'right',
+    icon: icon
+  };
+  anchorJS.add('.anchored');
+  const isCodeAnnotation = (el) => {
+    for (const clz of el.classList) {
+      if (clz.startsWith('code-annotation-')) {                     
+        return true;
+      }
+    }
+    return false;
+  }
+  const clipboard = new window.ClipboardJS('.code-copy-button', {
+    text: function(trigger) {
+      const codeEl = trigger.previousElementSibling.cloneNode(true);
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+  });
+  clipboard.on('success', function(e) {
+    // button target
+    const button = e.trigger;
+    // don't keep focus
+    button.blur();
+    // flash "checked"
+    button.classList.add('code-copy-button-checked');
+    var currentTitle = button.getAttribute("title");
+    button.setAttribute("title", "Copied!");
+    let tooltip;
+    if (window.bootstrap) {
+      button.setAttribute("data-bs-toggle", "tooltip");
+      button.setAttribute("data-bs-placement", "left");
+      button.setAttribute("data-bs-title", "Copied!");
+      tooltip = new bootstrap.Tooltip(button, 
+        { trigger: "manual", 
+          customClass: "code-copy-button-tooltip",
+          offset: [0, -8]});
+      tooltip.show();    
+    }
+    setTimeout(function() {
+      if (tooltip) {
+        tooltip.hide();
+        button.removeAttribute("data-bs-title");
+        button.removeAttribute("data-bs-toggle");
+        button.removeAttribute("data-bs-placement");
+      }
+      button.setAttribute("title", currentTitle);
+      button.classList.remove('code-copy-button-checked');
+    }, 1000);
+    // clear code selection
+    e.clearSelection();
+  });
+  function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+    const config = {
+      allowHTML: true,
+      maxWidth: 500,
+      delay: 100,
+      arrow: false,
+      appendTo: function(el) {
+          return el.parentElement;
+      },
+      interactive: true,
+      interactiveBorder: 10,
+      theme: 'quarto',
+      placement: 'bottom-start',
+    };
+    if (contentFn) {
+      config.content = contentFn;
+    }
+    if (onTriggerFn) {
+      config.onTrigger = onTriggerFn;
+    }
+    if (onUntriggerFn) {
+      config.onUntrigger = onUntriggerFn;
+    }
+    window.tippy(el, config); 
+  }
+  const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+  for (var i=0; i<noterefs.length; i++) {
+    const ref = noterefs[i];
+    tippyHover(ref, function() {
+      // use id or data attribute instead here
+      let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+      try { href = new URL(href).hash; } catch {}
+      const id = href.replace(/^#\/?/, "");
+      const note = window.document.getElementById(id);
+      return note.innerHTML;
+    });
+  }
+  const xrefs = window.document.querySelectorAll('a.quarto-xref');
+  const processXRef = (id, note) => {
+    // Strip column container classes
+    const stripColumnClz = (el) => {
+      el.classList.remove("page-full", "page-columns");
+      if (el.children) {
+        for (const child of el.children) {
+          stripColumnClz(child);
+        }
+      }
+    }
+    stripColumnClz(note)
+    if (id === null || id.startsWith('sec-')) {
+      // Special case sections, only their first couple elements
+      const container = document.createElement("div");
+      if (note.children && note.children.length > 2) {
+        container.appendChild(note.children[0].cloneNode(true));
+        for (let i = 1; i < note.children.length; i++) {
+          const child = note.children[i];
+          if (child.tagName === "P" && child.innerText === "") {
+            continue;
+          } else {
+            container.appendChild(child.cloneNode(true));
+            break;
+          }
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(container);
+        }
+        return container.innerHTML
+      } else {
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        return note.innerHTML;
+      }
+    } else {
+      // Remove any anchor links if they are present
+      const anchorLink = note.querySelector('a.anchorjs-link');
+      if (anchorLink) {
+        anchorLink.remove();
+      }
+      if (window.Quarto?.typesetMath) {
+        window.Quarto.typesetMath(note);
+      }
+      // TODO in 1.5, we should make sure this works without a callout special case
+      if (note.classList.contains("callout")) {
+        return note.outerHTML;
+      } else {
+        return note.innerHTML;
+      }
+    }
+  }
+  for (var i=0; i<xrefs.length; i++) {
+    const xref = xrefs[i];
+    tippyHover(xref, undefined, function(instance) {
+      instance.disable();
+      let url = xref.getAttribute('href');
+      let hash = undefined; 
+      if (url.startsWith('#')) {
+        hash = url;
+      } else {
+        try { hash = new URL(url).hash; } catch {}
+      }
+      if (hash) {
+        const id = hash.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note !== null) {
+          try {
+            const html = processXRef(id, note.cloneNode(true));
+            instance.setContent(html);
+          } finally {
+            instance.enable();
+            instance.show();
+          }
+        } else {
+          // See if we can fetch this
+          fetch(url.split('#')[0])
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.getElementById(id);
+            if (note !== null) {
+              const html = processXRef(id, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      } else {
+        // See if we can fetch a full url (with no hash to target)
+        // This is a special case and we should probably do some content thinning / targeting
+        fetch(url)
+        .then(res => res.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const htmlDoc = parser.parseFromString(html, "text/html");
+          const note = htmlDoc.querySelector('main.content');
+          if (note !== null) {
+            // This should only happen for chapter cross references
+            // (since there is no id in the URL)
+            // remove the first header
+            if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+              note.children[0].remove();
+            }
+            const html = processXRef(null, note);
+            instance.setContent(html);
+          } 
+        }).finally(() => {
+          instance.enable();
+          instance.show();
+        });
+      }
+    }, function(instance) {
+    });
+  }
+      let selectedAnnoteEl;
+      const selectorForAnnotation = ( cell, annotation) => {
+        let cellAttr = 'data-code-cell="' + cell + '"';
+        let lineAttr = 'data-code-annotation="' +  annotation + '"';
+        const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+        return selector;
+      }
+      const selectCodeLines = (annoteEl) => {
+        const doc = window.document;
+        const targetCell = annoteEl.getAttribute("data-target-cell");
+        const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+        const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+        const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+        const lineIds = lines.map((line) => {
+          return targetCell + "-" + line;
+        })
+        let top = null;
+        let height = null;
+        let parent = null;
+        if (lineIds.length > 0) {
+            //compute the position of the single el (top and bottom and make a div)
+            const el = window.document.getElementById(lineIds[0]);
+            top = el.offsetTop;
+            height = el.offsetHeight;
+            parent = el.parentElement.parentElement;
+          if (lineIds.length > 1) {
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+            height = bottom - top;
+          }
+          if (top !== null && height !== null && parent !== null) {
+            // cook up a div (if necessary) and position it 
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            div.style.top = top - 2 + "px";
+            div.style.height = height + 4 + "px";
+            div.style.left = 0;
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            gutterDiv.style.top = top - 2 + "px";
+            gutterDiv.style.height = height + 4 + "px";
+          }
+          selectedAnnoteEl = annoteEl;
+        }
+      };
+      const unselectCodeLines = () => {
+        const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+        elementsIds.forEach((elId) => {
+          const div = window.document.getElementById(elId);
+          if (div) {
+            div.remove();
+          }
+        });
+        selectedAnnoteEl = undefined;
+      };
+        // Handle positioning of the toggle
+    window.addEventListener(
+      "resize",
+      throttle(() => {
+        elRect = undefined;
+        if (selectedAnnoteEl) {
+          selectCodeLines(selectedAnnoteEl);
+        }
+      }, 10)
+    );
+    function throttle(fn, ms) {
+    let throttle = false;
+    let timer;
+      return (...args) => {
+        if(!throttle) { // first call gets through
+            fn.apply(this, args);
+            throttle = true;
+        } else { // all the others get throttled
+            if(timer) clearTimeout(timer); // cancel #2
+            timer = setTimeout(() => {
+              fn.apply(this, args);
+              timer = throttle = false;
+            }, ms);
+        }
+      };
+    }
+      // Attach click handler to the DT
+      const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+      for (const annoteDlNode of annoteDls) {
+        annoteDlNode.addEventListener('click', (event) => {
+          const clickedEl = event.target;
+          if (clickedEl !== selectedAnnoteEl) {
+            unselectCodeLines();
+            const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+            if (activeEl) {
+              activeEl.classList.remove('code-annotation-active');
+            }
+            selectCodeLines(clickedEl);
+            clickedEl.classList.add('code-annotation-active');
+          } else {
+            // Unselect the line
+            unselectCodeLines();
+            clickedEl.classList.remove('code-annotation-active');
+          }
+        });
+      }
+  const findCites = (el) => {
+    const parentEl = el.parentElement;
+    if (parentEl) {
+      const cites = parentEl.dataset.cites;
+      if (cites) {
+        return {
+          el,
+          cites: cites.split(' ')
+        };
+      } else {
+        return findCites(el.parentElement)
+      }
+    } else {
+      return undefined;
+    }
+  };
+  var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+  for (var i=0; i<bibliorefs.length; i++) {
+    const ref = bibliorefs[i];
+    const citeInfo = findCites(ref);
+    if (citeInfo) {
+      tippyHover(citeInfo.el, function() {
+        var popup = window.document.createElement('div');
+        citeInfo.cites.forEach(function(cite) {
+          var citeDiv = window.document.createElement('div');
+          citeDiv.classList.add('hanging-indent');
+          citeDiv.classList.add('csl-entry');
+          var biblioDiv = window.document.getElementById('ref-' + cite);
+          if (biblioDiv) {
+            citeDiv.innerHTML = biblioDiv.innerHTML;
+          }
+          popup.appendChild(citeDiv);
+        });
+        return popup.innerHTML;
+      });
+    }
+  }
+});
+</script>
+</div> <!-- /content -->
+
+
+
+
+</body></html>
