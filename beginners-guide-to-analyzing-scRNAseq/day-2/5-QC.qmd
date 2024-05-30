@@ -237,13 +237,27 @@ There are many different packages that can be used ot detect doublets. If you ar
 library(DoubletFinder)
 # Find doublets
 exp_btch <- unique(se@meta.data$'Experimental batch')
-class(exp_btch)
 ```
 
-```{r}
+### doubletFinder Parameters
+
+pK parameter = the proportion of cells that are doublets This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets.
+
+pN parameter = default number of doublets we expect to find (set to 0.25 by default).
+
+K(?) = expected number of doublets
+
+pANN = proportion of artificial nearest neighbors
+
+DoubletFinder is only sensitive to heterotypic doublets (transcriptionally-distinct doublets) so the developer suggests using a cell-type annotations (here, batch_seurat_object\@meta.data\$seurat_clusters) to model the expected proportion of homotypic (transcriptionally-similar) doublets.
+
+```{r, echo=FALSE}
+# Run doubletFinder
 process_batch <- function(batch) {
+  # 1 - Subset Seurat object by batch
   batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
-  # seurat_object <- CreateSeuratObject(counts = your_data_object)
+  
+  # 2 - Process count data of that subseted Seurat object
   batch_seurat_object <- batch_seurat_object %>%
     NormalizeData() %>%
     FindVariableFeatures() %>%
@@ -251,62 +265,64 @@ process_batch <- function(batch) {
     RunPCA() %>%
     FindNeighbors() %>%
     FindClusters() 
-  # Seurat::ElbowPlot(batch_seurat_object, ndims = 30)
-  # DimPlot(se, reduction="umap", group.by = "Experimental batch")
   
+  # 3 - Run pK identification with NO ground truth
+  
+  ## paramSweep: 
+  ## summarizeSweep: 
   sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
   sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
   bcmvn_sample <- find.pK(sweep.stats_sample)
+  
   # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
   # ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
   #   geom_point() +
   #   geom_line()
   
+  # 4 - Calculate pK where pK is the proportion of cells that are doublets.
   pK <- bcmvn_sample %>%
     filter(BCmetric == max(BCmetric)) %>%
     select(pK)
   pK <- as.numeric(as.character(pK[[1]]))
   
+  # 5 - nExp defines the expected pANN threshold used to make final doublet-decisions
+
   annotations <- batch_seurat_object@meta.data$seurat_clusters
-  # annotations <- se@meta.data$cell_type
-  homotypic.prop <- modelHomotypic(annotations)           ## ex: annotations <- se@meta.data$ClusteringResults
-  nExp_poi <- round(0.075*nrow(se@meta.data))  ## Assuming 7.5% doublet formation rate - tailor for your dataset
+  # annotations <- Idents(batch_seurat_object)
+  homotypic.prop <- modelHomotypic(annotations) 
+  nExp_poi <- round(0.075*nrow(se@meta.data))  # Assuming 7.5% doublet formation rate
   nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
   
+  # 6 - Run doubletFinder
   batch_seurat_object <- doubletFinder(
     batch_seurat_object,
     PCs = 1:20,
     pN = 0.25,
     pK = pK,
     nExp = nExp_poi.adj,
-    reuse.pANN = FALSE,
-    sct = FALSE)
-
-  # mt <- batch_seurat_object@meta.data[,c("")]
-  # info <- data.frame(Barcode = colnames(batch_seurat_object), "Sample ID" = batch_seurat_object@meta.data$'Sample ID')
-  # colnames(info) <- gsub("\\.", " ", colnames(info))
-  # doublet_info <- c(batch_seurat_object@meta.data$'Doublet_Class',)
+    reuse.pANN = FALSE, # If TRUE, pANN will be reused from a previous run
+    sct = FALSE) # If TRUE, sctransform will be used for preprocessing
   
-  # Add doublet information to larger seurat object here
+  # 7 - Format doublet information for return dataframe
   pANN <- colnames(batch_seurat_object@meta.data) %>% 
     keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data)))
   DF_class <- colnames(batch_seurat_object@meta.data) %>% 
     keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data)))
-  # Extract values "0.1", "0.1", and "1000"
+  ## Extract values from pANN variable name
   params <- gsub("^pANN_", "", pANN)  # Remove "pANN_"
   params <- strsplit(params, "_")[[1]]  # Split by "_"
   pN <- params[1]  # Extract "0.1"
   pK <- params[2]  # Extract "0.1"
   doublet_run <- params[3]  # Extract "1000"
   
-  # Create new columns "pN", "pK", and "doublet_run"
+  ## Create new columns "pN", "pK", and "doublet_run"
   colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == pANN] <- "pANN"
   colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == DF_class] <- "DF_class"
   batch_seurat_object@meta.data$pN <- pN
   batch_seurat_object@meta.data$pK <- pK
   batch_seurat_object@meta.data$doublet_run <- doublet_run
   
-  # Return DF of doublet information here
+  # 8 - Return DF of doublet information here
   df <- data.frame(
     Barcode = colnames(batch_seurat_object),
     batch = batch_seurat_object@meta.data$'Experimental batch', 
@@ -316,16 +332,7 @@ process_batch <- function(batch) {
     pK = batch_seurat_object@meta.data$pK,
     pN = batch_seurat_object@meta.data$pN
     )
-  
-  # Add metadata to main Seurat object
-  # db <- bind_rows(processed_doublets)
   rownames(df) <- df$Barcode
-  # df <- df %>% select(-Barcode)
-  # se <- AddMetaData(
-  #   object = se, 
-  #   metadata = df
-  # )
-
   return(df)
   
 }
@@ -337,6 +344,20 @@ processed_doublets <- lapply(exp_btch, process_batch)
 ```{r}
 # Add doublet information to the main seurat object
 test <- bind_rows(processed_doublets)
+# plot pANN against batch
+ggplot(test, aes(x = pANN, y = batch)) +
+  geom_point() +
+  theme_classic()
+```
+
+```{r}
+```
+
+```{r}
+
+```
+
+```{r}
 rownames(test) <- test$Barcode
 test <- test %>% select(-Barcode)
 se <- AddMetaData(
@@ -381,12 +402,6 @@ DimPlot(se, reduction = "umap", group.by = "Celltype") +
 lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows().
 
 The DoubletFinder vignette includes sctransform pre-processing steps that can be used instead.
-
-### pK Parameter
-
-pK parameter = the proportion of cells that are doublets This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets. pN parameter = default number of doublets we expect to find K(?) = expected number of doublets
-
-pANN = proportion of artificial nearest neighbors.
 
 ## Resave Seurat object
 
