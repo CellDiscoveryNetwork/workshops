@@ -59,7 +59,7 @@ ElbowPlot(se, ndims = 50)
 
 ### UMAP of Counts and QC Metrics
 
-```{r}
+```{r, fig.width=10, fig.height=5}
 library(ggplot2)
 
 # Convert the 'batch' variable to a character
@@ -88,7 +88,7 @@ d3 | d4
 
 ```{r}
 se_1 <- se
-se1 <- se1 %>%
+se_1 <- se_1 %>%
     NormalizeData(verbose = FALSE) %>%
     FindVariableFeatures(
         method = "vst",
@@ -149,7 +149,7 @@ se_1 <- se_1 %>%
 ```
 
 #### Visualize Clusters
-```{r}
+```{r, fig.width=15, fig.height=10}
 DimPlot(
     se_1,
     group.by = c(
@@ -160,7 +160,7 @@ DimPlot(
 ```
 #### Different Resolutions
 0.01 vs 0.05 Resolution
-```{r}
+```{r, fig.width=15, fig.height=5}
 DimPlot(
     se_1,
     group.by = c(
@@ -237,7 +237,7 @@ lollipop <- ggplot(clusterMetrics, aes(x = seurat_clusters, y = n)) +
   geom_point(aes(colour = `Sample ID_diversity`), size = 5) + # Add colored lollipop 'heads', coloring by 'Sample ID_diversity'
   scale_y_log10() +
   scale_x_continuous(breaks = seq(0,20)) + 
-  scale_colour_viridis(option = "C", name = "Sample ID Diversity", direction = 1) + # Colorblind-friendly, vibrant color palette
+  scale_colour_viridis(option = "C", name = "Sample ID Diversity", direction = 1, limits = c(0,1)) + # Colorblind-friendly, vibrant color palette
   theme_minimal(base_size = 10) +
   theme(legend.position = "bottom",
         axis.text = element_text(size = 12), 
@@ -274,8 +274,10 @@ ggplot(plot_sample, aes(x = factor(RNA_snn_res.0.05), y = proportion, fill = `Sa
   labs(x = "Seurat Clusters", y = "Proportion", fill = "Sample ID",
        title = "Distribution of Sample IDs Across Clusters") +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_manual(values = pal)
 
+# TD: use Marc's color scheme for donors- factor analysis
 ```
 
 ```{r}
@@ -295,7 +297,7 @@ ggplot(plot_batch, aes(x = factor(RNA_snn_res.0.05), y = proportion, fill = batc
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 3 - Stacked Bar Plot of Cluster Diversity
-```{r}
+```{r, fig.width = 5}
 p2 <- ggplot(clusterMetrics, aes(y=as.character(seurat_clusters), fill=`Sample ID_diversity`, x = 1, label = n)) +
   geom_tile(colour = "white") +
   geom_text(nudge_x = 1.5, size = 3) +
@@ -320,7 +322,8 @@ p2
 As covered in the last workshop, silhouette analysis is a way to measure how similar an object is to its own cluster compared to other clusters. The silhouette value ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters.
 
 ```{r}
-seurat_clusters <- se_1@meta.data$seurat_clusters
+seurat_clusters <- se_1@meta.data$RNA_snn_res.0.05
+
 pca_embeddings <- Embeddings(se, reduction = 'pca')
 
 # Calculate silhouette widths
@@ -368,18 +371,20 @@ full_plot
 ```
 
 Look at silhouette scores on a UMAP
-```{r}
+```{r, fig.width = 10, fig.height = 5}
 d5 <- DimPlot(se_1,
         reduction='umap',
         group.by='RNA_snn_res.0.05')
 
-se$CellID <- row.names(se_1@meta.data)
+se_1$CellID <- row.names(se_1@meta.data)
 
-sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(se@meta.data)
-
-se <- AddMetaData(se_1, sil_ids)
+sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(se_1@meta.data, by='CellID')
+head(silhouette_data)
+head(se_1@meta.data)
+se_1 <- AddMetaData(se_1, sil_ids)
 
 FeaturePlot(se_1, feature = "sil_width") + ggtitle('Silhouette width') + scale_color_viridis_c(limits = c(-1,1), option = "magma") | d5
+# TD: change color palette
 ```
 
 ## Session Info

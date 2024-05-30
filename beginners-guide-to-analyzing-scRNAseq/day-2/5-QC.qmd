@@ -66,7 +66,7 @@ names(pal) <- sort(unique(se$Celltype))
 
 ### Filter out the overexpressed genes
 
-#### According to 'Current best practices in single-cell RNA-seq', we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitchondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.
+According to *Current best practices in single-cell RNA-seq*, we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitochondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.
 
 In public datasets, use 'colnames()' to find the processing and metadata already analyzed.
 
@@ -75,7 +75,9 @@ In public datasets, use 'colnames()' to find the processing and metadata already
 colnames(se@meta.data)
 ```
 
-1 - Number of UMIs nCount_RNA is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low nCount_RNA values may be dying or dead cells, while cells with high nCount_RNA values may be doublets.
+1 - Number of UMIs
+
+nCount_RNA is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low nCount_RNA values may be dying or dead cells, while cells with high nCount_RNA values may be doublets.
 
 ```{r}
 ggplot(se@meta.data, aes(x = nCount_RNA)) +
@@ -86,7 +88,9 @@ ggplot(se@meta.data, aes(x = nCount_RNA)) +
     theme_classic()
 ```
 
-2 - Number of genes nFeature_RNA is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low nFeature_RNA values may be dying or dead cells, while cells with high nFeature_RNA values may be doublets.
+2 - Number of genes
+
+nFeature_RNA is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low nFeature_RNA values may be dying or dead cells, while cells with high nFeature_RNA values may be doublets.
 
 ```{r}
 ggplot(se@meta.data, aes(x = nFeature_RNA)) +
@@ -101,7 +105,7 @@ ggplot(se@meta.data, aes(x = nFeature_RNA)) +
 
 Notice the object already has 'Percent of mitochondrial genes' calculated. We are going to calculate them again to show how to do it.
 
-Seurat's "PercentageFeatureSet" function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression to filter these out by gene name.
+Seurat's `PercentageFeatureSet` function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression to filter these out by gene name.
 
 ```{r}
 # Calculate the percentage of mitochondrial genes
@@ -142,7 +146,7 @@ VlnPlot(se,
   ) + NoLegend()
 ```
 
-```{r}
+```{r, fig.width=16, fig.height=6}
 # Plot features by Sample together
 VlnPlot(se,
   group.by = "Sample ID",
@@ -164,7 +168,18 @@ se@meta.data %>%
     ggplot2::theme_classic() +
     ggplot2::scale_color_gradient(low = "yellow", high = "red", limits = c(0, 20))
 ```
+```{r, fig.width=10, fig.height = 10}
+# Percent MT Genes per sample
+se@meta.data %>%
+  ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.mt)) +
+  geom_point() +
+  facet_wrap(~`Sample ID`) +
+  theme_classic() +
+  scale_color_gradient(low = "yellow", high = "red", limits = c(0, 100)) +
+  scale_x_continuous(
+        labels = scales::unit_format(unit = "K", scale = 1e-3))
 
+```
 The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.
 
 ```{r}
@@ -176,6 +191,19 @@ se@meta.data %>%
     scale_color_gradient(low = "yellow", high = "red", limits = c(0, 50))
 ```
 
+```{r, fig.width=10, fig.height = 10}
+# Percent MT Genes per sample
+se@meta.data %>%
+  ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.ribo)) +
+  geom_point() +
+  facet_wrap(~`Sample ID`) +
+  theme_classic() +
+  scale_color_gradient(low = "yellow", high = "red", limits = c(0, 100)) +
+  scale_x_continuous(
+        labels = scales::unit_format(unit = "K", scale = 1e-3))
+
+```
+
 ```{r}
 # Percent Hemoglobin Genes
 se@meta.data %>%
@@ -185,15 +213,38 @@ se@meta.data %>%
   scale_color_gradient(low = "yellow", high = "red", limits = c(0, 100))
 ```
 
+```{r, fig.width=10, fig.height = 10}
+# Percent hemoglobin Genes per sample
+se@meta.data %>%
+  ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = perc.hb)) +
+  geom_point() +
+  facet_wrap(~`Sample ID`) +
+  theme_classic() +
+  scale_color_gradient(low = "yellow", high = "red", limits = c(0, 100)) +
+  scale_x_continuous(
+        labels = scales::unit_format(unit = "K", scale = 1e-3))
+
+```
+
 ```{r}
 # Plot by cell type
 se@meta.data %>%
-  ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = cell_type)) +
+  ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = Celltype)) +
   geom_point() +
   theme_classic() 
 ```
 
-After looking at the cell type distribution, the hemoglobin concentration makes sense as it corrspends to erythocytes which are high in hemoglobin.
+```{r, fig.width=10, fig.height = 10}
+# Percent MT Genes per sample
+se@meta.data %>%
+  ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = Celltype)) +
+  geom_point() +
+  facet_wrap(~Celltype) +
+  theme_classic()
+
+```
+
+After looking at the cell type distribution, the hemoglobin concentration makes sense as it corresponds to erythocytes which are high in hemoglobin.
 
 ### Add Batch Information
 
@@ -231,7 +282,7 @@ se <- AddMetaData(se, info)
 
 ### DoubletFinder
 
-There are many different packages that can be used ot detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called "doubletFinder" that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.
+There are many different packages that can be used to detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called "doubletFinder" that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.
 
 ```{r}
 library(DoubletFinder)
@@ -241,7 +292,7 @@ exp_btch <- unique(se@meta.data$'Experimental batch')
 
 ### doubletFinder Parameters
 
-pK parameter = the proportion of cells that are doublets This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets.
+pK parameter = the proportion of cells that are doublets. This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets.
 
 pN parameter = default number of doublets we expect to find (set to 0.25 by default).
 
@@ -305,9 +356,9 @@ process_batch <- function(batch) {
   
   # 7 - Format doublet information for return dataframe
   pANN <- colnames(batch_seurat_object@meta.data) %>% 
-    keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data)))
+    keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data))) # pANN_0.25_0.3_1000
   DF_class <- colnames(batch_seurat_object@meta.data) %>% 
-    keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data)))
+    keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data))) # DF.classifications_0.25_0.3_1000
   ## Extract values from pANN variable name
   params <- gsub("^pANN_", "", pANN)  # Remove "pANN_"
   params <- strsplit(params, "_")[[1]]  # Split by "_"
@@ -345,9 +396,12 @@ processed_doublets <- lapply(exp_btch, process_batch)
 # Add doublet information to the main seurat object
 test <- bind_rows(processed_doublets)
 # plot pANN against batch
-ggplot(test, aes(x = pANN, y = batch)) +
-  geom_point() +
+head(test)
+ggplot(test, aes(x = pANN, fill = as.character(batch))) +
+  geom_density(bins = 100, alpha = 0.5) +
   theme_classic()
+
+table(test$batch)
 ```
 
 ```{r}
@@ -387,21 +441,22 @@ DimPlot(se, reduction = "umap", group.by = 'DF_class') +
 
 ```
 
-```{r, fig.height=5}
+```{r, fig.height=6, fig.width=12}
 # Plot UMAP by pANN
-FeaturePlot(se, reduction = "umap", features = "pANN") +
+p1 <- FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN")
 # Plot UMAP by cell type
-DimPlot(se, reduction = "umap", group.by = "Celltype") +
+p2 <- DimPlot(se, reduction = "umap", group.by = "Celltype") +
   labs(title = "UMAP Plot Colored by Cell Type")
 
+p1 | p2
 # DimPlot(se, reduction = "umap", group.by = "Celltype") +
 #   labs(title = "UMAP Plot Colored by Batch")
 ```
+notes:
+- add step at end to subset data according to numUMIs, numFeatures, and percentMT. 
 
 lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows().
-
-The DoubletFinder vignette includes sctransform pre-processing steps that can be used instead.
 
 ## Resave Seurat object
 
