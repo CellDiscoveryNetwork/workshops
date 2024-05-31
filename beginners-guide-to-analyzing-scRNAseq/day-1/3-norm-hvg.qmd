@@ -12,7 +12,7 @@ format:
     embed-resources: true
     self-contained-math: true
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -53,7 +53,9 @@ In this notebook we are going to look at two big concepts: 1) Why we need to nor
 
 -   Feature selection is the first step to reduce the dimensionality of our data.
 
--   We select highly variable gens following the assumption that genes that have variable expression are representative of cellular heterogeneity within our data.
+-   We select highly variable genes (HVGs) following the assumption that genes that have variable expression are representative of cellular heterogeneity within our data.
+
+-   Feature selection using HVGs is a KEY step in the analysis workflow. It determines the biological information universe we will be using for downstream analysis and is dependent on the data used. Every time we subset the data we have to recompute HVG to update our biological universe so its representative of the new cellular context!
 
 ## Libraries
 
@@ -242,11 +244,11 @@ Most of these genes are housekeeping, mitochondrial and ribosomal, which in most
 Subsetting our count matrix to highly variable genes is a key step for downstream analysis. We need to reduce the dimensions of the count matrix so that we can carry out downstream tasks such as PCA. The intutition behind selectin HVG is that those genes with highest variability capture high level biological variability in our datasets and can help us identify the populations present in our dataset. To do this we can use the `vst` method: *First, fits a line to the relationship of log(variance) and log(mean) using local polynomial regression (loess). Then standardizes the feature values using the observed mean and expected variance (given by the fitted line). Feature variance is then calculated on the standardized values after clipping to a maximum (see clip.max parameter).*
 
 We can see this in action below - Here we select 3000 HVG, in practice people select 2-5k genes in this step.
-```{r}
+```{r fig.width=12, fig.height=9}
 se <- FindVariableFeatures(se, nfeatures = 3000, selection.method = "vst")
 
 # Identify the 50 most highly variable genes
-top <- head(VariableFeatures(se), 25)
+top <- head(VariableFeatures(se), 100)
 
 # plot variable features with and without labels
 plot1 <- VariableFeaturePlot(se)
@@ -256,7 +258,10 @@ plot2 +
     scale_y_log10()
 ```
 
-Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data by specific cell types and *recomputing* HVG so that they are updated and represent the biological variability in this new dataset! 
+Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data to a cell type of interest and **RECOMPUTING** HVG so that they are updated and represent the biological variability in this new dataset! 
+
+Selecting HVG is probably the most important step in the analysis as it subset the genes to be used for downstream processing to compute PCA, knn-graph, clustering... Make sure this concept is clear before you move on!
+
 
 ## Session Info
 
