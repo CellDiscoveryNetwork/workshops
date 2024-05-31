@@ -97,7 +97,7 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS("../data/d8e35450-de43-451a-9979-276eac688bce.rds")
+se <- readRDS("../data/Covid_Flu_Seurat_Object.rds")
 ```
 
 Generate a color palette for our cell types
@@ -111,30 +111,6 @@ names(pal) <- sort(unique(se$Celltype))
 ```
 
 ## Analysis
-
-### Convert ENSEMBL IDs to Gene Symbols
-
-Right away we can see how ensembl ids are used in the rownames. Let's transform them into their matched symbols to make them human-readable:
-
-```{r}
-head(rownames(se))
-```
-
-Convert to gene symbols
-
-```{r}
-gene_df <- readr::read_csv(file = "../data/cov_flu_gene_names_table.csv")
-
-symbol_id <- data.frame(index = rownames(se)) %>%
-    left_join(gene_df, by = "index") %>%
-    pull(feature_name)
-
-# re-create seurat object
-mtx <- se@assays$RNA$data
-rownames(mtx) <- symbol_id
-se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
-rm(mtx); gc()
-```
 
 ### Quick processing
 
