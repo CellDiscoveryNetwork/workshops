@@ -133,6 +133,11 @@ rownames(mtx) <- symbol_id
 se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
 ```
 
+Save object with gene symbols for use in future notebooks as a `.rds` file.
+```{r}
+saveRDS(object = se, file = "../data/Covid_Flu_Seurat_Object.rds")
+```
+
 ### Data exploration
 
 Let's start by taking a look at the sequencing depth of our cells. By library depth we referr to the number of transcripts (UMIs) detected in each cell
