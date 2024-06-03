@@ -357,7 +357,7 @@ DoubletFinder allows you to set a threshold and will give each cell a categorica
 
 DoubletFinder is only sensitive to heterotypic doublets (transcriptionally-distinct doublets) so the developer suggests using a cell-type annotations (here: `batch_seurat_object@meta.data$seurat_clusters`) to model the expected proportion of homotypic (transcriptionally-similar) doublets.
 
-```{r, message=FALSE}
+```{r, results='hide', message=FALSE, warning=FALSE}
 # Run doubletFinder
 process_batch <- function(batch) {
   # 1 - Subset Seurat object by batch

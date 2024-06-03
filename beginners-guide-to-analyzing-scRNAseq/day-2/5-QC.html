@@ -631,536 +631,12 @@ utilizing "counts" layer instead.</code></pre>
 <span id="cb39-84"><a href="#cb39-84" aria-hidden="true" tabindex="-1"></a>}</span>
 <span id="cb39-85"><a href="#cb39-85" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb39-86"><a href="#cb39-86" aria-hidden="true" tabindex="-1"></a>processed_doublets <span class="ot">&lt;-</span> <span class="fu">lapply</span>(exp_btch, process_batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
-
-Number of nodes: 18752
-Number of edges: 616465
-
-Running Louvain algorithm...
-Maximum modularity in 10 random starts: 0.9052
-Number of communities: 19
-Elapsed time: 2 seconds
-[1] "Creating artificial doublets for pN = 5%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 10%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 15%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 20%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 25%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 30%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."</code></pre>
-</div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
 <p><img src="5-QC_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>NULL
-[1] "Creating 6251 artificial doublets..."
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Computing pANN..."
-[1] "Classifying doublets.."
-Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
-
-Number of nodes: 16507
-Number of edges: 535537
-
-Running Louvain algorithm...
-Maximum modularity in 10 random starts: 0.9040
-Number of communities: 22
-Elapsed time: 1 seconds
-[1] "Creating artificial doublets for pN = 5%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 10%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 15%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 20%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 25%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 30%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."</code></pre>
 </div>
 <div class="cell-output-display">
 <div>
@@ -1169,540 +645,12 @@ Elapsed time: 1 seconds
 </figure>
 </div>
 </div>
-<div class="cell-output cell-output-stdout">
-<pre><code>NULL
-[1] "Creating 5502 artificial doublets..."
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Computing pANN..."
-[1] "Classifying doublets.."
-Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
-
-Number of nodes: 8624
-Number of edges: 286940
-
-Running Louvain algorithm...
-Maximum modularity in 10 random starts: 0.8967
-Number of communities: 19
-Elapsed time: 0 seconds
-[1] "Creating artificial doublets for pN = 5%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 10%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 15%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 20%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 25%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 30%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."</code></pre>
-</div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
 <p><img src="5-QC_files/figure-html/unnamed-chunk-24-3.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>NULL
-[1] "Creating 2875 artificial doublets..."
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Computing pANN..."
-[1] "Classifying doublets.."
-Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
-
-Number of nodes: 15689
-Number of edges: 524420
-
-Running Louvain algorithm...
-Maximum modularity in 10 random starts: 0.9105
-Number of communities: 21
-Elapsed time: 1 seconds
-[1] "Creating artificial doublets for pN = 5%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 10%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 15%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 20%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 25%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."
-[1] "Creating artificial doublets for pN = 30%"
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Defining neighborhoods..."
-[1] "Computing pANN across all pK..."
-[1] "pK = 0.001..."
-[1] "pK = 0.005..."
-[1] "pK = 0.01..."
-[1] "pK = 0.02..."
-[1] "pK = 0.03..."
-[1] "pK = 0.04..."
-[1] "pK = 0.05..."
-[1] "pK = 0.06..."
-[1] "pK = 0.07..."
-[1] "pK = 0.08..."
-[1] "pK = 0.09..."
-[1] "pK = 0.1..."
-[1] "pK = 0.11..."
-[1] "pK = 0.12..."
-[1] "pK = 0.13..."
-[1] "pK = 0.14..."
-[1] "pK = 0.15..."
-[1] "pK = 0.16..."
-[1] "pK = 0.17..."
-[1] "pK = 0.18..."
-[1] "pK = 0.19..."
-[1] "pK = 0.2..."
-[1] "pK = 0.21..."
-[1] "pK = 0.22..."
-[1] "pK = 0.23..."
-[1] "pK = 0.24..."
-[1] "pK = 0.25..."
-[1] "pK = 0.26..."
-[1] "pK = 0.27..."
-[1] "pK = 0.28..."
-[1] "pK = 0.29..."
-[1] "pK = 0.3..."</code></pre>
 </div>
 <div class="cell-output-display">
 <div>
@@ -1711,24 +659,12 @@ Elapsed time: 1 seconds
 </figure>
 </div>
 </div>
-<div class="cell-output cell-output-stdout">
-<pre><code>NULL
-[1] "Creating 5230 artificial doublets..."
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."
-[1] "Finding variable genes..."
-[1] "Scaling data..."
-[1] "Running PCA..."
-[1] "Calculating PC distance matrix..."
-[1] "Computing pANN..."
-[1] "Classifying doublets.."</code></pre>
-</div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add doublet information to the main seurat object</span></span>
-<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(processed_doublets)</span>
-<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plot pANN against batch</span></span>
-<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb40"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add doublet information to the main seurat object</span></span>
+<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(processed_doublets)</span>
+<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plot pANN against batch</span></span>
+<span id="cb40-4"><a href="#cb40-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                                Barcode batch      pANN DF_class doublet_run
 AAACCCAAGAATGTTG-12 AAACCCAAGAATGTTG-12     3 0.2189041  Singlet        4142
@@ -1745,9 +681,9 @@ AAACCCACACTTGGCG-12 0.3 0.25
 AAACCCAGTCTACACA-12 0.3 0.25
 AAACCCAGTCTACAGT-14 0.3 0.25</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(test, <span class="fu">aes</span>(<span class="at">x =</span> pANN, <span class="at">fill =</span> <span class="fu">as.character</span>(batch))) <span class="sc">+</span></span>
-<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">bins =</span> <span class="dv">100</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
-<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb42"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb42-1"><a href="#cb42-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(test, <span class="fu">aes</span>(<span class="at">x =</span> pANN, <span class="at">fill =</span> <span class="fu">as.character</span>(batch))) <span class="sc">+</span></span>
+<span id="cb42-2"><a href="#cb42-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">bins =</span> <span class="dv">100</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb42-3"><a href="#cb42-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning in geom_density(bins = 100, alpha = 0.5): Ignoring unknown parameters:
 `bins`</code></pre>
@@ -1759,7 +695,7 @@ AAACCCAGTCTACAGT-14 0.3 0.25</code></pre>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(test<span class="sc">$</span>batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb44"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb44-1"><a href="#cb44-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(test<span class="sc">$</span>batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
     1     2     3     4 
@@ -1767,26 +703,26 @@ AAACCCAGTCTACAGT-14 0.3 0.25</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(test) <span class="ot">&lt;-</span> test<span class="sc">$</span>Barcode</span>
-<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> test <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
-<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(</span>
-<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">object =</span> se, </span>
-<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">metadata =</span> test</span>
-<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb46"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb46-1"><a href="#cb46-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(test) <span class="ot">&lt;-</span> test<span class="sc">$</span>Barcode</span>
+<span id="cb46-2"><a href="#cb46-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> test <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
+<span id="cb46-3"><a href="#cb46-3" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(</span>
+<span id="cb46-4"><a href="#cb46-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">object =</span> se, </span>
+<span id="cb46-5"><a href="#cb46-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">metadata =</span> test</span>
+<span id="cb46-6"><a href="#cb46-6" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="perform-preprocessing" class="level3">
 <h3 class="anchored" data-anchor-id="perform-preprocessing">Perform Preprocessing</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> se <span class="sc">%&gt;%</span></span>
-<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>(</span>
-<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"vst"</span>,</span>
-<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">nfeatures =</span> <span class="dv">3000</span>,</span>
-<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>, <span class="at">features =</span> <span class="fu">VariableFeatures</span>(.)) <span class="sc">%&gt;%</span></span>
-<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunUMAP</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> se <span class="sc">%&gt;%</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>(</span>
+<span id="cb47-4"><a href="#cb47-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"vst"</span>,</span>
+<span id="cb47-5"><a href="#cb47-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">nfeatures =</span> <span class="dv">3000</span>,</span>
+<span id="cb47-6"><a href="#cb47-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb47-7"><a href="#cb47-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>, <span class="at">features =</span> <span class="fu">VariableFeatures</span>(.)) <span class="sc">%&gt;%</span></span>
+<span id="cb47-8"><a href="#cb47-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb47-9"><a href="#cb47-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunUMAP</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric
 To use Python UMAP via reticulate, set umap.method to 'umap-learn' and metric to 'correlation'
@@ -1794,9 +730,9 @@ This message will be shown once per session</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP colored by batch</span></span>
-<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">'DF_class'</span>) <span class="sc">+</span></span>
-<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Batch"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP colored by batch</span></span>
+<span id="cb49-2"><a href="#cb49-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">'DF_class'</span>) <span class="sc">+</span></span>
+<span id="cb49-3"><a href="#cb49-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Batch"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -1807,13 +743,13 @@ This message will be shown once per session</code></pre>
 </div>
 <p>Let’s look at the distribution of pANN values</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>p3 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
-<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># scale_x_continuous(</span></span>
-<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     # transform = "log10",</span></span>
-<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     labels = scales::unit_format(unit = "K", scale = 1)) +</span></span>
-<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
-<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>p3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb50"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb50-1"><a href="#cb50-1" aria-hidden="true" tabindex="-1"></a>p3 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
+<span id="cb50-2"><a href="#cb50-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb50-3"><a href="#cb50-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># scale_x_continuous(</span></span>
+<span id="cb50-4"><a href="#cb50-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     # transform = "log10",</span></span>
+<span id="cb50-5"><a href="#cb50-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     labels = scales::unit_format(unit = "K", scale = 1)) +</span></span>
+<span id="cb50-6"><a href="#cb50-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
+<span id="cb50-7"><a href="#cb50-7" aria-hidden="true" tabindex="-1"></a>p3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -1823,14 +759,14 @@ This message will be shown once per session</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by pANN</span></span>
-<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
-<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>)</span>
-<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by cell type</span></span>
-<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">"Celltype"</span>) <span class="sc">+</span></span>
-<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Cell Type"</span>)</span>
-<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">|</span> p2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by pANN</span></span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>)</span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by cell type</span></span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">"Celltype"</span>) <span class="sc">+</span></span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Cell Type"</span>)</span>
+<span id="cb51-7"><a href="#cb51-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb51-8"><a href="#cb51-8" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">|</span> p2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -1838,8 +774,8 @@ This message will be shown once per session</code></pre>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="co"># DimPlot(se, reduction = "umap", group.by = "Celltype") +</span></span>
-<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   labs(title = "UMAP Plot Colored by Batch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a><span class="co"># DimPlot(se, reduction = "umap", group.by = "Celltype") +</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   labs(title = "UMAP Plot Colored by Batch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -1847,17 +783,17 @@ This message will be shown once per session</code></pre>
 <h2 class="anchored" data-anchor-id="filter-out-cells">Filter out cells</h2>
 <p>Filter out our data by 4 criteria. 1. Any cell with less that 500 UMIs 2. Any cell with less than 200 genes 3. Any cell with more than 15% mitochondrial genes 4. Any cell with a pANN value greater than 0.25</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">subset</span>(</span>
-<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a>  se, </span>
-<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">200</span> <span class="sc">&amp;</span> nCount_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> perc.mt <span class="sc">&lt;</span> <span class="dv">15</span> <span class="sc">&amp;</span> pANN <span class="sc">&lt;</span> <span class="fl">0.25</span>)</span>
-<span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
-<span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
-<span id="cb58-8"><a href="#cb58-8" aria-hidden="true" tabindex="-1"></a>s2 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
-<span id="cb58-9"><a href="#cb58-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>) <span class="sc">+</span></span>
-<span id="cb58-10"><a href="#cb58-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradient</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span>
-<span id="cb58-11"><a href="#cb58-11" aria-hidden="true" tabindex="-1"></a>s1 <span class="sc">|</span> s2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb53"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb53-1"><a href="#cb53-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">subset</span>(</span>
+<span id="cb53-2"><a href="#cb53-2" aria-hidden="true" tabindex="-1"></a>  se, </span>
+<span id="cb53-3"><a href="#cb53-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">200</span> <span class="sc">&amp;</span> nCount_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> perc.mt <span class="sc">&lt;</span> <span class="dv">15</span> <span class="sc">&amp;</span> pANN <span class="sc">&lt;</span> <span class="fl">0.25</span>)</span>
+<span id="cb53-4"><a href="#cb53-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb53-5"><a href="#cb53-5" aria-hidden="true" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
+<span id="cb53-6"><a href="#cb53-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb53-7"><a href="#cb53-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
+<span id="cb53-8"><a href="#cb53-8" aria-hidden="true" tabindex="-1"></a>s2 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
+<span id="cb53-9"><a href="#cb53-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>) <span class="sc">+</span></span>
+<span id="cb53-10"><a href="#cb53-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradient</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span>
+<span id="cb53-11"><a href="#cb53-11" aria-hidden="true" tabindex="-1"></a>s1 <span class="sc">|</span> s2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -1870,13 +806,13 @@ This message will be shown once per session</code></pre>
 <section id="resave-seurat-object" class="level2">
 <h2 class="anchored" data-anchor-id="resave-seurat-object">Resave Seurat object</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(se, <span class="st">'../data/workshop-data-withDFinfo.rds'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(se, <span class="st">'../data/workshop-data-withDFinfo.rds'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="session-info" class="level2">
 <h2 class="anchored" data-anchor-id="session-info">Session Info</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>R version 4.3.2 (2023-10-31)
 Platform: aarch64-apple-darwin20 (64-bit)
