@@ -1,3 +1,7 @@
+## Learning R: Session 2
+## June 4th, 2024
+## CDN team
+
 ###################
 #### Tidyverse ####
 ###################
@@ -103,11 +107,11 @@ summarise(penguins2,
 # whatever they do.
 
 ### Pseudocode ###
-John <- "zzz"
-John <- wakeup(marc)
-John <- eat_breakfast(John)
-John <- brush_teeth(John)
-John <- take_t(John)
+marc <- "zzz"
+marc <- wakeup(marc)
+marc <- eat_breakfast(marc)
+marc <- brush_teeth(marc)
+marc <- take_t(marc)
 
 ### Real code ###
 marc %>%

@@ -1,3 +1,7 @@
+## R Session 2 Practice Sheet
+## June 4th, 2024
+## CDN team
+
 # These are some exercises to refresh what we talked about and practice a bit
 
 library(tidyverse)

@@ -1,6 +1,6 @@
-## Brown lab Learning R: Session 1
-## February 24, 2022
-## Marc Elosua Bayes
+## Learning R: Session 1
+## June 4th, 2024
+## CDN team
 
 ################################################################################
 ## Part I: The Basics
