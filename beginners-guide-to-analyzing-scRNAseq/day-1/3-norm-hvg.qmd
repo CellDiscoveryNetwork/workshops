@@ -36,7 +36,7 @@ In this notebook we are going to look at two big concepts: 1) Why we need to nor
 
 - **Library size**: total number of UMIs detected for each cell.
 
-- **Library complexity**: number of genes that have expression > 0 in each cell. The more genes detected in a cell the more complex a cell is. Exampled of low complexity cells are platelets and red blood cells which can be confounded with low quality cells if not assessed properly.
+- **Library complexity**: number of genes that have expression > 0 in each cell. The more genes detected in a cell the more complex a cell is. Examples of low complexity cells are platelets and red blood cells which can be confounded with low quality cells if not assessed properly.
 
 
 ### Key Takeaways
