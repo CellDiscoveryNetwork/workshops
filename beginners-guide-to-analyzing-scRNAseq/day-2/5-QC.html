@@ -111,9 +111,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="key-takeaways" class="level3">
 <h3 class="anchored" data-anchor-id="key-takeaways">Key Takeaways</h3>
 <ul>
-<li><p>one</p></li>
-<li><p>two</p></li>
-<li><p>three</p></li>
+<li><p>QC is the process of filtering out “bad” data which makes it a subjective process where being conservative about what to keep and well-informed about your data is the best practice.</p></li>
+<li><p>QC metrics include UMI and gene counts, mitochondrial gene expression, and doublet detection.</p></li>
 </ul>
 </section>
 <section id="glossary" class="level3">
@@ -124,7 +123,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>There are often disproportionately high mitochondrial cells in many datasets because cells upregulate mitochondrial genes during stress (such as during library prep) and near death.</p>
 <p>From Bioconductor:</p>
 <p><em>“High proportions are indicative of poor-quality cells (Islam et al.&nbsp;<a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-islam2014quantitative">2014</a>; Ilicic et al.&nbsp;<a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-ilicic2016classification">2016</a>), presumably because of loss of cytoplasmic RNA from perforated cells. The reasoning is that, in the presence of modest damage, the holes in the cell membrane permit efflux of individual transcript molecules but are too small to allow mitochondria to escape, leading to a relative enrichment of mitochondrial transcripts.”</em></p>
-<p><a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html" class="uri">https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html</a></p>
 <p><strong>Doublet:</strong></p>
 <p>A doublet is a data point read by the sequencer as a single-cell droplet but likely contains 2 or more cells in one droplet. These cause confusion in the gene expression distribution especially when cells of two different types (different expected gene expression profiles) are in the same droplet.</p>
 <p><strong>Heterotypic doublets vs Homotypic doublets</strong></p>
@@ -134,10 +132,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="resources" class="level3">
 <h3 class="anchored" data-anchor-id="resources">Resources</h3>
 <ol type="1">
-<li><a href="https://www.embopress.org/doi/full/10.15252/msb.20188746">Current best practices in single-cell RNA-seq analysis: a tutorial</a></li>
-<li><a href="https://github.com/chris-mcginnis-ucsf/DoubletFinder">DoubletFinder</a></li>
-<li><a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html">Bioconductor</a></li>
-<li><a href="https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html">Single Cell Best Practices</a></li>
+<li><p><a href="https://www.embopress.org/doi/full/10.15252/msb.20188746">Current best practices in single-cell RNA-seq analysis: a tutorial</a></p></li>
+<li><p><a href="https://github.com/chris-mcginnis-ucsf/DoubletFinder">DoubletFinder</a></p></li>
+<li><p><a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html">Bioconductor</a></p></li>
+<li><p><a href="https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html">Single Cell Best Practices</a></p></li>
+<li><p><a href="https://demultiplexing-doublet-detecting-docs.readthedocs.io/en/latest/">Demuxafy</a></p>
+<p>A software that can access most popular demulitplexing and doublet detection tools. I used it as a review and consolidation of resources.</p></li>
 </ol>
 </section>
 </section>
@@ -545,58 +545,92 @@ utilizing "counts" layer instead.</code></pre>
 <p><code>pANN</code> = proportion of artificial nearest neighbors or the “doublet score”.</p>
 <p>DoubletFinder is only sensitive to heterotypic doublets (transcriptionally-distinct doublets) so the developer suggests using a cell-type annotations (here: <code>batch_seurat_object@meta.data$seurat_clusters</code>) to model the expected proportion of homotypic (transcriptionally-similar) doublets.</p>
 <div class="cell">
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>PC_ 1 
-Positive:  IL32, TRBC2, CD69, CST7, CCL5, CD247, NKG7, CTSW, IFITM1, CD7 
-       GZMA, CD3D, LCK, GZMH, PRF1, GZMB, GNLY, HOPX, CD3G, C12orf75 
-       TRBC1, KLRD1, FGFBP2, ISG20, TRAC, CD2, KLRB1, ITM2A, IL7R, CREM 
-Negative:  LYZ, FCN1, CST3, CTSS, AIF1, SERPINA1, TYMP, S100A9, SPI1, LST1 
-       CSTA, PSAP, CYBB, S100A8, GRN, CFD, NCF2, S100A11, CPVL, CD68 
-       FTL, CFP, FGL2, MAFB, BRI3, RP11-1143G9.4, TKT, FCGRT, MPEG1, MNDA 
-PC_ 2 
-Positive:  CAVIN2, GNG11, TUBB1, ACRBP, H2AC6, PF4, GP9, TMEM40, PPBP, PTCRA 
-       CMTM5, RGS18, TSC22D1, NRGN, H3C10, C2orf88, H2BC11, SPARC, ESAM, PRKAR2B 
-       TREML1, MTURN, SMOX, BEX3, AP003068.23, MAP3K7CL, CTTN, CLEC1B, CLU, MMD 
-Negative:  TYMS, HSP90AA1, PCLAF, CORO1A, LDHA, PPIA, S100A4, GZMA, PPIB, STMN1 
-       BIRC5, MKI67, TK1, PFN1, CDT1, HSPA8, RRM2, ZWINT, PCNA, CALR 
-       NPM1, PSME2, NKG7, CFL1, ATP5MC3, SNRPB, SUB1, YBX1, RAN, CDCA5 
-PC_ 3 
-Positive:  TYMS, H2AC6, PCLAF, ACRBP, CAVIN2, TUBB1, TMEM40, GNG11, PF4, GP9 
-       PTCRA, RGS18, TSC22D1, RGS10, BIRC5, PPBP, MKI67, CMTM5, RRM2, TK1 
-       H3C10, H2BC11, CDT1, LIMS1, NRGN, PGRMC1, ZWINT, C2orf88, GRAP2, ESAM 
-Negative:  CD79A, LINC00926, MS4A1, IGHM, TNFRSF13C, IGHD, LTB, BANK1, RALGPS2, TCL1A 
-       AFF3, CD22, VPREB3, CD79B, FCER2, FCRL1, CD74, PAX5, ADAM28, NIBAN3 
-       BLK, GNG7, CD83, CCR7, HLA-DQB1, P2RX5, BCL11A, CD40, TCF4, IGKC 
-PC_ 4 
-Positive:  NKG7, CST7, CTSW, CD247, CD7, PRF1, KLRD1, FGFBP2, GNLY, GZMB 
-       CCL5, S100A4, KLRB1, SPON2, GZMA, S1PR5, GZMH, KLRF1, CCL4, IFITM1 
-       HOPX, TRDC, CLIC3, TYROBP, TNFAIP3, CMC1, IL2RB, FCGR3A, ADGRG1, DUSP2 
-Negative:  CD79A, MS4A1, LINC00926, TNFRSF13C, IGHM, BANK1, IGHD, CD79B, IGKC, RALGPS2 
-       AFF3, CD22, HLA-DRA, GNG7, TCL1A, VPREB3, TCF4, BLK, FCER2, CD74 
-       HLA-DQA1, NIBAN3, HLA-DQB1, FCRL1, CD40, PAX5, COBLL1, BCL11A, P2RX5, ADAM28 
-PC_ 5 
-Positive:  IL7R, TRAC, S100A12, VCAN, MAL, S100A8, CD3D, CD3G, CAMK4, LEF1 
-       LDHB, VIM, CD14, CD28, CD163, TCF7, TRAT1, NOSIP, CD5, TRABD2A 
-       THBS1, CKAP4, BCL11B, IL1R2, S100A9, SLC2A3, CSF3R, SELL, EREG, AQP3 
-Negative:  FCGR3A, RHOC, CDKN1C, HLA-DPA1, HLA-DPB1, CD79B, GZMB, HES4, SPON2, KLRF1 
-       HLA-DQA1, FGFBP2, PRF1, IGFBP7, CTSC, CSF1R, CHST2, TCF7L2, CD74, KLRD1 
-       CKB, S1PR5, GNLY, SIGLEC10, CLIC3, RRAS, CTSW, HLA-DRB1, NKG7, FCER1G </code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing nearest neighbor graph</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing SNN</code></pre>
-</div>
+<div class="sourceCode cell-code" id="cb39"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Run doubletFinder</span></span>
+<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a>process_batch <span class="ot">&lt;-</span> <span class="cf">function</span>(batch) {</span>
+<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 1 - Subset Seurat object by batch</span></span>
+<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> <span class="fu">subset</span>(se, <span class="at">cells =</span> <span class="fu">which</span>(se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span> <span class="sc">==</span> batch))</span>
+<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 2 - Process count data of that subseted Seurat object</span></span>
+<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> batch_seurat_object <span class="sc">%&gt;%</span></span>
+<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb39-10"><a href="#cb39-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb39-11"><a href="#cb39-11" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb39-12"><a href="#cb39-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindNeighbors</span>() <span class="sc">%&gt;%</span></span>
+<span id="cb39-13"><a href="#cb39-13" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindClusters</span>() </span>
+<span id="cb39-14"><a href="#cb39-14" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-15"><a href="#cb39-15" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 3 - Run pK identification with NO ground truth</span></span>
+<span id="cb39-16"><a href="#cb39-16" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-17"><a href="#cb39-17" aria-hidden="true" tabindex="-1"></a>  <span class="do">## paramSweep: systematically explore a range of parameter values to determine the most appropriate settings for doublet detection</span></span>
+<span id="cb39-18"><a href="#cb39-18" aria-hidden="true" tabindex="-1"></a>  <span class="do">## summarizeSweep: summarizes results of paramSweep() function</span></span>
+<span id="cb39-19"><a href="#cb39-19" aria-hidden="true" tabindex="-1"></a>  sweep.res.list_sample <span class="ot">&lt;-</span> <span class="fu">paramSweep</span>(batch_seurat_object, <span class="at">PCs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>, <span class="at">sct =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb39-20"><a href="#cb39-20" aria-hidden="true" tabindex="-1"></a>  sweep.stats_sample <span class="ot">&lt;-</span> <span class="fu">summarizeSweep</span>(sweep.res.list_sample, <span class="at">GT =</span> <span class="cn">FALSE</span>)</span>
+<span id="cb39-21"><a href="#cb39-21" aria-hidden="true" tabindex="-1"></a>  bcmvn_sample <span class="ot">&lt;-</span> <span class="fu">find.pK</span>(sweep.stats_sample)</span>
+<span id="cb39-22"><a href="#cb39-22" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-23"><a href="#cb39-23" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.</span></span>
+<span id="cb39-24"><a href="#cb39-24" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+</span></span>
+<span id="cb39-25"><a href="#cb39-25" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   geom_point() +</span></span>
+<span id="cb39-26"><a href="#cb39-26" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   geom_line()</span></span>
+<span id="cb39-27"><a href="#cb39-27" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-28"><a href="#cb39-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 4 - Calculate pK where pK is the proportion of cells that are doublets.</span></span>
+<span id="cb39-29"><a href="#cb39-29" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> bcmvn_sample <span class="sc">%&gt;%</span></span>
+<span id="cb39-30"><a href="#cb39-30" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(BCmetric <span class="sc">==</span> <span class="fu">max</span>(BCmetric)) <span class="sc">%&gt;%</span></span>
+<span id="cb39-31"><a href="#cb39-31" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(pK)</span>
+<span id="cb39-32"><a href="#cb39-32" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(pK[[<span class="dv">1</span>]]))</span>
+<span id="cb39-33"><a href="#cb39-33" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-34"><a href="#cb39-34" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 5 - nExp defines the expected pANN threshold used to make final doublet-decisions</span></span>
+<span id="cb39-35"><a href="#cb39-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-36"><a href="#cb39-36" aria-hidden="true" tabindex="-1"></a>  annotations <span class="ot">&lt;-</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>seurat_clusters</span>
+<span id="cb39-37"><a href="#cb39-37" aria-hidden="true" tabindex="-1"></a>  <span class="co"># annotations &lt;- Idents(batch_seurat_object)</span></span>
+<span id="cb39-38"><a href="#cb39-38" aria-hidden="true" tabindex="-1"></a>  homotypic.prop <span class="ot">&lt;-</span> <span class="fu">modelHomotypic</span>(annotations) </span>
+<span id="cb39-39"><a href="#cb39-39" aria-hidden="true" tabindex="-1"></a>  nExp_poi <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fl">0.075</span><span class="sc">*</span><span class="fu">nrow</span>(se<span class="sc">@</span>meta.data))  <span class="co"># Assuming 7.5% doublet formation rate</span></span>
+<span id="cb39-40"><a href="#cb39-40" aria-hidden="true" tabindex="-1"></a>  nExp_poi.adj <span class="ot">&lt;-</span> <span class="fu">round</span>(nExp_poi<span class="sc">*</span>(<span class="dv">1</span><span class="sc">-</span>homotypic.prop))</span>
+<span id="cb39-41"><a href="#cb39-41" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-42"><a href="#cb39-42" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 6 - Run doubletFinder</span></span>
+<span id="cb39-43"><a href="#cb39-43" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> <span class="fu">doubletFinder</span>(</span>
+<span id="cb39-44"><a href="#cb39-44" aria-hidden="true" tabindex="-1"></a>    batch_seurat_object,</span>
+<span id="cb39-45"><a href="#cb39-45" aria-hidden="true" tabindex="-1"></a>    <span class="at">PCs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>,</span>
+<span id="cb39-46"><a href="#cb39-46" aria-hidden="true" tabindex="-1"></a>    <span class="at">pN =</span> <span class="fl">0.25</span>,</span>
+<span id="cb39-47"><a href="#cb39-47" aria-hidden="true" tabindex="-1"></a>    <span class="at">pK =</span> pK,</span>
+<span id="cb39-48"><a href="#cb39-48" aria-hidden="true" tabindex="-1"></a>    <span class="at">nExp =</span> nExp_poi.adj,</span>
+<span id="cb39-49"><a href="#cb39-49" aria-hidden="true" tabindex="-1"></a>    <span class="at">reuse.pANN =</span> <span class="cn">FALSE</span>, <span class="co"># If TRUE, pANN will be reused from a previous run</span></span>
+<span id="cb39-50"><a href="#cb39-50" aria-hidden="true" tabindex="-1"></a>    <span class="at">sct =</span> <span class="cn">FALSE</span>) <span class="co"># If TRUE, sctransform will be used for preprocessing</span></span>
+<span id="cb39-51"><a href="#cb39-51" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-52"><a href="#cb39-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 7 - Format doublet information for return dataframe</span></span>
+<span id="cb39-53"><a href="#cb39-53" aria-hidden="true" tabindex="-1"></a>  pANN <span class="ot">&lt;-</span> <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">%&gt;%</span> </span>
+<span id="cb39-54"><a href="#cb39-54" aria-hidden="true" tabindex="-1"></a>    <span class="fu">keep</span>(<span class="fu">grepl</span>(<span class="st">'^pANN*'</span>, <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data))) <span class="co"># pANN_0.25_0.3_1000</span></span>
+<span id="cb39-55"><a href="#cb39-55" aria-hidden="true" tabindex="-1"></a>  DF_class <span class="ot">&lt;-</span> <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">%&gt;%</span> </span>
+<span id="cb39-56"><a href="#cb39-56" aria-hidden="true" tabindex="-1"></a>    <span class="fu">keep</span>(<span class="fu">grepl</span>(<span class="st">'^DF.classifications*'</span>, <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data))) <span class="co"># DF.classifications_0.25_0.3_1000</span></span>
+<span id="cb39-57"><a href="#cb39-57" aria-hidden="true" tabindex="-1"></a>  <span class="do">## Extract values from pANN variable name</span></span>
+<span id="cb39-58"><a href="#cb39-58" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"^pANN_"</span>, <span class="st">""</span>, pANN)  <span class="co"># Remove "pANN_"</span></span>
+<span id="cb39-59"><a href="#cb39-59" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(params, <span class="st">"_"</span>)[[<span class="dv">1</span>]]  <span class="co"># Split by "_"</span></span>
+<span id="cb39-60"><a href="#cb39-60" aria-hidden="true" tabindex="-1"></a>  pN <span class="ot">&lt;-</span> params[<span class="dv">1</span>]  <span class="co"># Extract "0.1"</span></span>
+<span id="cb39-61"><a href="#cb39-61" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> params[<span class="dv">2</span>]  <span class="co"># Extract "0.1"</span></span>
+<span id="cb39-62"><a href="#cb39-62" aria-hidden="true" tabindex="-1"></a>  doublet_run <span class="ot">&lt;-</span> params[<span class="dv">3</span>]  <span class="co"># Extract "1000"</span></span>
+<span id="cb39-63"><a href="#cb39-63" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-64"><a href="#cb39-64" aria-hidden="true" tabindex="-1"></a>  <span class="do">## Create new columns "pN", "pK", and "doublet_run"</span></span>
+<span id="cb39-65"><a href="#cb39-65" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)[<span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">==</span> pANN] <span class="ot">&lt;-</span> <span class="st">"pANN"</span></span>
+<span id="cb39-66"><a href="#cb39-66" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)[<span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">==</span> DF_class] <span class="ot">&lt;-</span> <span class="st">"DF_class"</span></span>
+<span id="cb39-67"><a href="#cb39-67" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pN <span class="ot">&lt;-</span> pN</span>
+<span id="cb39-68"><a href="#cb39-68" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pK <span class="ot">&lt;-</span> pK</span>
+<span id="cb39-69"><a href="#cb39-69" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>doublet_run <span class="ot">&lt;-</span> doublet_run</span>
+<span id="cb39-70"><a href="#cb39-70" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-71"><a href="#cb39-71" aria-hidden="true" tabindex="-1"></a>  <span class="co"># 8 - Return DF of doublet information here</span></span>
+<span id="cb39-72"><a href="#cb39-72" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
+<span id="cb39-73"><a href="#cb39-73" aria-hidden="true" tabindex="-1"></a>    <span class="at">Barcode =</span> <span class="fu">colnames</span>(batch_seurat_object),</span>
+<span id="cb39-74"><a href="#cb39-74" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span>, </span>
+<span id="cb39-75"><a href="#cb39-75" aria-hidden="true" tabindex="-1"></a>    <span class="at">pANN =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'pANN'</span>, </span>
+<span id="cb39-76"><a href="#cb39-76" aria-hidden="true" tabindex="-1"></a>    <span class="at">DF_class =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'DF_class'</span>,</span>
+<span id="cb39-77"><a href="#cb39-77" aria-hidden="true" tabindex="-1"></a>    <span class="at">doublet_run =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>doublet_run,</span>
+<span id="cb39-78"><a href="#cb39-78" aria-hidden="true" tabindex="-1"></a>    <span class="at">pK =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pK,</span>
+<span id="cb39-79"><a href="#cb39-79" aria-hidden="true" tabindex="-1"></a>    <span class="at">pN =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pN</span>
+<span id="cb39-80"><a href="#cb39-80" aria-hidden="true" tabindex="-1"></a>    )</span>
+<span id="cb39-81"><a href="#cb39-81" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rownames</span>(df) <span class="ot">&lt;-</span> df<span class="sc">$</span>Barcode</span>
+<span id="cb39-82"><a href="#cb39-82" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(df)</span>
+<span id="cb39-83"><a href="#cb39-83" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="cb39-84"><a href="#cb39-84" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb39-85"><a href="#cb39-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb39-86"><a href="#cb39-86" aria-hidden="true" tabindex="-1"></a>processed_doublets <span class="ot">&lt;-</span> <span class="fu">lapply</span>(exp_btch, process_batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
 
@@ -606,62 +640,13 @@ Number of edges: 616465
 Running Louvain algorithm...
 Maximum modularity in 10 random starts: 0.9052
 Number of communities: 19
-Elapsed time: 1 seconds</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Loading required package: fields</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Loading required package: spam</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Spam version 2.10-0 (2023-10-23) is loaded.
-Type 'help( Spam)' or 'demo( spam)' for a short introduction 
-and overview of this package.
-Help for individual functions is also obtained by adding the
-suffix '.spam' to the function name, e.g. 'help( chol.spam)'.</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>
-Attaching package: 'spam'</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>The following objects are masked from 'package:base':
-
-    backsolve, forwardsolve</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Loading required package: viridisLite</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>
-Try help(fields) to get started.</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Loading required package: parallel</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Creating artificial doublets for pN = 5%"
+Elapsed time: 2 seconds
+[1] "Creating artificial doublets for pN = 5%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -699,25 +684,10 @@ Try help(fields) to get started.</code></pre>
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 10%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -755,25 +725,10 @@ Try help(fields) to get started.</code></pre>
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 15%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -811,25 +766,10 @@ Try help(fields) to get started.</code></pre>
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 20%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -867,25 +807,10 @@ Try help(fields) to get started.</code></pre>
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 25%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -923,25 +848,10 @@ Try help(fields) to get started.</code></pre>
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 30%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -978,97 +888,25 @@ Try help(fields) to get started.</code></pre>
 [1] "pK = 0.29..."
 [1] "pK = 0.3..."</code></pre>
 </div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Loading required package: KernSmooth</code></pre>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
 </div>
-<div class="cell-output cell-output-stderr">
-<pre><code>KernSmooth 2.23 loaded
-Copyright M. P. Wand 1997-2009</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Loading required package: ROCR</code></pre>
 </div>
 <div class="cell-output cell-output-stdout">
 <pre><code>NULL
 [1] "Creating 6251 artificial doublets..."
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Computing pANN..."
-[1] "Classifying doublets.."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>PC_ 1 
-Positive:  FCN1, LYZ, AIF1, RP11-1143G9.4, CTSS, SERPINA1, CYBB, TYMP, LST1, S100A9 
-       GRN, CSTA, SPI1, MNDA, CD14, VCAN, PSAP, S100A8, MPEG1, CFD 
-       FGL2, NCF2, TKT, MS4A6A, S100A11, APLP2, DUSP6, CLEC7A, MAFB, CFP 
-Negative:  CCL5, IL32, SYNE2, TRBC2, GZMM, CST7, CD3E, CTSW, GZMA, CD247 
-       GZMH, CXCR4, C12orf75, ARL4C, CD69, TRBC1, PRF1, GZMB, NKG7, HOPX 
-       LCK, CD2, RORA, FGFBP2, GNLY, KLRD1, LAT, CD7, SPOCK2, PDLIM1 
-PC_ 2 
-Positive:  PF4, CAVIN2, NRGN, GNG11, RGS18, H2AC6, TUBB1, PPBP, ACRBP, GP9 
-       CMTM5, TMEM40, TSC22D1, PTCRA, RUFY1, LIMS1, CLEC1B, RAB32, MTURN, MPP1 
-       C2orf88, PRKAR2B, H3C10, TREML1, H2BC11, CLU, ESAM, ITGA2B, BEX3, FTH1 
-Negative:  NPM1, RPLP0, HSP90AA1, ARL4C, NKG7, IL32, GZMA, GZMM, HSP90AB1, PPIB 
-       GZMH, GZMB, CD247, SYNE2, PRF1, CST7, HOPX, CD3E, GNLY, HSPA8 
-       FGFBP2, CXCR4, CALR, TRBC2, KLRD1, LCK, TRBC1, CTSW, CD2, CD7 
-PC_ 3 
-Positive:  CD79A, MS4A1, IGHM, LINC00926, IGHD, TNFRSF13C, BANK1, CD79B, RALGPS2, AFF3 
-       CD22, VPREB3, TCL1A, HLA-DQA1, NIBAN3, HLA-DQB1, PAX5, FCRL1, BLK, TCF4 
-       FCER2, HLA-DRA, LTB, CD74, GNG7, CD83, SPIB, CD40, IGKC, BCL11A 
-Negative:  CCL5, NKG7, CST7, GZMH, GZMA, GZMB, CTSW, PRF1, GZMM, FGFBP2 
-       GNLY, KLRD1, IL32, CD247, HOPX, ANXA1, KLRF1, TRDC, TRBC1, CD7 
-       ARL4C, CLIC3, CD3E, ADGRG1, ACTB, MATK, SPON2, FCGR3A, CMC1, LCK 
-PC_ 4 
-Positive:  ALAS2, HBA2, AHSP, HBA1, HBB, CA1, SLC4A1, HBM, SELENBP1, SLC25A37 
-       CXCL8, BPGM, G0S2, KLRF1, KLRD1, FGFBP2, FCGR3B, TRDC, DCAF12, CST7 
-       ADGRG1, GZMM, GYPB, GNLY, KLRB1, DUSP1, S1PR5, PRF1, SPON2, CCL4 
-Negative:  PCLAF, TYMS, MKI67, ZWINT, RRM2, STMN1, TK1, BIRC5, CLSPN, NUSAP1 
-       TOP2A, CDT1, CENPF, KIF11, CCNB2, CDK1, CENPM, SPC25, PCNA, H1-5 
-       GINS2, CDCA5, NCAPG, KIFC1, TPX2, SKA3, TUBA1B, MYBL2, ASPM, CDKN3 
-PC_ 5 
-Positive:  HBB, ALAS2, HBA2, AHSP, HBA1, CA1, SLC4A1, SLC25A37, HBM, SELENBP1 
-       RETN, MKI67, HP, BIRC5, PCLAF, IL7R, S100A12, DCAF12, TYMS, HBD 
-       SLC25A39, MAL, S100A8, RRM2, CYP1B1, ZWINT, SELL, TOP2A, CENPF, GYPB 
-Negative:  FCGR3A, HLA-DPB1, HLA-DPA1, RHOC, HLA-DRB1, HLA-DQA1, HLA-DRB5, HLA-DQB1, CD74, KLRF1 
-       KLRD1, GZMB, HLA-DRA, FGFBP2, ABI3, CX3CR1, PRF1, GNLY, TRDC, CCL4 
-       HES4, CLIC3, SPON2, ID2, HLA-DQA2, HLA-DMA, GZMH, PLAC8, CTSW, CD83 </code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing nearest neighbor graph</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing SNN</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+[1] "Classifying doublets.."
+Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
 
 Number of nodes: 16507
 Number of edges: 535537
@@ -1079,25 +917,10 @@ Number of communities: 22
 Elapsed time: 1 seconds
 [1] "Creating artificial doublets for pN = 5%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1135,25 +958,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 10%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1191,25 +999,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 15%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1247,25 +1040,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 20%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1303,25 +1081,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 25%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1359,32 +1122,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 30%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1421,87 +1162,25 @@ Elapsed time: 1 seconds
 [1] "pK = 0.29..."
 [1] "pK = 0.3..."</code></pre>
 </div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-2.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
 <div class="cell-output cell-output-stdout">
 <pre><code>NULL
 [1] "Creating 5502 artificial doublets..."
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Computing pANN..."
-[1] "Classifying doublets.."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>PC_ 1 
-Positive:  FCN1, LYZ, S100A9, SERPINA1, CST3, AIF1, MNDA, S100A8, CYBB, CTSS 
-       VCAN, GRN, MS4A6A, LST1, CSTA, FCER1G, TYMP, CEBPD, NAMPT, CLEC12A 
-       NCF2, RP11-1143G9.4, MAFB, CD14, TKT, FGL2, S100A11, CD68, SPI1, BRI3 
-Negative:  CCL5, IL32, NKG7, GZMA, CTSW, GZMH, TRBC2, CD247, C12orf75, PRF1 
-       GZMB, HOPX, CD69, KLRD1, FGFBP2, GNLY, CD2, CD3D, NPM1, UBB 
-       CD3G, CD7, TRBC1, CCL4, TRAC, KLRG1, DUSP2, TRGC2, CD8A, FKBP11 
-PC_ 2 
-Positive:  CD79A, MS4A1, IGHM, BANK1, IGHD, LINC00926, TNFRSF13C, CD79B, RALGPS2, AFF3 
-       NIBAN3, TCL1A, BCL11A, IGKC, PAX5, CD22, FCER2, CD83, HLA-DRA, TCF4 
-       FCRL1, BLK, HLA-DMB, VPREB3, P2RX5, HLA-DQB1, CD74, CD40, GNG7, NFKBID 
-Negative:  S100A4, NKG7, CCL5, GZMA, ANXA1, GZMH, IL32, PRF1, FGFBP2, CTSW 
-       GZMB, KLRD1, CD247, GNLY, ID2, HOPX, S100A6, CCL4, CD2, GAPDH 
-       CD7, LGALS1, C12orf75, SPON2, TRBC1, S100A10, CD3D, CLIC3, ACTG1, CMC1 
-PC_ 3 
-Positive:  PTMA, HLA-DPA1, HLA-DPB1, RPLP0, PPIA, HLA-DRB1, CD74, NPM1, CORO1A, YBX1 
-       HLA-DRA, HLA-DQB1, PSME2, SUB1, PPIB, SLC25A5, LY6E, HLA-DQA1, GSTP1, RAN 
-       EIF5A, CALR, HLA-DMA, HMGN2, ATP5MC3, HSP90B1, HMGB1, FCGR3A, HSPA8, ACTG1 
-Negative:  ALAS2, HBA1, HBA2, SLC4A1, HBB, CA1, TMCC2, SLC25A37, AHSP, TRIM58 
-       HBM, HBD, GMPR, HBQ1, SNCA, DMTN, CA2, SLC40A1, SPTA1, MPP1 
-       HMBS, ANK1, DCAF12, PDZK1IP1, TAL1, HSPA1B, ANKRD9, RANBP10, GYPB, CPEB4 
-PC_ 4 
-Positive:  TUBB1, GNG11, CAVIN2, PF4, CDKN1C, GP9, PPBP, ACRBP, CMTM5, CTSL 
-       TREML1, SPARC, H2AC6, MGLL, PRKAR2B, NRGN, TMEM40, CSF1R, RHOC, HES4 
-       PTGS1, GMPR, PTCRA, NAP1L1, TSC22D1, FCGR3A, MTURN, TIMP1, MPIG6B, BEX3 
-Negative:  S100A12, GCA, ALOX5AP, IL1R2, EGR1, FOS, CREB5, IRS2, SELL, PLBD1 
-       CYP1B1, MCEMP1, KLF6, DUSP1, IER2, VCAN, FOSB, MEGF9, MCL1, S100A8 
-       VNN2, SLC2A3, BASP1, SOCS3, FKBP5, FPR2, CRISPLD2, CLEC4E, RGS2, HMGB2 
-PC_ 5 
-Positive:  PF4, GNG11, CAVIN2, PPBP, TUBB1, GP9, CMTM5, TREML1, SPARC, ACRBP 
-       TMEM40, NRGN, BEX3, TSC22D1, MYL9, CLU, MPIG6B, H2AC6, RGS18, PTCRA 
-       ITGA2B, PRKAR2B, PTGS1, CTTN, CLEC1B, MTURN, C2orf88, H2BC11, CD9, ESAM 
-Negative:  SLC4A1, ALAS2, CA1, AHSP, HBA2, HBM, HBB, HBA1, SPTA1, HMBS 
-       TMCC2, SLC25A39, SLC25A37, HSPA1B, GYPB, RANBP10, GYPA, SLC2A1, CTSL, TFRC 
-       TNS1, CPEB4, GLRX5, MARCHF8, XPO7, EPB42, SELENBP1, DCAF12, FAM210B, PIM1 </code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing nearest neighbor graph</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing SNN</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+[1] "Classifying doublets.."
+Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
 
 Number of nodes: 8624
 Number of edges: 286940
@@ -1512,25 +1191,10 @@ Number of communities: 19
 Elapsed time: 0 seconds
 [1] "Creating artificial doublets for pN = 5%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1567,25 +1231,10 @@ Elapsed time: 0 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 10%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1622,25 +1271,10 @@ Elapsed time: 0 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 15%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1677,25 +1311,10 @@ Elapsed time: 0 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 20%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1732,25 +1351,10 @@ Elapsed time: 0 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 25%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1787,32 +1391,10 @@ Elapsed time: 0 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 30%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-24-2.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1848,87 +1430,25 @@ Elapsed time: 0 seconds
 [1] "pK = 0.29..."
 [1] "pK = 0.3..."</code></pre>
 </div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-3.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
 <div class="cell-output cell-output-stdout">
 <pre><code>NULL
 [1] "Creating 2875 artificial doublets..."
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Computing pANN..."
-[1] "Classifying doublets.."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>PC_ 1 
-Positive:  CD3E, IL32, CD69, TRBC2, CCL5, GZMM, NPM1, ISG20, RORA, CD3D 
-       LCK, IFITM1, CD247, CD7, SPOCK2, IL7R, CD2, CD3G, TRAC, CST7 
-       ITM2A, C12orf75, GZMA, CTSW, LTB, HOPX, TRBC1, CD6, LDHB, GZMH 
-Negative:  FCN1, LYZ, VCAN, SERPINA1, AIF1, S100A9, GRN, CTSS, S100A8, SPI1 
-       CD14, MNDA, LST1, TYMP, CYBB, FTL, CST3, TMEM176B, FPR1, CSTA 
-       MS4A6A, S100A12, BRI3, APLP2, NCF2, TYROBP, CEBPD, CFP, RP11-1143G9.4, CTSB 
-PC_ 2 
-Positive:  PF4, GNG11, PPBP, NRGN, CMTM5, CAVIN2, TUBB1, GP9, TREML1, CLEC1B 
-       TMEM40, MYL9, SPARC, ACRBP, MTURN, PRKAR2B, NXF3, RGS18, ITGA2B, H2AC6 
-       PTCRA, LIMS1, SNCA, BEX3, MPIG6B, PDLIM1, CLU, PTGS1, ESAM, TSPAN33 
-Negative:  NKG7, GZMA, IL32, HSP90AA1, PLAAT4, HSPA8, CST7, PSME2, GZMH, PRF1 
-       GZMB, PSMB9, SUB1, LCK, S100A10, CD2, CD3E, GZMM, FGFBP2, S100A4 
-       NPM1, KLRD1, GNLY, IFITM1, CD3D, CTSW, ITGB7, LDHA, TRAC, TAP1 
-PC_ 3 
-Positive:  CD79A, MS4A1, TNFRSF13C, IGHM, LINC00926, IGHD, RALGPS2, BLK, CD79B, BANK1 
-       VPREB3, FCER2, AFF3, NIBAN3, CD22, SPIB, ADAM28, FCRLA, P2RX5, NFKBID 
-       GNG7, TCL1A, CD83, BCL11A, POU2AF1, LTB, FCRL1, HLA-DOB, PAX5, CCR7 
-Negative:  CCL5, GZMA, NKG7, PRF1, ACTB, GZMH, GZMB, CST7, C12orf75, FGFBP2 
-       CTSW, LAT, GAPDH, RAP1B, PLAAT4, KLRD1, ACTG1, CTSC, GNLY, LAIR2 
-       IL32, LAG3, DYNLL1, CLIC3, LCK, CD2, SLC9A3R1, GZMM, ADGRG1, TAP1 
-PC_ 4 
-Positive:  IL7R, RGCC, MAL, RORA, SPOCK2, CD7, CD3E, KLRB1, ALAS2, TCF7 
-       LEF1, AHSP, S100A4, TOB1, SLC4A1, TRABD2A, HBM, TRAT1, TSHZ2, GATA3 
-       SLC25A37, CA1, TXK, NELL2, FOS, CREM, SELENBP1, XIST, AP3M2, S100A6 
-Negative:  CD79A, CD74, HLA-DRA, HLA-DRB1, MS4A1, HLA-DPB1, HLA-DPA1, HLA-DQA1, HLA-DQB1, BANK1 
-       CD79B, IGHM, TYMS, TNFRSF13C, LINC00926, PCLAF, HLA-DRB5, IGHD, BLK, RRM2 
-       HLA-DMA, P2RX5, SPIB, FCRLA, STMN1, RALGPS2, POU2AF1, ZWINT, VPREB3, MKI67 
-PC_ 5 
-Positive:  TYMS, PCLAF, RRM2, ZWINT, CDT1, TK1, BIRC5, MKI67, TOP2A, CLSPN 
-       STMN1, CDK1, CDCA5, GINS2, PKMYT1, CCNA2, SPC25, CENPM, MYBL2, NUSAP1 
-       IL7R, CDC45, CCNB2, MND1, UHRF1, MAL, KIFC1, DTL, CDC6, UBE2T 
-Negative:  HLA-DPB1, FGFBP2, HLA-DPA1, FCGR3A, GZMB, KLRD1, PRF1, SPON2, CTSW, GZMH 
-       GNLY, NKG7, CLIC3, HLA-DRB1, CD74, HLA-DQA1, CCL4, ADGRG1, CST7, KLRF1 
-       TTC38, HOPX, GZMA, PRSS23, CCL5, HLA-DRA, FCRL6, TRDC, HLA-DQB1, S1PR5 </code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing nearest neighbor graph</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Computing SNN</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
+[1] "Classifying doublets.."
+Modularity Optimizer version 1.3.0 by Ludo Waltman and Nees Jan van Eck
 
 Number of nodes: 15689
 Number of edges: 524420
@@ -1939,25 +1459,10 @@ Number of communities: 21
 Elapsed time: 1 seconds
 [1] "Creating artificial doublets for pN = 5%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -1995,25 +1500,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 10%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -2051,25 +1541,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 15%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -2107,25 +1582,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 20%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -2163,25 +1623,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 25%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -2219,32 +1664,10 @@ Elapsed time: 1 seconds
 [1] "pK = 0.3..."
 [1] "Creating artificial doublets for pN = 30%"
 [1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
-<div class="cell-output-display">
-<div>
-<figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-24-3.png" class="img-fluid figure-img" width="672"></p>
-</figure>
-</div>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Defining neighborhoods..."
 [1] "Computing pANN across all pK..."
@@ -2281,27 +1704,6 @@ Elapsed time: 1 seconds
 [1] "pK = 0.29..."
 [1] "pK = 0.3..."</code></pre>
 </div>
-<div class="cell-output cell-output-stdout">
-<pre><code>NULL
-[1] "Creating 5230 artificial doublets..."
-[1] "Creating Seurat object..."
-[1] "Normalizing Seurat object..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Normalizing layer: counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Finding variable genes..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Finding variable features for layer counts</code></pre>
-</div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "Scaling data..."</code></pre>
-</div>
-<div class="cell-output cell-output-stderr">
-<pre><code>Centering and scaling data matrix</code></pre>
-</div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -2310,17 +1712,23 @@ Elapsed time: 1 seconds
 </div>
 </div>
 <div class="cell-output cell-output-stdout">
-<pre><code>[1] "Running PCA..."
+<pre><code>NULL
+[1] "Creating 5230 artificial doublets..."
+[1] "Creating Seurat object..."
+[1] "Normalizing Seurat object..."
+[1] "Finding variable genes..."
+[1] "Scaling data..."
+[1] "Running PCA..."
 [1] "Calculating PC distance matrix..."
 [1] "Computing pANN..."
 [1] "Classifying doublets.."</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb251"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb251-1"><a href="#cb251-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add doublet information to the main seurat object</span></span>
-<span id="cb251-2"><a href="#cb251-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(processed_doublets)</span>
-<span id="cb251-3"><a href="#cb251-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plot pANN against batch</span></span>
-<span id="cb251-4"><a href="#cb251-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb45"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb45-1"><a href="#cb45-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add doublet information to the main seurat object</span></span>
+<span id="cb45-2"><a href="#cb45-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(processed_doublets)</span>
+<span id="cb45-3"><a href="#cb45-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plot pANN against batch</span></span>
+<span id="cb45-4"><a href="#cb45-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>                                Barcode batch      pANN DF_class doublet_run
 AAACCCAAGAATGTTG-12 AAACCCAAGAATGTTG-12     3 0.2189041  Singlet        4142
@@ -2337,9 +1745,9 @@ AAACCCACACTTGGCG-12 0.3 0.25
 AAACCCAGTCTACACA-12 0.3 0.25
 AAACCCAGTCTACAGT-14 0.3 0.25</code></pre>
 </div>
-<div class="sourceCode cell-code" id="cb253"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb253-1"><a href="#cb253-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(test, <span class="fu">aes</span>(<span class="at">x =</span> pANN, <span class="at">fill =</span> <span class="fu">as.character</span>(batch))) <span class="sc">+</span></span>
-<span id="cb253-2"><a href="#cb253-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">bins =</span> <span class="dv">100</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
-<span id="cb253-3"><a href="#cb253-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb47"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb47-1"><a href="#cb47-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(test, <span class="fu">aes</span>(<span class="at">x =</span> pANN, <span class="at">fill =</span> <span class="fu">as.character</span>(batch))) <span class="sc">+</span></span>
+<span id="cb47-2"><a href="#cb47-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">bins =</span> <span class="dv">100</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb47-3"><a href="#cb47-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning in geom_density(bins = 100, alpha = 0.5): Ignoring unknown parameters:
 `bins`</code></pre>
@@ -2351,7 +1759,7 @@ AAACCCAGTCTACAGT-14 0.3 0.25</code></pre>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb255"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb255-1"><a href="#cb255-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(test<span class="sc">$</span>batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb49"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb49-1"><a href="#cb49-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(test<span class="sc">$</span>batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>
     1     2     3     4 
@@ -2359,26 +1767,26 @@ AAACCCAGTCTACAGT-14 0.3 0.25</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb257"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb257-1"><a href="#cb257-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(test) <span class="ot">&lt;-</span> test<span class="sc">$</span>Barcode</span>
-<span id="cb257-2"><a href="#cb257-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> test <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
-<span id="cb257-3"><a href="#cb257-3" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(</span>
-<span id="cb257-4"><a href="#cb257-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">object =</span> se, </span>
-<span id="cb257-5"><a href="#cb257-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">metadata =</span> test</span>
-<span id="cb257-6"><a href="#cb257-6" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb51"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb51-1"><a href="#cb51-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(test) <span class="ot">&lt;-</span> test<span class="sc">$</span>Barcode</span>
+<span id="cb51-2"><a href="#cb51-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> test <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
+<span id="cb51-3"><a href="#cb51-3" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(</span>
+<span id="cb51-4"><a href="#cb51-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">object =</span> se, </span>
+<span id="cb51-5"><a href="#cb51-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">metadata =</span> test</span>
+<span id="cb51-6"><a href="#cb51-6" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="perform-preprocessing" class="level3">
 <h3 class="anchored" data-anchor-id="perform-preprocessing">Perform Preprocessing</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb258"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb258-1"><a href="#cb258-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> se <span class="sc">%&gt;%</span></span>
-<span id="cb258-2"><a href="#cb258-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb258-3"><a href="#cb258-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>(</span>
-<span id="cb258-4"><a href="#cb258-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"vst"</span>,</span>
-<span id="cb258-5"><a href="#cb258-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">nfeatures =</span> <span class="dv">3000</span>,</span>
-<span id="cb258-6"><a href="#cb258-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb258-7"><a href="#cb258-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>, <span class="at">features =</span> <span class="fu">VariableFeatures</span>(.)) <span class="sc">%&gt;%</span></span>
-<span id="cb258-8"><a href="#cb258-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb258-9"><a href="#cb258-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunUMAP</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb52"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb52-1"><a href="#cb52-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> se <span class="sc">%&gt;%</span></span>
+<span id="cb52-2"><a href="#cb52-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb52-3"><a href="#cb52-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>(</span>
+<span id="cb52-4"><a href="#cb52-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"vst"</span>,</span>
+<span id="cb52-5"><a href="#cb52-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">nfeatures =</span> <span class="dv">3000</span>,</span>
+<span id="cb52-6"><a href="#cb52-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb52-7"><a href="#cb52-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>, <span class="at">features =</span> <span class="fu">VariableFeatures</span>(.)) <span class="sc">%&gt;%</span></span>
+<span id="cb52-8"><a href="#cb52-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb52-9"><a href="#cb52-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunUMAP</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric
 To use Python UMAP via reticulate, set umap.method to 'umap-learn' and metric to 'correlation'
@@ -2386,9 +1794,9 @@ This message will be shown once per session</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb260"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb260-1"><a href="#cb260-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP colored by batch</span></span>
-<span id="cb260-2"><a href="#cb260-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">'DF_class'</span>) <span class="sc">+</span></span>
-<span id="cb260-3"><a href="#cb260-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Batch"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb54"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb54-1"><a href="#cb54-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP colored by batch</span></span>
+<span id="cb54-2"><a href="#cb54-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">'DF_class'</span>) <span class="sc">+</span></span>
+<span id="cb54-3"><a href="#cb54-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Batch"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -2399,13 +1807,13 @@ This message will be shown once per session</code></pre>
 </div>
 <p>Let’s look at the distribution of pANN values</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb261"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb261-1"><a href="#cb261-1" aria-hidden="true" tabindex="-1"></a>p3 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
-<span id="cb261-2"><a href="#cb261-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb261-3"><a href="#cb261-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># scale_x_continuous(</span></span>
-<span id="cb261-4"><a href="#cb261-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     # transform = "log10",</span></span>
-<span id="cb261-5"><a href="#cb261-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     labels = scales::unit_format(unit = "K", scale = 1)) +</span></span>
-<span id="cb261-6"><a href="#cb261-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
-<span id="cb261-7"><a href="#cb261-7" aria-hidden="true" tabindex="-1"></a>p3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb55"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb55-1"><a href="#cb55-1" aria-hidden="true" tabindex="-1"></a>p3 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
+<span id="cb55-2"><a href="#cb55-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb55-3"><a href="#cb55-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># scale_x_continuous(</span></span>
+<span id="cb55-4"><a href="#cb55-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     # transform = "log10",</span></span>
+<span id="cb55-5"><a href="#cb55-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     labels = scales::unit_format(unit = "K", scale = 1)) +</span></span>
+<span id="cb55-6"><a href="#cb55-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
+<span id="cb55-7"><a href="#cb55-7" aria-hidden="true" tabindex="-1"></a>p3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -2415,14 +1823,14 @@ This message will be shown once per session</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb262"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb262-1"><a href="#cb262-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by pANN</span></span>
-<span id="cb262-2"><a href="#cb262-2" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
-<span id="cb262-3"><a href="#cb262-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>)</span>
-<span id="cb262-4"><a href="#cb262-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by cell type</span></span>
-<span id="cb262-5"><a href="#cb262-5" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">"Celltype"</span>) <span class="sc">+</span></span>
-<span id="cb262-6"><a href="#cb262-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Cell Type"</span>)</span>
-<span id="cb262-7"><a href="#cb262-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb262-8"><a href="#cb262-8" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">|</span> p2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb56"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb56-1"><a href="#cb56-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by pANN</span></span>
+<span id="cb56-2"><a href="#cb56-2" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
+<span id="cb56-3"><a href="#cb56-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>)</span>
+<span id="cb56-4"><a href="#cb56-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by cell type</span></span>
+<span id="cb56-5"><a href="#cb56-5" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">"Celltype"</span>) <span class="sc">+</span></span>
+<span id="cb56-6"><a href="#cb56-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Cell Type"</span>)</span>
+<span id="cb56-7"><a href="#cb56-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb56-8"><a href="#cb56-8" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">|</span> p2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -2430,8 +1838,8 @@ This message will be shown once per session</code></pre>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb263"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb263-1"><a href="#cb263-1" aria-hidden="true" tabindex="-1"></a><span class="co"># DimPlot(se, reduction = "umap", group.by = "Celltype") +</span></span>
-<span id="cb263-2"><a href="#cb263-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   labs(title = "UMAP Plot Colored by Batch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb57"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb57-1"><a href="#cb57-1" aria-hidden="true" tabindex="-1"></a><span class="co"># DimPlot(se, reduction = "umap", group.by = "Celltype") +</span></span>
+<span id="cb57-2"><a href="#cb57-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   labs(title = "UMAP Plot Colored by Batch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 </section>
@@ -2439,17 +1847,17 @@ This message will be shown once per session</code></pre>
 <h2 class="anchored" data-anchor-id="filter-out-cells">Filter out cells</h2>
 <p>Filter out our data by 4 criteria. 1. Any cell with less that 500 UMIs 2. Any cell with less than 200 genes 3. Any cell with more than 15% mitochondrial genes 4. Any cell with a pANN value greater than 0.25</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb264"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb264-1"><a href="#cb264-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">subset</span>(</span>
-<span id="cb264-2"><a href="#cb264-2" aria-hidden="true" tabindex="-1"></a>  se, </span>
-<span id="cb264-3"><a href="#cb264-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">200</span> <span class="sc">&amp;</span> nCount_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> perc.mt <span class="sc">&lt;</span> <span class="dv">15</span> <span class="sc">&amp;</span> pANN <span class="sc">&lt;</span> <span class="fl">0.25</span>)</span>
-<span id="cb264-4"><a href="#cb264-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb264-5"><a href="#cb264-5" aria-hidden="true" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
-<span id="cb264-6"><a href="#cb264-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb264-7"><a href="#cb264-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
-<span id="cb264-8"><a href="#cb264-8" aria-hidden="true" tabindex="-1"></a>s2 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
-<span id="cb264-9"><a href="#cb264-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>) <span class="sc">+</span></span>
-<span id="cb264-10"><a href="#cb264-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradient</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span>
-<span id="cb264-11"><a href="#cb264-11" aria-hidden="true" tabindex="-1"></a>s1 <span class="sc">|</span> s2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb58"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb58-1"><a href="#cb58-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">subset</span>(</span>
+<span id="cb58-2"><a href="#cb58-2" aria-hidden="true" tabindex="-1"></a>  se, </span>
+<span id="cb58-3"><a href="#cb58-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">200</span> <span class="sc">&amp;</span> nCount_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> perc.mt <span class="sc">&lt;</span> <span class="dv">15</span> <span class="sc">&amp;</span> pANN <span class="sc">&lt;</span> <span class="fl">0.25</span>)</span>
+<span id="cb58-4"><a href="#cb58-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb58-5"><a href="#cb58-5" aria-hidden="true" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
+<span id="cb58-6"><a href="#cb58-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb58-7"><a href="#cb58-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
+<span id="cb58-8"><a href="#cb58-8" aria-hidden="true" tabindex="-1"></a>s2 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
+<span id="cb58-9"><a href="#cb58-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>) <span class="sc">+</span></span>
+<span id="cb58-10"><a href="#cb58-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradient</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span>
+<span id="cb58-11"><a href="#cb58-11" aria-hidden="true" tabindex="-1"></a>s1 <span class="sc">|</span> s2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -2462,12 +1870,13 @@ This message will be shown once per session</code></pre>
 <section id="resave-seurat-object" class="level2">
 <h2 class="anchored" data-anchor-id="resave-seurat-object">Resave Seurat object</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb265"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb265-1"><a href="#cb265-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(se, <span class="st">'../data/workshop-data-withDFinfo.rds'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb59"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb59-1"><a href="#cb59-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(se, <span class="st">'../data/workshop-data-withDFinfo.rds'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<section id="session-info" class="level3">
-<h3 class="anchored" data-anchor-id="session-info">Session Info</h3>
+</section>
+<section id="session-info" class="level2">
+<h2 class="anchored" data-anchor-id="session-info">Session Info</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb266"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb266-1"><a href="#cb266-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb60"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb60-1"><a href="#cb60-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>R version 4.3.2 (2023-10-31)
 Platform: aarch64-apple-darwin20 (64-bit)
@@ -2536,7 +1945,6 @@ loaded via a namespace (and not attached):
 [109] cowplot_1.1.3         </code></pre>
 </div>
 </div>
-</section>
 </section>
 </section>
 

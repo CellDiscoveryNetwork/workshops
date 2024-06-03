@@ -13,11 +13,9 @@ This notebook reviews the quality control steps recommended at the beginning and
 
 ### Key Takeaways
 
--   one
+-   QC is the process of filtering out "bad" data which makes it a subjective process where being conservative about what to keep and well-informed about your data is the best practice.
 
--   two
-
--   three
+-   QC metrics include UMI and gene counts, mitochondrial gene expression, and doublet detection.
 
 ### Glossary
 
@@ -46,9 +44,16 @@ A homotypic doublet is a doublet with cells with similar gene expression profile
 ### Resources
 
 1.  [Current best practices in single-cell RNA-seq analysis: a tutorial](https://www.embopress.org/doi/full/10.15252/msb.20188746)
+
 2.  [DoubletFinder](https://github.com/chris-mcginnis-ucsf/DoubletFinder)
+
 3.  [Bioconductor](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html)
+
 4.  [Single Cell Best Practices](https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html)
+
+5.  [Demuxafy](https://demultiplexing-doublet-detecting-docs.readthedocs.io/en/latest/)
+
+    A software that can access most popular demulitplexing and doublet detection tools. I used it as a review and consolidation of resources.
 
 ## Loading Libraries and Data
 
@@ -352,7 +357,7 @@ DoubletFinder allows you to set a threshold and will give each cell a categorica
 
 DoubletFinder is only sensitive to heterotypic doublets (transcriptionally-distinct doublets) so the developer suggests using a cell-type annotations (here: `batch_seurat_object@meta.data$seurat_clusters`) to model the expected proportion of homotypic (transcriptionally-similar) doublets.
 
-```{r, echo=FALSE}
+```{r, message=FALSE}
 # Run doubletFinder
 process_batch <- function(batch) {
   # 1 - Subset Seurat object by batch
@@ -454,7 +459,6 @@ ggplot(test, aes(x = pANN, fill = as.character(batch))) +
 table(test$batch)
 ```
 
-
 ```{r}
 rownames(test) <- test$Barcode
 test <- test %>% select(-Barcode)
@@ -484,7 +488,9 @@ DimPlot(se, reduction = "umap", group.by = 'DF_class') +
   labs(title = "UMAP Plot Colored by Batch")
 
 ```
+
 Let's look at the distribution of pANN values
+
 ```{r, fig.height=6, fig.width=8}
 p3 <- ggplot(se@meta.data, aes(x = pANN)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
@@ -509,11 +515,8 @@ p1 | p2
 ```
 
 ## Filter out cells
-Filter out our data by 4 criteria. 
-1. Any cell with less that 500 UMIs
-2. Any cell with less than 200 genes
-3. Any cell with more than 15% mitochondrial genes
-4. Any cell with a pANN value greater than 0.25
+
+Filter out our data by 4 criteria. 1. Any cell with less that 500 UMIs 2. Any cell with less than 200 genes 3. Any cell with more than 15% mitochondrial genes 4. Any cell with a pANN value greater than 0.25
 
 ```{r, fig.height=6, fig.width=12}
 se <- subset(
@@ -535,7 +538,7 @@ s1 | s2
 saveRDS(se, '../data/workshop-data-withDFinfo.rds')
 ```
 
-### Session Info
+## Session Info
 
 ```{r}
 sessionInfo()
