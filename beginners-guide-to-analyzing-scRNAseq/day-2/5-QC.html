@@ -107,11 +107,38 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h1>Quality Control</h1>
 <section id="introduction" class="level2">
 <h2 class="anchored" data-anchor-id="introduction">Introduction</h2>
-<section id="information" class="level3">
-<h3 class="anchored" data-anchor-id="information">Information</h3>
-</section>
+<p>This notebook reviews the quality control steps recommended at the beginning and at each subsequent annotation phase. In order to denoise a sparse cell by gene matrix, we take out unhelpful and distracting cell data to create a better representation of an experiment. In this notebook, we will look at UMI and gene counts, filter out cells with high mitochondrial levels, investigate potential doublets (using DoubletFinder), and compare the cell by gene distribution before and after filtering.</p>
 <section id="key-takeaways" class="level3">
 <h3 class="anchored" data-anchor-id="key-takeaways">Key Takeaways</h3>
+<ul>
+<li><p>one</p></li>
+<li><p>two</p></li>
+<li><p>three</p></li>
+</ul>
+</section>
+<section id="glossary" class="level3">
+<h3 class="anchored" data-anchor-id="glossary">Glossary</h3>
+<p><strong>Quality Control:</strong></p>
+<p>Quality control is the process of removing problematic cells from our count matrix. Looking at metrics such as counts of genes and barcodes, proportions of various gene types, and running analysis tools to find abnormalities such as doublets make up a common QC workflow.</p>
+<p><strong>Why are mitochondrial genes highly expressed and found in many datasets?</strong></p>
+<p>There are often disproportionately high mitochondrial cells in many datasets because cells upregulate mitochondrial genes during stress (such as during library prep) and near death.</p>
+<p>From Bioconductor:</p>
+<p><em>“High proportions are indicative of poor-quality cells (Islam et al.&nbsp;<a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-islam2014quantitative">2014</a>; Ilicic et al.&nbsp;<a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-ilicic2016classification">2016</a>), presumably because of loss of cytoplasmic RNA from perforated cells. The reasoning is that, in the presence of modest damage, the holes in the cell membrane permit efflux of individual transcript molecules but are too small to allow mitochondria to escape, leading to a relative enrichment of mitochondrial transcripts.”</em></p>
+<p><a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html" class="uri">https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html</a></p>
+<p><strong>Doublet:</strong></p>
+<p>A doublet is a data point read by the sequencer as a single-cell droplet but likely contains 2 or more cells in one droplet. These cause confusion in the gene expression distribution especially when cells of two different types (different expected gene expression profiles) are in the same droplet.</p>
+<p><strong>Heterotypic doublets vs Homotypic doublets</strong></p>
+<p>A heterotypic doublet is a doublet with cells from distinct gene expression profiles that are likely different cell types.</p>
+<p>A homotypic doublet is a doublet with cells with similar gene expression profiles that are not necessarily different cell types but are suspicious because they express around double the amount that other cells do.</p>
+</section>
+<section id="resources" class="level3">
+<h3 class="anchored" data-anchor-id="resources">Resources</h3>
+<ol type="1">
+<li><a href="https://www.embopress.org/doi/full/10.15252/msb.20188746">Current best practices in single-cell RNA-seq analysis: a tutorial</a></li>
+<li><a href="https://github.com/chris-mcginnis-ucsf/DoubletFinder">DoubletFinder</a></li>
+<li><a href="https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html">Bioconductor</a></li>
+<li><a href="https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html">Single Cell Best Practices</a></li>
+</ol>
 </section>
 </section>
 <section id="loading-libraries-and-data" class="level2">
@@ -176,76 +203,37 @@ Active assay: RNA (33234 features, 0 variable features)
 <span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="fu">names</span>(pal) <span class="ot">&lt;-</span> <span class="fu">sort</span>(<span class="fu">unique</span>(se<span class="sc">$</span>Celltype))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
-<section id="preprocessing" class="level2">
-<h2 class="anchored" data-anchor-id="preprocessing">Preprocessing</h2>
-<section id="filter-out-the-overexpressed-genes" class="level3">
-<h3 class="anchored" data-anchor-id="filter-out-the-overexpressed-genes">Filter out the overexpressed genes</h3>
-<section id="according-to-current-best-practices-in-single-cell-rna-seq-we-want-to-look-at-the-number-of-counts-per-barcode-the-number-of-genes-per-barcode-and-the-percentage-of-mitchondrial-genes-per-barcode.-these-distributions-will-help-us-determine-the-quality-of-the-data-by-allowing-us-to-see-outliers.-these-outliers-could-be-dying-cells-with-high-mitochondrial-counts-or-doublets-with-high-gene-counts." class="level4">
-<h4 class="anchored" data-anchor-id="according-to-current-best-practices-in-single-cell-rna-seq-we-want-to-look-at-the-number-of-counts-per-barcode-the-number-of-genes-per-barcode-and-the-percentage-of-mitchondrial-genes-per-barcode.-these-distributions-will-help-us-determine-the-quality-of-the-data-by-allowing-us-to-see-outliers.-these-outliers-could-be-dying-cells-with-high-mitochondrial-counts-or-doublets-with-high-gene-counts.">According to ‘Current best practices in single-cell RNA-seq’, we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitchondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.</h4>
-<p>In public datasets, use ‘colnames()’ to find the processing and metadata already analyzed.</p>
+<section id="filter-out-the-overexpressed-genes" class="level2">
+<h2 class="anchored" data-anchor-id="filter-out-the-overexpressed-genes">Filter out the overexpressed genes</h2>
+<p>According to <em>Current best practices in single-cell RNA-seq</em>, we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitochondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.</p>
+<p>In public datasets, use <code>colnames()</code> to find the processing and metadata already analyzed.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Find the metadata columns of interest</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(se<span class="sc">@</span>meta.data)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Correct calculation of the number of metadata variables</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>vars <span class="ot">&lt;-</span> <span class="fu">length</span>(<span class="fu">colnames</span>(se<span class="sc">@</span>meta.data))</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Use paste0 for concatenation without spaces</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">print</span>(<span class="fu">paste0</span>(<span class="st">"There are "</span>, vars, <span class="st">" metadata variables in the seurat object."</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
-<pre><code> [1] "orig.ident"                              
- [2] "nCount_RNA"                              
- [3] "nFeature_RNA"                            
- [4] "Sample ID"                               
- [5] "Disease group"                           
- [6] "Comorbidity"                             
- [7] "Hospital day"                            
- [8] "WBC per microL"                          
- [9] "Neutrophil per microL (%)"               
-[10] "Lymphocyte per microL (%)"               
-[11] "Monocyte prt microL (%)"                 
-[12] "C-reactive protein (mg per dL)"          
-[13] "Chest X-ray"                             
-[14] "Treatment"                               
-[15] "Respiratory rate (BPM)"                  
-[16] "O2 saturation"                           
-[17] "O2 supplement"                           
-[18] "Temperature"                             
-[19] "Systolic BP"                             
-[20] "Heart rate (BPM)"                        
-[21] "Consciousness"                           
-[22] "NEWS score"                              
-[23] "Severity"                                
-[24] "Celltype"                                
-[25] "Number of UMI"                           
-[26] "Number of Gene"                          
-[27] "Percentage of mitochondrial gene"        
-[28] "Age"                                     
-[29] "tissue_ontology_term_id"                 
-[30] "assay_ontology_term_id"                  
-[31] "disease_ontology_term_id"                
-[32] "cell_type_ontology_term_id"              
-[33] "self_reported_ethnicity_ontology_term_id"
-[34] "development_stage_ontology_term_id"      
-[35] "sex_ontology_term_id"                    
-[36] "is_primary_data"                         
-[37] "organism_ontology_term_id"               
-[38] "donor_id"                                
-[39] "suspension_type"                         
-[40] "tissue_type"                             
-[41] "cell_type"                               
-[42] "assay"                                   
-[43] "disease"                                 
-[44] "organism"                                
-[45] "sex"                                     
-[46] "tissue"                                  
-[47] "self_reported_ethnicity"                 
-[48] "development_stage"                       
-[49] "observation_joinid"                      </code></pre>
+<pre><code>[1] "There are 49 metadata variables in the seurat object."</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample the first 10 metadata variables</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(se<span class="sc">@</span>meta.data)[<span class="dv">1</span><span class="sc">:</span><span class="dv">10</span>]</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code> [1] "orig.ident"                "nCount_RNA"               
+ [3] "nFeature_RNA"              "Sample ID"                
+ [5] "Disease group"             "Comorbidity"              
+ [7] "Hospital day"              "WBC per microL"           
+ [9] "Neutrophil per microL (%)" "Lymphocyte per microL (%)"</code></pre>
 </div>
 </div>
-<p>1 - Number of UMIs nCount_RNA is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low nCount_RNA values may be dying or dead cells, while cells with high nCount_RNA values may be doublets.</p>
+<p>1 - Number of UMIs</p>
+<p><code>nCount_RNA</code> is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low <code>nCount_RNA</code> values may be dying or dead cells, while cells with high <code>nCount_RNA</code> values may be doublets. Note the figure below plots UMIs on a log10 scale.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb14"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA)) <span class="sc">+</span></span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_x_continuous</span>(</span>
-<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">transform =</span> <span class="st">"log10"</span>,</span>
-<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>)) <span class="sc">+</span></span>
-<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA)) <span class="sc">+</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_x_continuous</span>(</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">transform =</span> <span class="st">"log10"</span>,</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>)) <span class="sc">+</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -254,14 +242,15 @@ Active assay: RNA (33234 features, 0 variable features)
 </div>
 </div>
 </div>
-<p>2 - Number of genes nFeature_RNA is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low nFeature_RNA values may be dying or dead cells, while cells with high nFeature_RNA values may be doublets.</p>
+<p>2 - Number of genes</p>
+<p><code>nFeature_RNA</code> is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Cells with low <code>nFeature_RNA</code> values may be dying or dead cells, while cells with high <code>nFeature_RNA</code> values may be doublets. Note that the figure below plots genes (features) on a log10 scale.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb15"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> nFeature_RNA)) <span class="sc">+</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
-<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_x_continuous</span>(</span>
-<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">transform =</span> <span class="st">"log10"</span>,</span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>)) <span class="sc">+</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> nFeature_RNA)) <span class="sc">+</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_x_continuous</span>(</span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">transform =</span> <span class="st">"log10"</span>,</span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>)) <span class="sc">+</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -270,25 +259,26 @@ Active assay: RNA (33234 features, 0 variable features)
 </div>
 </div>
 </div>
+<p>A distribution showing incredibly high number of genes per cell is indicative of doublets.</p>
 <p>3 - Percentage of mitochondrial genes</p>
-<p>Notice the object already has ‘Percent of mitochondrial genes’ calculated. We are going to calculate them again to show how to do it.</p>
-<p>Seurat’s “PercentageFeatureSet” function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression to filter these out by gene name.</p>
+<p>Notice the object already has <code>Percent of mitochondrial genes</code> calculated. We are going to calculate them again to show how to do it.</p>
+<p>Seurat’s <code>PercentageFeatureSet</code> function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression to filter these out by gene name.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of mitochondrial genes</span></span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^MT-"</span>, <span class="at">col.name =</span> <span class="st">"perc.mt"</span>)</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of ribosomal genes</span></span>
-<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^RPS |^RPL"</span>, <span class="at">col.name =</span> <span class="st">"perc.ribo"</span>)</span>
-<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of hemoglobin genes</span></span>
-<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^HB[^(P)]"</span>, <span class="at">col.name =</span> <span class="st">"perc.hb"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb18"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of mitochondrial genes</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^MT-"</span>, <span class="at">col.name =</span> <span class="st">"perc.mt"</span>)</span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of ribosomal genes</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^RPS |^RPL"</span>, <span class="at">col.name =</span> <span class="st">"perc.ribo"</span>)</span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Calculate the percentage of hemoglobin genes</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">PercentageFeatureSet</span>(se, <span class="at">pattern =</span> <span class="st">"^HB[^(P)]"</span>, <span class="at">col.name =</span> <span class="st">"perc.hb"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb17"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of mitochondrial genes by Sample</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
-<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.mt"</span>,</span>
-<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
-<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span>,</span>
-<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of mitochondrial genes by Sample</span></span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.mt"</span>,</span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span>, </span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
 utilizing "counts" layer instead.</code></pre>
@@ -302,13 +292,13 @@ utilizing "counts" layer instead.</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb19"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of ribosomal genes by Sample</span></span>
-<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.ribo"</span>,</span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of ribosomal genes by Sample</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.ribo"</span>,</span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
 utilizing "counts" layer instead.</code></pre>
@@ -322,13 +312,13 @@ utilizing "counts" layer instead.</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb21"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of hemoglobin genes by Sample</span></span>
-<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
-<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
-<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.hb"</span>,</span>
-<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
-<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
-<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot Percent of hemoglobin genes by Sample</span></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="st">"perc.hb"</span>,</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
 utilizing "counts" layer instead.</code></pre>
@@ -342,13 +332,13 @@ utilizing "counts" layer instead.</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb23"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot features by Sample together</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"perc.mt"</span>, <span class="st">"perc.ribo"</span>, <span class="st">"perc.hb"</span>),</span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot features by Sample together</span></span>
+<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a><span class="fu">VlnPlot</span>(se,</span>
+<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">group.by =</span> <span class="st">"Sample ID"</span>,</span>
+<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">features =</span> <span class="fu">c</span>(<span class="st">"perc.mt"</span>, <span class="st">"perc.ribo"</span>, <span class="st">"perc.hb"</span>),</span>
+<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>  <span class="co"># log = TRUE,</span></span>
+<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">pt.size =</span> <span class="dv">0</span></span>
+<span id="cb25-7"><a href="#cb25-7" aria-hidden="true" tabindex="-1"></a>  ) <span class="sc">+</span> <span class="fu">NoLegend</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: Default search for "data" layer in "RNA" assay yielded no results;
 utilizing "counts" layer instead.</code></pre>
@@ -356,20 +346,20 @@ utilizing "counts" layer instead.</code></pre>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-12-1.png" class="img-fluid figure-img" width="1536"></p>
 </figure>
 </div>
 </div>
 </div>
-<p>With these distributions, something notable is going on in Flu 5. Let’s perform other quality control visualizations to see if we can find out what is happening.</p>
+<p>With these distributions, something notable is going on in <em>Flu 5</em>. Let’s perform other quality control visualizations to see if we can find out what is happening.</p>
 <p>Another way to visualize these distributions is:</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb25"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Mitochondrial Genes</span></span>
-<span id="cb25-2"><a href="#cb25-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
-<span id="cb25-3"><a href="#cb25-3" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.mt)) <span class="sc">+</span></span>
-<span id="cb25-4"><a href="#cb25-4" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb25-5"><a href="#cb25-5" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_classic</span>() <span class="sc">+</span></span>
-<span id="cb25-6"><a href="#cb25-6" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">20</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Mitochondrial Genes</span></span>
+<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  ggplot2<span class="sc">::</span><span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.mt)) <span class="sc">+</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>    ggplot2<span class="sc">::</span><span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">20</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -378,29 +368,32 @@ utilizing "counts" layer instead.</code></pre>
 </div>
 </div>
 </div>
-<p>The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb26"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Ribosomal Genes</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.ribo)) <span class="sc">+</span></span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb26-5"><a href="#cb26-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
-<span id="cb26-6"><a href="#cb26-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">50</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent MT Genes per sample</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.mt)) <span class="sc">+</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span><span class="st">`</span><span class="at">Sample ID</span><span class="st">`</span>) <span class="sc">+</span></span>
+<span id="cb28-6"><a href="#cb28-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb28-7"><a href="#cb28-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>)) <span class="sc">+</span></span>
+<span id="cb28-8"><a href="#cb28-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(</span>
+<span id="cb28-9"><a href="#cb28-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-14-1.png" class="img-fluid figure-img" width="960"></p>
 </figure>
 </div>
 </div>
 </div>
+<p>The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb27"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Hemoglobin Genes</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.hb)) <span class="sc">+</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
-<span id="cb27-6"><a href="#cb27-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Ribosomal Genes</span></span>
+<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.ribo)) <span class="sc">+</span></span>
+<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">50</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
@@ -410,41 +403,106 @@ utilizing "counts" layer instead.</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb28"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot by cell type</span></span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
-<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> cell_type)) <span class="sc">+</span></span>
-<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
-<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb30"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent MT Genes per sample</span></span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.ribo)) <span class="sc">+</span></span>
+<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb30-5"><a href="#cb30-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span><span class="st">`</span><span class="at">Sample ID</span><span class="st">`</span>) <span class="sc">+</span></span>
+<span id="cb30-6"><a href="#cb30-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb30-7"><a href="#cb30-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>)) <span class="sc">+</span></span>
+<span id="cb30-8"><a href="#cb30-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(</span>
+<span id="cb30-9"><a href="#cb30-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-16-1.png" class="img-fluid figure-img" width="960"></p>
 </figure>
 </div>
 </div>
 </div>
-<p>After looking at the cell type distribution, the hemoglobin concentration makes sense as it corrspends to erythocytes which are high in hemoglobin.</p>
-</section>
-</section>
-<section id="add-batch-information" class="level3">
-<h3 class="anchored" data-anchor-id="add-batch-information">Add Batch Information</h3>
-<p>Preprocessed Seurat object’s will often contain information about what batch the samples were processed in as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified in “Celltype” = “Uncategorized 1”. Because they did not include the doublet information in the metadata, we will add it in this section. Doublet detection and removal is sensitive because you don’t want to remove any valuable outliers but still take into consideration the noisiness of the data.</p>
-<p>To define doublets, packages in both R and Python run algorithms per batch. This is why we imported the batch information so we could subset the larger object and filter out doublets per batch.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb29"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Make a data frame and extract barcode and Sample ID metadata from se obj</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Barcode =</span> <span class="fu">colnames</span>(se), <span class="st">"Sample ID"</span> <span class="ot">=</span> se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Sample ID'</span>)</span>
-<span id="cb29-3"><a href="#cb29-3" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(info) <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">."</span>, <span class="st">" "</span>, <span class="fu">colnames</span>(info))</span>
-<span id="cb29-4"><a href="#cb29-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-5"><a href="#cb29-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Load in batch information</span></span>
-<span id="cb29-6"><a href="#cb29-6" aria-hidden="true" tabindex="-1"></a>batch_info <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"../data/batch_info.csv"</span>)</span>
-<span id="cb29-7"><a href="#cb29-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-8"><a href="#cb29-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename batch_info column names to have a space instead of "."</span></span>
-<span id="cb29-9"><a href="#cb29-9" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(batch_info) <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">."</span>, <span class="st">" "</span>, <span class="fu">colnames</span>(batch_info))</span>
-<span id="cb29-10"><a href="#cb29-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-11"><a href="#cb29-11" aria-hidden="true" tabindex="-1"></a>batch_info <span class="ot">&lt;-</span> batch_info <span class="sc">%&gt;%</span></span>
-<span id="cb29-12"><a href="#cb29-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="st">"Sample ID"</span>, <span class="st">"Experimental batch"</span>)</span>
-<span id="cb29-13"><a href="#cb29-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb29-14"><a href="#cb29-14" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(batch_info)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent Hemoglobin Genes</span></span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.hb)) <span class="sc">+</span></span>
+<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-17-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent hemoglobin Genes per sample</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> perc.hb)) <span class="sc">+</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span><span class="st">`</span><span class="at">Sample ID</span><span class="st">`</span>) <span class="sc">+</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() <span class="sc">+</span></span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_color_gradient</span>(<span class="at">low =</span> <span class="st">"yellow"</span>, <span class="at">high =</span> <span class="st">"red"</span>, <span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">100</span>)) <span class="sc">+</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_x_continuous</span>(</span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>        <span class="at">labels =</span> scales<span class="sc">::</span><span class="fu">unit_format</span>(<span class="at">unit =</span> <span class="st">"K"</span>, <span class="at">scale =</span> <span class="fl">1e-3</span>))</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-18-1.png" class="img-fluid figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb33"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot by cell type</span></span>
+<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> Celltype)) <span class="sc">+</span></span>
+<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>() </span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-19-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Percent MT Genes per sample</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>se<span class="sc">@</span>meta.data <span class="sc">%&gt;%</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">ggplot</span>(., ggplot2<span class="sc">::</span><span class="fu">aes</span>(<span class="at">x =</span> nCount_RNA, <span class="at">y =</span> nFeature_RNA, <span class="at">color =</span> Celltype)) <span class="sc">+</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_point</span>() <span class="sc">+</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">facet_wrap</span>(<span class="sc">~</span>Celltype) <span class="sc">+</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="960"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>After looking at the cell type distribution, the hemoglobin concentration makes sense as it corresponds to erythocytes which are high in hemoglobin.</p>
+</section>
+<section id="add-batch-information" class="level2">
+<h2 class="anchored" data-anchor-id="add-batch-information">Add Batch Information</h2>
+<p>Preprocessed Seurat object’s will often contain information about what batch the samples were processed in as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified as “Uncategorized”. Because they did not include the doublet information in the metadata, we will add it in this section. Doublet detection and removal is sensitive because you don’t want to remove any valuable outliers but still take into consideration the noisiness of the data.</p>
+<p>To define doublets, packages in both R and Python run per batch. We imported the batch information so we could subset the larger object and filter out doublets per batch.</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb35"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Make a data frame and extract barcode and Sample ID metadata from se obj</span></span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(<span class="at">Barcode =</span> <span class="fu">colnames</span>(se), <span class="st">"Sample ID"</span> <span class="ot">=</span> se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Sample ID'</span>)</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(info) <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">."</span>, <span class="st">" "</span>, <span class="fu">colnames</span>(info))</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Load in batch information</span></span>
+<span id="cb35-6"><a href="#cb35-6" aria-hidden="true" tabindex="-1"></a>batch_info <span class="ot">&lt;-</span> <span class="fu">read.csv</span>(<span class="st">"../data/batch_info.csv"</span>)</span>
+<span id="cb35-7"><a href="#cb35-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-8"><a href="#cb35-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Rename batch_info column names to have a space instead of "."</span></span>
+<span id="cb35-9"><a href="#cb35-9" aria-hidden="true" tabindex="-1"></a><span class="fu">colnames</span>(batch_info) <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"</span><span class="sc">\\</span><span class="st">."</span>, <span class="st">" "</span>, <span class="fu">colnames</span>(batch_info))</span>
+<span id="cb35-10"><a href="#cb35-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-11"><a href="#cb35-11" aria-hidden="true" tabindex="-1"></a>batch_info <span class="ot">&lt;-</span> batch_info <span class="sc">%&gt;%</span></span>
+<span id="cb35-12"><a href="#cb35-12" aria-hidden="true" tabindex="-1"></a>  <span class="fu">select</span>(<span class="st">"Sample ID"</span>, <span class="st">"Experimental batch"</span>)</span>
+<span id="cb35-13"><a href="#cb35-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb35-14"><a href="#cb35-14" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(batch_info)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>  Sample ID Experimental batch
 1     Flu 1                  1
@@ -456,119 +514,37 @@ utilizing "counts" layer instead.</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb31"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="co"># merge the batch_info with the info dataframe</span></span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">merge</span>(info, batch_info, <span class="at">by =</span> <span class="st">"Sample ID"</span>)</span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(info) <span class="ot">&lt;-</span> info<span class="sc">$</span>Barcode</span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> info <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Add batch numbers to the metadata</span></span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(se, info)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb37"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="co"># merge the batch_info with the info dataframe</span></span>
+<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> <span class="fu">merge</span>(info, batch_info, <span class="at">by =</span> <span class="st">"Sample ID"</span>)</span>
+<span id="cb37-3"><a href="#cb37-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-4"><a href="#cb37-4" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(info) <span class="ot">&lt;-</span> info<span class="sc">$</span>Barcode</span>
+<span id="cb37-5"><a href="#cb37-5" aria-hidden="true" tabindex="-1"></a>info <span class="ot">&lt;-</span> info <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
+<span id="cb37-6"><a href="#cb37-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb37-7"><a href="#cb37-7" aria-hidden="true" tabindex="-1"></a><span class="co"># Add batch numbers to the metadata</span></span>
+<span id="cb37-8"><a href="#cb37-8" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(se, info)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
-<section id="doubletfinder" class="level3">
-<h3 class="anchored" data-anchor-id="doubletfinder">DoubletFinder</h3>
-<p>There are many different packages that can be used ot detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, doubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called “doubletFinder” that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.</p>
+<section id="doubletfinder" class="level2">
+<h2 class="anchored" data-anchor-id="doubletfinder">DoubletFinder</h2>
+<p>There are many different packages that can be used to detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, DoubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called <code>doubletFinder</code> that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DoubletFinder)</span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Find doublets</span></span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>exp_btch <span class="ot">&lt;-</span> <span class="fu">unique</span>(se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span>)</span>
-<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="fu">class</span>(exp_btch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
-<div class="cell-output cell-output-stdout">
-<pre><code>[1] "integer"</code></pre>
+<div class="sourceCode cell-code" id="cb38"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(DoubletFinder)</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Find doublets</span></span>
+<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a>exp_btch <span class="ot">&lt;-</span> <span class="fu">unique</span>(se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-</div>
+<section id="how-it-works" class="level3">
+<h3 class="anchored" data-anchor-id="how-it-works">How it Works</h3>
+<p>DoubletFinder looks at the expression profiles of the cells in the batch and generates two parameters pK and pANN to identify doublets by inserting artificial doublets into the data to determine which cells are real doublets. DoubletFinder combines random cell’s gene expression profiles to create these “fake doublets.” Then a k-nearest neighbors graph is calculated where the best pK is surveyed and calculated for each batch.</p>
+<p>Here, you have a k-nearest neighbor graph where each cell has k neighbors. pANN is the proportion of each cell’s neighbors that are artificial. A high pANN value says that a larger proportion of the cell around a specific cell are fake doublets suggesting that the cell itself is a doublet. The higher the pK, the higher the pANN needs to be to make a difference.</p>
+<p>DoubletFinder allows you to set a threshold and will give each cell a categorical result of ‘Singlet’ or ‘Doublet’ but we suggest looking at the raw pANN values to understand the distribution of these cells and make threshold adjustments accordingly.</p>
+</section>
+<section id="parameters" class="level3">
+<h3 class="anchored" data-anchor-id="parameters">Parameters</h3>
+<p><code>pK parameter</code> = the proportion of cells that are doublets. This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets. It is the PC neighborhood size used to compute pANN, expressed as a proportion of the merged real-artificial data.</p>
+<p><code>pN parameter</code> = default number of doublets we expect to find (set to 0.25 by default). pN functions as the threshold.</p>
+<p><code>pANN</code> = proportion of artificial nearest neighbors or the “doublet score”.</p>
+<p>DoubletFinder is only sensitive to heterotypic doublets (transcriptionally-distinct doublets) so the developer suggests using a cell-type annotations (here: <code>batch_seurat_object@meta.data$seurat_clusters</code>) to model the expected proportion of homotypic (transcriptionally-similar) doublets.</p>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb34"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a>process_batch <span class="ot">&lt;-</span> <span class="cf">function</span>(batch) {</span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> <span class="fu">subset</span>(se, <span class="at">cells =</span> <span class="fu">which</span>(se<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span> <span class="sc">==</span> batch))</span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a>  <span class="co"># seurat_object &lt;- CreateSeuratObject(counts = your_data_object)</span></span>
-<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> batch_seurat_object <span class="sc">%&gt;%</span></span>
-<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb34-7"><a href="#cb34-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb34-8"><a href="#cb34-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb34-9"><a href="#cb34-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindNeighbors</span>() <span class="sc">%&gt;%</span></span>
-<span id="cb34-10"><a href="#cb34-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindClusters</span>() </span>
-<span id="cb34-11"><a href="#cb34-11" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Seurat::ElbowPlot(batch_seurat_object, ndims = 30)</span></span>
-<span id="cb34-12"><a href="#cb34-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># DimPlot(se, reduction="umap", group.by = "Experimental batch")</span></span>
-<span id="cb34-13"><a href="#cb34-13" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-14"><a href="#cb34-14" aria-hidden="true" tabindex="-1"></a>  sweep.res.list_sample <span class="ot">&lt;-</span> <span class="fu">paramSweep</span>(batch_seurat_object, <span class="at">PCs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>, <span class="at">sct =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb34-15"><a href="#cb34-15" aria-hidden="true" tabindex="-1"></a>  sweep.stats_sample <span class="ot">&lt;-</span> <span class="fu">summarizeSweep</span>(sweep.res.list_sample, <span class="at">GT =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb34-16"><a href="#cb34-16" aria-hidden="true" tabindex="-1"></a>  bcmvn_sample <span class="ot">&lt;-</span> <span class="fu">find.pK</span>(sweep.stats_sample)</span>
-<span id="cb34-17"><a href="#cb34-17" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.</span></span>
-<span id="cb34-18"><a href="#cb34-18" aria-hidden="true" tabindex="-1"></a>  <span class="co"># ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+</span></span>
-<span id="cb34-19"><a href="#cb34-19" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   geom_point() +</span></span>
-<span id="cb34-20"><a href="#cb34-20" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   geom_line()</span></span>
-<span id="cb34-21"><a href="#cb34-21" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-22"><a href="#cb34-22" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> bcmvn_sample <span class="sc">%&gt;%</span></span>
-<span id="cb34-23"><a href="#cb34-23" aria-hidden="true" tabindex="-1"></a>    <span class="fu">filter</span>(BCmetric <span class="sc">==</span> <span class="fu">max</span>(BCmetric)) <span class="sc">%&gt;%</span></span>
-<span id="cb34-24"><a href="#cb34-24" aria-hidden="true" tabindex="-1"></a>    <span class="fu">select</span>(pK)</span>
-<span id="cb34-25"><a href="#cb34-25" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> <span class="fu">as.numeric</span>(<span class="fu">as.character</span>(pK[[<span class="dv">1</span>]]))</span>
-<span id="cb34-26"><a href="#cb34-26" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-27"><a href="#cb34-27" aria-hidden="true" tabindex="-1"></a>  annotations <span class="ot">&lt;-</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>seurat_clusters</span>
-<span id="cb34-28"><a href="#cb34-28" aria-hidden="true" tabindex="-1"></a>  <span class="co"># annotations &lt;- se@meta.data$cell_type</span></span>
-<span id="cb34-29"><a href="#cb34-29" aria-hidden="true" tabindex="-1"></a>  homotypic.prop <span class="ot">&lt;-</span> <span class="fu">modelHomotypic</span>(annotations)           <span class="do">## ex: annotations &lt;- se@meta.data$ClusteringResults</span></span>
-<span id="cb34-30"><a href="#cb34-30" aria-hidden="true" tabindex="-1"></a>  nExp_poi <span class="ot">&lt;-</span> <span class="fu">round</span>(<span class="fl">0.075</span><span class="sc">*</span><span class="fu">nrow</span>(se<span class="sc">@</span>meta.data))  <span class="do">## Assuming 7.5% doublet formation rate - tailor for your dataset</span></span>
-<span id="cb34-31"><a href="#cb34-31" aria-hidden="true" tabindex="-1"></a>  nExp_poi.adj <span class="ot">&lt;-</span> <span class="fu">round</span>(nExp_poi<span class="sc">*</span>(<span class="dv">1</span><span class="sc">-</span>homotypic.prop))</span>
-<span id="cb34-32"><a href="#cb34-32" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-33"><a href="#cb34-33" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object <span class="ot">&lt;-</span> <span class="fu">doubletFinder</span>(</span>
-<span id="cb34-34"><a href="#cb34-34" aria-hidden="true" tabindex="-1"></a>    batch_seurat_object,</span>
-<span id="cb34-35"><a href="#cb34-35" aria-hidden="true" tabindex="-1"></a>    <span class="at">PCs =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">20</span>,</span>
-<span id="cb34-36"><a href="#cb34-36" aria-hidden="true" tabindex="-1"></a>    <span class="at">pN =</span> <span class="fl">0.25</span>,</span>
-<span id="cb34-37"><a href="#cb34-37" aria-hidden="true" tabindex="-1"></a>    <span class="at">pK =</span> pK,</span>
-<span id="cb34-38"><a href="#cb34-38" aria-hidden="true" tabindex="-1"></a>    <span class="at">nExp =</span> nExp_poi.adj,</span>
-<span id="cb34-39"><a href="#cb34-39" aria-hidden="true" tabindex="-1"></a>    <span class="at">reuse.pANN =</span> <span class="cn">FALSE</span>,</span>
-<span id="cb34-40"><a href="#cb34-40" aria-hidden="true" tabindex="-1"></a>    <span class="at">sct =</span> <span class="cn">FALSE</span>)</span>
-<span id="cb34-41"><a href="#cb34-41" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-42"><a href="#cb34-42" aria-hidden="true" tabindex="-1"></a>  <span class="co"># mt &lt;- batch_seurat_object@meta.data[,c("")]</span></span>
-<span id="cb34-43"><a href="#cb34-43" aria-hidden="true" tabindex="-1"></a>  <span class="co"># info &lt;- data.frame(Barcode = colnames(batch_seurat_object), "Sample ID" = batch_seurat_object@meta.data$'Sample ID')</span></span>
-<span id="cb34-44"><a href="#cb34-44" aria-hidden="true" tabindex="-1"></a>  <span class="co"># colnames(info) &lt;- gsub("\\.", " ", colnames(info))</span></span>
-<span id="cb34-45"><a href="#cb34-45" aria-hidden="true" tabindex="-1"></a>  <span class="co"># doublet_info &lt;- c(batch_seurat_object@meta.data$'Doublet_Class',)</span></span>
-<span id="cb34-46"><a href="#cb34-46" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-47"><a href="#cb34-47" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add doublet information to larger seurat object here</span></span>
-<span id="cb34-48"><a href="#cb34-48" aria-hidden="true" tabindex="-1"></a>  pANN <span class="ot">&lt;-</span> <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-49"><a href="#cb34-49" aria-hidden="true" tabindex="-1"></a>    <span class="fu">keep</span>(<span class="fu">grepl</span>(<span class="st">'^pANN*'</span>, <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)))</span>
-<span id="cb34-50"><a href="#cb34-50" aria-hidden="true" tabindex="-1"></a>  DF_class <span class="ot">&lt;-</span> <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">%&gt;%</span> </span>
-<span id="cb34-51"><a href="#cb34-51" aria-hidden="true" tabindex="-1"></a>    <span class="fu">keep</span>(<span class="fu">grepl</span>(<span class="st">'^DF.classifications*'</span>, <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)))</span>
-<span id="cb34-52"><a href="#cb34-52" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Extract values "0.1", "0.1", and "1000"</span></span>
-<span id="cb34-53"><a href="#cb34-53" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">gsub</span>(<span class="st">"^pANN_"</span>, <span class="st">""</span>, pANN)  <span class="co"># Remove "pANN_"</span></span>
-<span id="cb34-54"><a href="#cb34-54" aria-hidden="true" tabindex="-1"></a>  params <span class="ot">&lt;-</span> <span class="fu">strsplit</span>(params, <span class="st">"_"</span>)[[<span class="dv">1</span>]]  <span class="co"># Split by "_"</span></span>
-<span id="cb34-55"><a href="#cb34-55" aria-hidden="true" tabindex="-1"></a>  pN <span class="ot">&lt;-</span> params[<span class="dv">1</span>]  <span class="co"># Extract "0.1"</span></span>
-<span id="cb34-56"><a href="#cb34-56" aria-hidden="true" tabindex="-1"></a>  pK <span class="ot">&lt;-</span> params[<span class="dv">2</span>]  <span class="co"># Extract "0.1"</span></span>
-<span id="cb34-57"><a href="#cb34-57" aria-hidden="true" tabindex="-1"></a>  doublet_run <span class="ot">&lt;-</span> params[<span class="dv">3</span>]  <span class="co"># Extract "1000"</span></span>
-<span id="cb34-58"><a href="#cb34-58" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-59"><a href="#cb34-59" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Create new columns "pN", "pK", and "doublet_run"</span></span>
-<span id="cb34-60"><a href="#cb34-60" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)[<span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">==</span> pANN] <span class="ot">&lt;-</span> <span class="st">"pANN"</span></span>
-<span id="cb34-61"><a href="#cb34-61" aria-hidden="true" tabindex="-1"></a>  <span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data)[<span class="fu">colnames</span>(batch_seurat_object<span class="sc">@</span>meta.data) <span class="sc">==</span> DF_class] <span class="ot">&lt;-</span> <span class="st">"DF_class"</span></span>
-<span id="cb34-62"><a href="#cb34-62" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pN <span class="ot">&lt;-</span> pN</span>
-<span id="cb34-63"><a href="#cb34-63" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pK <span class="ot">&lt;-</span> pK</span>
-<span id="cb34-64"><a href="#cb34-64" aria-hidden="true" tabindex="-1"></a>  batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>doublet_run <span class="ot">&lt;-</span> doublet_run</span>
-<span id="cb34-65"><a href="#cb34-65" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-66"><a href="#cb34-66" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Return DF of doublet information here</span></span>
-<span id="cb34-67"><a href="#cb34-67" aria-hidden="true" tabindex="-1"></a>  df <span class="ot">&lt;-</span> <span class="fu">data.frame</span>(</span>
-<span id="cb34-68"><a href="#cb34-68" aria-hidden="true" tabindex="-1"></a>    <span class="at">Barcode =</span> <span class="fu">colnames</span>(batch_seurat_object),</span>
-<span id="cb34-69"><a href="#cb34-69" aria-hidden="true" tabindex="-1"></a>    <span class="at">batch =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'Experimental batch'</span>, </span>
-<span id="cb34-70"><a href="#cb34-70" aria-hidden="true" tabindex="-1"></a>    <span class="at">pANN =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'pANN'</span>, </span>
-<span id="cb34-71"><a href="#cb34-71" aria-hidden="true" tabindex="-1"></a>    <span class="at">DF_class =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span><span class="st">'DF_class'</span>,</span>
-<span id="cb34-72"><a href="#cb34-72" aria-hidden="true" tabindex="-1"></a>    <span class="at">doublet_run =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>doublet_run,</span>
-<span id="cb34-73"><a href="#cb34-73" aria-hidden="true" tabindex="-1"></a>    <span class="at">pK =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pK,</span>
-<span id="cb34-74"><a href="#cb34-74" aria-hidden="true" tabindex="-1"></a>    <span class="at">pN =</span> batch_seurat_object<span class="sc">@</span>meta.data<span class="sc">$</span>pN</span>
-<span id="cb34-75"><a href="#cb34-75" aria-hidden="true" tabindex="-1"></a>    )</span>
-<span id="cb34-76"><a href="#cb34-76" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-77"><a href="#cb34-77" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Add metadata to main Seurat object</span></span>
-<span id="cb34-78"><a href="#cb34-78" aria-hidden="true" tabindex="-1"></a>  <span class="co"># db &lt;- bind_rows(processed_doublets)</span></span>
-<span id="cb34-79"><a href="#cb34-79" aria-hidden="true" tabindex="-1"></a>  <span class="fu">rownames</span>(df) <span class="ot">&lt;-</span> df<span class="sc">$</span>Barcode</span>
-<span id="cb34-80"><a href="#cb34-80" aria-hidden="true" tabindex="-1"></a>  <span class="co"># df &lt;- df %&gt;% select(-Barcode)</span></span>
-<span id="cb34-81"><a href="#cb34-81" aria-hidden="true" tabindex="-1"></a>  <span class="co"># se &lt;- AddMetaData(</span></span>
-<span id="cb34-82"><a href="#cb34-82" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   object = se, </span></span>
-<span id="cb34-83"><a href="#cb34-83" aria-hidden="true" tabindex="-1"></a>  <span class="co">#   metadata = df</span></span>
-<span id="cb34-84"><a href="#cb34-84" aria-hidden="true" tabindex="-1"></a>  <span class="co"># )</span></span>
-<span id="cb34-85"><a href="#cb34-85" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-86"><a href="#cb34-86" aria-hidden="true" tabindex="-1"></a>  <span class="fu">return</span>(df)</span>
-<span id="cb34-87"><a href="#cb34-87" aria-hidden="true" tabindex="-1"></a>  </span>
-<span id="cb34-88"><a href="#cb34-88" aria-hidden="true" tabindex="-1"></a>}</span>
-<span id="cb34-89"><a href="#cb34-89" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb34-90"><a href="#cb34-90" aria-hidden="true" tabindex="-1"></a>processed_doublets <span class="ot">&lt;-</span> <span class="fu">lapply</span>(exp_btch, process_batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Normalizing layer: counts</code></pre>
 </div>
@@ -630,7 +606,7 @@ Number of edges: 616465
 Running Louvain algorithm...
 Maximum modularity in 10 random starts: 0.9052
 Number of communities: 19
-Elapsed time: 2 seconds</code></pre>
+Elapsed time: 1 seconds</code></pre>
 </div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Loading required package: fields</code></pre>
@@ -1403,7 +1379,7 @@ Elapsed time: 1 seconds
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-20-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -1831,7 +1807,7 @@ Elapsed time: 0 seconds
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-20-2.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-2.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -2263,7 +2239,7 @@ Elapsed time: 1 seconds
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-20-3.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-3.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -2329,7 +2305,7 @@ Elapsed time: 1 seconds
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-20-4.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-24-4.png" class="img-fluid figure-img" width="672"></p>
 </figure>
 </div>
 </div>
@@ -2341,28 +2317,68 @@ Elapsed time: 1 seconds
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb247"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb247-1"><a href="#cb247-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add doublet information to the main seurat object</span></span>
-<span id="cb247-2"><a href="#cb247-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(processed_doublets)</span>
-<span id="cb247-3"><a href="#cb247-3" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(test) <span class="ot">&lt;-</span> test<span class="sc">$</span>Barcode</span>
-<span id="cb247-4"><a href="#cb247-4" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> test <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
-<span id="cb247-5"><a href="#cb247-5" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(</span>
-<span id="cb247-6"><a href="#cb247-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">object =</span> se, </span>
-<span id="cb247-7"><a href="#cb247-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">metadata =</span> test</span>
-<span id="cb247-8"><a href="#cb247-8" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb251"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb251-1"><a href="#cb251-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Add doublet information to the main seurat object</span></span>
+<span id="cb251-2"><a href="#cb251-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> <span class="fu">bind_rows</span>(processed_doublets)</span>
+<span id="cb251-3"><a href="#cb251-3" aria-hidden="true" tabindex="-1"></a><span class="co"># plot pANN against batch</span></span>
+<span id="cb251-4"><a href="#cb251-4" aria-hidden="true" tabindex="-1"></a><span class="fu">head</span>(test)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>                                Barcode batch      pANN DF_class doublet_run
+AAACCCAAGAATGTTG-12 AAACCCAAGAATGTTG-12     3 0.2189041  Singlet        4142
+AAACCCAAGGCCTGCT-12 AAACCCAAGGCCTGCT-12     3 0.2095721  Singlet        4142
+AAACCCACACCTAAAC-12 AAACCCACACCTAAAC-12     3 0.3219571  Singlet        4142
+AAACCCACACTTGGCG-12 AAACCCACACTTGGCG-12     3 0.3366218  Doublet        4142
+AAACCCAGTCTACACA-12 AAACCCAGTCTACACA-12     3 0.2571657  Singlet        4142
+AAACCCAGTCTACAGT-14 AAACCCAGTCTACAGT-14     3 0.2315691  Singlet        4142
+                     pK   pN
+AAACCCAAGAATGTTG-12 0.3 0.25
+AAACCCAAGGCCTGCT-12 0.3 0.25
+AAACCCACACCTAAAC-12 0.3 0.25
+AAACCCACACTTGGCG-12 0.3 0.25
+AAACCCAGTCTACACA-12 0.3 0.25
+AAACCCAGTCTACAGT-14 0.3 0.25</code></pre>
+</div>
+<div class="sourceCode cell-code" id="cb253"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb253-1"><a href="#cb253-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ggplot</span>(test, <span class="fu">aes</span>(<span class="at">x =</span> pANN, <span class="at">fill =</span> <span class="fu">as.character</span>(batch))) <span class="sc">+</span></span>
+<span id="cb253-2"><a href="#cb253-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">geom_density</span>(<span class="at">bins =</span> <span class="dv">100</span>, <span class="at">alpha =</span> <span class="fl">0.5</span>) <span class="sc">+</span></span>
+<span id="cb253-3"><a href="#cb253-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">theme_classic</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stderr">
+<pre><code>Warning in geom_density(bins = 100, alpha = 0.5): Ignoring unknown parameters:
+`bins`</code></pre>
+</div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-25-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+<div class="sourceCode cell-code" id="cb255"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb255-1"><a href="#cb255-1" aria-hidden="true" tabindex="-1"></a><span class="fu">table</span>(test<span class="sc">$</span>batch)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>
+    1     2     3     4 
+15689  8624 18752 16507 </code></pre>
+</div>
+</div>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb257"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb257-1"><a href="#cb257-1" aria-hidden="true" tabindex="-1"></a><span class="fu">rownames</span>(test) <span class="ot">&lt;-</span> test<span class="sc">$</span>Barcode</span>
+<span id="cb257-2"><a href="#cb257-2" aria-hidden="true" tabindex="-1"></a>test <span class="ot">&lt;-</span> test <span class="sc">%&gt;%</span> <span class="fu">select</span>(<span class="sc">-</span>Barcode)</span>
+<span id="cb257-3"><a href="#cb257-3" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">AddMetaData</span>(</span>
+<span id="cb257-4"><a href="#cb257-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">object =</span> se, </span>
+<span id="cb257-5"><a href="#cb257-5" aria-hidden="true" tabindex="-1"></a>    <span class="at">metadata =</span> test</span>
+<span id="cb257-6"><a href="#cb257-6" aria-hidden="true" tabindex="-1"></a>  )</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="perform-preprocessing" class="level3">
 <h3 class="anchored" data-anchor-id="perform-preprocessing">Perform Preprocessing</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb248"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb248-1"><a href="#cb248-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> se <span class="sc">%&gt;%</span></span>
-<span id="cb248-2"><a href="#cb248-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb248-3"><a href="#cb248-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>(</span>
-<span id="cb248-4"><a href="#cb248-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"vst"</span>,</span>
-<span id="cb248-5"><a href="#cb248-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">nfeatures =</span> <span class="dv">3000</span>,</span>
-<span id="cb248-6"><a href="#cb248-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb248-7"><a href="#cb248-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>, <span class="at">features =</span> <span class="fu">VariableFeatures</span>(.)) <span class="sc">%&gt;%</span></span>
-<span id="cb248-8"><a href="#cb248-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
-<span id="cb248-9"><a href="#cb248-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunUMAP</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb258"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb258-1"><a href="#cb258-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> se <span class="sc">%&gt;%</span></span>
+<span id="cb258-2"><a href="#cb258-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">NormalizeData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb258-3"><a href="#cb258-3" aria-hidden="true" tabindex="-1"></a>    <span class="fu">FindVariableFeatures</span>(</span>
+<span id="cb258-4"><a href="#cb258-4" aria-hidden="true" tabindex="-1"></a>        <span class="at">method =</span> <span class="st">"vst"</span>,</span>
+<span id="cb258-5"><a href="#cb258-5" aria-hidden="true" tabindex="-1"></a>        <span class="at">nfeatures =</span> <span class="dv">3000</span>,</span>
+<span id="cb258-6"><a href="#cb258-6" aria-hidden="true" tabindex="-1"></a>        <span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb258-7"><a href="#cb258-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">ScaleData</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>, <span class="at">features =</span> <span class="fu">VariableFeatures</span>(.)) <span class="sc">%&gt;%</span></span>
+<span id="cb258-8"><a href="#cb258-8" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunPCA</span>(<span class="at">verbose =</span> <span class="cn">FALSE</span>) <span class="sc">%&gt;%</span></span>
+<span id="cb258-9"><a href="#cb258-9" aria-hidden="true" tabindex="-1"></a>    <span class="fu">RunUMAP</span>(<span class="at">dims =</span> <span class="dv">1</span><span class="sc">:</span><span class="dv">30</span>, <span class="at">verbose =</span> <span class="cn">FALSE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stderr">
 <pre><code>Warning: The default method for RunUMAP has changed from calling Python UMAP via reticulate to the R-native UWOT using the cosine metric
 To use Python UMAP via reticulate, set umap.method to 'umap-learn' and metric to 'correlation'
@@ -2370,59 +2386,88 @@ This message will be shown once per session</code></pre>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb250"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb250-1"><a href="#cb250-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP colored by batch</span></span>
-<span id="cb250-2"><a href="#cb250-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">'DF_class'</span>) <span class="sc">+</span></span>
-<span id="cb250-3"><a href="#cb250-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Batch"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb260"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb260-1"><a href="#cb260-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP colored by batch</span></span>
+<span id="cb260-2"><a href="#cb260-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">'DF_class'</span>) <span class="sc">+</span></span>
+<span id="cb260-3"><a href="#cb260-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Batch"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-23-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-28-1.png" class="img-fluid figure-img" width="672"></p>
+</figure>
+</div>
+</div>
+</div>
+<p>Let’s look at the distribution of pANN values</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb261"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb261-1"><a href="#cb261-1" aria-hidden="true" tabindex="-1"></a>p3 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
+<span id="cb261-2"><a href="#cb261-2" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb261-3"><a href="#cb261-3" aria-hidden="true" tabindex="-1"></a>    <span class="co"># scale_x_continuous(</span></span>
+<span id="cb261-4"><a href="#cb261-4" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     # transform = "log10",</span></span>
+<span id="cb261-5"><a href="#cb261-5" aria-hidden="true" tabindex="-1"></a>    <span class="co">#     labels = scales::unit_format(unit = "K", scale = 1)) +</span></span>
+<span id="cb261-6"><a href="#cb261-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
+<span id="cb261-7"><a href="#cb261-7" aria-hidden="true" tabindex="-1"></a>p3</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="cell-output-display">
+<div>
+<figure class="figure">
+<p><img src="5-QC_files/figure-html/unnamed-chunk-29-1.png" class="img-fluid figure-img" width="768"></p>
 </figure>
 </div>
 </div>
 </div>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb251"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb251-1"><a href="#cb251-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by pANN</span></span>
-<span id="cb251-2"><a href="#cb251-2" aria-hidden="true" tabindex="-1"></a><span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
-<span id="cb251-3"><a href="#cb251-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb262"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb262-1"><a href="#cb262-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by pANN</span></span>
+<span id="cb262-2"><a href="#cb262-2" aria-hidden="true" tabindex="-1"></a>p1 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
+<span id="cb262-3"><a href="#cb262-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>)</span>
+<span id="cb262-4"><a href="#cb262-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by cell type</span></span>
+<span id="cb262-5"><a href="#cb262-5" aria-hidden="true" tabindex="-1"></a>p2 <span class="ot">&lt;-</span> <span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">"Celltype"</span>) <span class="sc">+</span></span>
+<span id="cb262-6"><a href="#cb262-6" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Cell Type"</span>)</span>
+<span id="cb262-7"><a href="#cb262-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb262-8"><a href="#cb262-8" aria-hidden="true" tabindex="-1"></a>p1 <span class="sc">|</span> p2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-24-1.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-30-1.png" class="img-fluid figure-img" width="1152"></p>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb252"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb252-1"><a href="#cb252-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Plot UMAP by cell type</span></span>
-<span id="cb252-2"><a href="#cb252-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DimPlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">group.by =</span> <span class="st">"cell_type"</span>) <span class="sc">+</span></span>
-<span id="cb252-3"><a href="#cb252-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by Cell Type"</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb263"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb263-1"><a href="#cb263-1" aria-hidden="true" tabindex="-1"></a><span class="co"># DimPlot(se, reduction = "umap", group.by = "Celltype") +</span></span>
+<span id="cb263-2"><a href="#cb263-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   labs(title = "UMAP Plot Colored by Batch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+</section>
+<section id="filter-out-cells" class="level2">
+<h2 class="anchored" data-anchor-id="filter-out-cells">Filter out cells</h2>
+<p>Filter out our data by 4 criteria. 1. Any cell with less that 500 UMIs 2. Any cell with less than 200 genes 3. Any cell with more than 15% mitochondrial genes 4. Any cell with a pANN value greater than 0.25</p>
+<div class="cell">
+<div class="sourceCode cell-code" id="cb264"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb264-1"><a href="#cb264-1" aria-hidden="true" tabindex="-1"></a>se <span class="ot">&lt;-</span> <span class="fu">subset</span>(</span>
+<span id="cb264-2"><a href="#cb264-2" aria-hidden="true" tabindex="-1"></a>  se, </span>
+<span id="cb264-3"><a href="#cb264-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">subset =</span> nFeature_RNA <span class="sc">&gt;</span> <span class="dv">200</span> <span class="sc">&amp;</span> nCount_RNA <span class="sc">&gt;</span> <span class="dv">500</span> <span class="sc">&amp;</span> perc.mt <span class="sc">&lt;</span> <span class="dv">15</span> <span class="sc">&amp;</span> pANN <span class="sc">&lt;</span> <span class="fl">0.25</span>)</span>
+<span id="cb264-4"><a href="#cb264-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb264-5"><a href="#cb264-5" aria-hidden="true" tabindex="-1"></a>s1 <span class="ot">&lt;-</span> <span class="fu">ggplot</span>(se<span class="sc">@</span>meta.data, <span class="fu">aes</span>(<span class="at">x =</span> pANN)) <span class="sc">+</span></span>
+<span id="cb264-6"><a href="#cb264-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">geom_density</span>(<span class="at">color =</span> <span class="st">"#6abcb6"</span>, <span class="at">fill =</span> <span class="st">"#6abcb6"</span>, <span class="at">alpha =</span> <span class="fl">0.7</span>) <span class="sc">+</span></span>
+<span id="cb264-7"><a href="#cb264-7" aria-hidden="true" tabindex="-1"></a>    <span class="fu">theme_classic</span>()</span>
+<span id="cb264-8"><a href="#cb264-8" aria-hidden="true" tabindex="-1"></a>s2 <span class="ot">&lt;-</span> <span class="fu">FeaturePlot</span>(se, <span class="at">reduction =</span> <span class="st">"umap"</span>, <span class="at">features =</span> <span class="st">"pANN"</span>) <span class="sc">+</span></span>
+<span id="cb264-9"><a href="#cb264-9" aria-hidden="true" tabindex="-1"></a>  <span class="fu">labs</span>(<span class="at">title =</span> <span class="st">"UMAP Plot Colored by pANN"</span>) <span class="sc">+</span></span>
+<span id="cb264-10"><a href="#cb264-10" aria-hidden="true" tabindex="-1"></a>  <span class="fu">scale_fill_gradient</span>(<span class="at">limits =</span> <span class="fu">c</span>(<span class="dv">0</span>, <span class="dv">1</span>))</span>
+<span id="cb264-11"><a href="#cb264-11" aria-hidden="true" tabindex="-1"></a>s1 <span class="sc">|</span> s2</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output-display">
 <div>
 <figure class="figure">
-<p><img src="5-QC_files/figure-html/unnamed-chunk-24-2.png" class="img-fluid figure-img" width="672"></p>
+<p><img src="5-QC_files/figure-html/unnamed-chunk-31-1.png" class="img-fluid figure-img" width="1152"></p>
 </figure>
 </div>
 </div>
-<div class="sourceCode cell-code" id="cb253"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb253-1"><a href="#cb253-1" aria-hidden="true" tabindex="-1"></a><span class="co"># DimPlot(se, reduction = "umap", group.by = "Celltype") +</span></span>
-<span id="cb253-2"><a href="#cb253-2" aria-hidden="true" tabindex="-1"></a><span class="co">#   labs(title = "UMAP Plot Colored by Batch")</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>lapply loops return DFs with 3 columns. barcode, doublet score, and doublet classification. make sure last element is the one you want to keep. then pipe that into bindrows().</p>
-<p>The DoubletFinder vignette includes sctransform pre-processing steps that can be used instead.</p>
-</section>
-<section id="pk-parameter" class="level3">
-<h3 class="anchored" data-anchor-id="pk-parameter">pK Parameter</h3>
-<p>pK parameter = the proportion of cells that are doublets This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets. pN parameter = default number of doublets we expect to find K(?) = expected number of doublets</p>
-<p>pANN = proportion of artificial nearest neighbors.</p>
-</section>
 </section>
 <section id="resave-seurat-object" class="level2">
 <h2 class="anchored" data-anchor-id="resave-seurat-object">Resave Seurat object</h2>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb254"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb254-1"><a href="#cb254-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(se, <span class="st">'../data/workshop-data-withDFinfo.rds'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb265"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb265-1"><a href="#cb265-1" aria-hidden="true" tabindex="-1"></a><span class="fu">saveRDS</span>(se, <span class="st">'../data/workshop-data-withDFinfo.rds'</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 <section id="session-info" class="level3">
 <h3 class="anchored" data-anchor-id="session-info">Session Info</h3>
 <div class="cell">
-<div class="sourceCode cell-code" id="cb255"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb255-1"><a href="#cb255-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb266"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb266-1"><a href="#cb266-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sessionInfo</span>()</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>R version 4.3.2 (2023-10-31)
 Platform: aarch64-apple-darwin20 (64-bit)

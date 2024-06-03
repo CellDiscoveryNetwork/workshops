@@ -7,6 +7,24 @@ author: Rose Hedderman
 
 # Clustering
 
+## Introduction
+
+### Key Takeaways
+
+-   one
+
+-   two
+
+-   three
+
+### Glossary
+
+### Resources
+
+1.  [Current best practices in single-cell RNA-seq analysis: a tutorial](https://www.embopress.org/doi/full/10.15252/msb.20188746)
+2.  [Bioconductor](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html)
+3.  [Single Cell Best Practices](https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html)
+
 ## Load Libraries and Data
 
 ```{r setup, include=FALSE}

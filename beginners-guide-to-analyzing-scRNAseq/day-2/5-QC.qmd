@@ -33,8 +33,6 @@ From Bioconductor:
 
 *"High proportions are indicative of poor-quality cells (Islam et al. [2014](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-islam2014quantitative); Ilicic et al. [2016](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-ilicic2016classification)), presumably because of loss of cytoplasmic RNA from perforated cells. The reasoning is that, in the presence of modest damage, the holes in the cell membrane permit efflux of individual transcript molecules but are too small to allow mitochondria to escape, leading to a relative enrichment of mitochondrial transcripts."*
 
-<https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html>
-
 **Doublet:**
 
 A doublet is a data point read by the sequencer as a single-cell droplet but likely contains 2 or more cells in one droplet. These cause confusion in the gene expression distribution especially when cells of two different types (different expected gene expression profiles) are in the same droplet.
@@ -101,17 +99,20 @@ pal <- paletteMartin
 names(pal) <- sort(unique(se$Celltype))
 ```
 
-## Preprocessing
-
-### Filter out the overexpressed genes
+## Filter out the overexpressed genes
 
 According to *Current best practices in single-cell RNA-seq*, we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitochondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.
 
 In public datasets, use `colnames()` to find the processing and metadata already analyzed.
 
 ```{r}
-# Find the metadata columns of interest
-colnames(se@meta.data)
+# Correct calculation of the number of metadata variables
+vars <- length(colnames(se@meta.data))
+# Use paste0 for concatenation without spaces
+print(paste0("There are ", vars, " metadata variables in the seurat object."))
+
+# Sample the first 10 metadata variables
+colnames(se@meta.data)[1:10]
 ```
 
 1 - Number of UMIs
@@ -163,7 +164,7 @@ VlnPlot(se,
   group.by = "Sample ID",
   features = "perc.mt",
   # log = TRUE,
-  pt.size = 0,
+  pt.size = 0, 
   ) + NoLegend()
 ```
 
@@ -289,7 +290,7 @@ se@meta.data %>%
 
 After looking at the cell type distribution, the hemoglobin concentration makes sense as it corresponds to erythocytes which are high in hemoglobin.
 
-### Add Batch Information
+## Add Batch Information
 
 Preprocessed Seurat object's will often contain information about what batch the samples were processed in as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified as "Uncategorized". Because they did not include the doublet information in the metadata, we will add it in this section. Doublet detection and removal is sensitive because you don't want to remove any valuable outliers but still take into consideration the noisiness of the data.
 
@@ -323,7 +324,7 @@ info <- info %>% select(-Barcode)
 se <- AddMetaData(se, info)
 ```
 
-### DoubletFinder
+## DoubletFinder
 
 There are many different packages that can be used to detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, DoubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called `doubletFinder` that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.
 
@@ -453,12 +454,6 @@ ggplot(test, aes(x = pANN, fill = as.character(batch))) +
 table(test$batch)
 ```
 
-```{r}
-```
-
-```{r}
-
-```
 
 ```{r}
 rownames(test) <- test$Barcode
@@ -489,6 +484,16 @@ DimPlot(se, reduction = "umap", group.by = 'DF_class') +
   labs(title = "UMAP Plot Colored by Batch")
 
 ```
+Let's look at the distribution of pANN values
+```{r, fig.height=6, fig.width=8}
+p3 <- ggplot(se@meta.data, aes(x = pANN)) +
+    geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
+    # scale_x_continuous(
+    #     # transform = "log10",
+    #     labels = scales::unit_format(unit = "K", scale = 1)) +
+    theme_classic()
+p3
+```
 
 ```{r, fig.height=6, fig.width=12}
 # Plot UMAP by pANN
@@ -503,7 +508,26 @@ p1 | p2
 #   labs(title = "UMAP Plot Colored by Batch")
 ```
 
-notes: - add step at end to subset data according to numUMIs, numFeatures, and percentMT.
+## Filter out cells
+Filter out our data by 4 criteria. 
+1. Any cell with less that 500 UMIs
+2. Any cell with less than 200 genes
+3. Any cell with more than 15% mitochondrial genes
+4. Any cell with a pANN value greater than 0.25
+
+```{r, fig.height=6, fig.width=12}
+se <- subset(
+  se, 
+  subset = nFeature_RNA > 200 & nCount_RNA > 500 & perc.mt < 15 & pANN < 0.25)
+
+s1 <- ggplot(se@meta.data, aes(x = pANN)) +
+    geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
+    theme_classic()
+s2 <- FeaturePlot(se, reduction = "umap", features = "pANN") +
+  labs(title = "UMAP Plot Colored by pANN") +
+  scale_fill_gradient(limits = c(0, 1))
+s1 | s2
+```
 
 ## Resave Seurat object
 
