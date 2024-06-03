@@ -34,11 +34,11 @@ Any matrix that can be calculated from a data matrix with a reduced size while s
 
 **Feature**
 
-A variable in a sample x variable matrix. In a cell x gene matrix, the gene is the feature. In PCA, the principle components are the features. 
+A variable in a sample x variable matrix. In a cell x gene matrix, the gene is the feature. In PCA, the principal components are the features. 
 
 **Dimensionality Reduction** 
 
-The computational process of reducing a large data matrix to fewer features. For example, in scRNAseq, PCA is the most popular dimensionality reduction technique. With it we can reduce our features from ~30,000 genes to ~30 principle components, reducing the computational workload of complex analysis tasks, like creating the nearest neighbors graph.
+The computational process of reducing a large data matrix to fewer features. For example, in scRNAseq, PCA is the most popular dimensionality reduction technique. With it we can reduce our features from ~30,000 genes to ~30 principal components, reducing the computational workload of complex analysis tasks, like creating the nearest neighbors graph.
 
 **Embeddings** 
 
@@ -221,7 +221,7 @@ DT::datatable(se@reductions$pca@feature.loadings)
 ```
 
 #### Using PCA to understand variance in your data
-Just by visualizing these two matrices, we can start to understand the major axes of variance of our data. Seurat has built-in functions to graph the PCs and loadings
+By visualizing the top 2 principal components, we can start to understand the major axes of variance of our data. Seurat has built-in functions to graph the PCs and loadings
 ```{r}
 se@meta.data$nCount_RNA <- as.numeric(se@meta.data$nCount_RNA)
     
@@ -260,7 +260,9 @@ donor_pca <- DimPlot(
 # donor_pca
 ```
 Based on our DimPlot of the first 2 PCs, we can see the major axes of variation in the data are 
+
 - PC1: myeloid (negative) vs. lymphoid (positive)
+
 - PC2: erythroid (positive) vs. immune 
 
 By visualizing loadings of these PCs, we can see which genes are driving the differences between these groups of cells
@@ -301,16 +303,18 @@ VizDimLoadings(
 
 But what if we think we are missing out on some of the data by using too few PCs? Seurat has two methods for deciding the number of PCs.
 
-### Deciding the number of Principle Components
+### Deciding the number of Principal Components
 
 The most popular method, the Elbow plot method, is the qualitative choice of nPCs based on deminishing returns on percent variance explained by increasing nPCs. 
 
-By default, the ElbowPlot shows the standard deviation of each PC. The standard deviation is the square-root of the variance. The total variance in the dataset is stored in ```se@reductions$pca@misc$total.variance``` - to obtain the percent variance explained by each PC, we can take the square of the stdev and divide it by the total variance
+By default, the `ElbowPlot` shows the standard deviation of each PC. The standard deviation is the square-root of the variance. The total variance in the dataset is stored in ```se@reductions$pca@misc$total.variance``` - to obtain the percent variance explained by each PC, we can take the square of the stdev and divide it by the total variance
 ```{r}
 ElbowPlot(se, ndims = 50)
 
-varExplained <- data.frame(varExplained = se@reductions$pca@stdev^(2)/se@reductions$pca@misc$total.variance,
-PC = seq(1:length(se@reductions$pca@stdev)))
+varExplained <- data.frame(
+    varExplained = se@reductions$pca@stdev^(2)/se@reductions$pca@misc$total.variance,
+    PC = seq(1:length(se@reductions$pca@stdev))
+    )
 
 ggplot(
         varExplained, 
@@ -326,7 +330,7 @@ The Elbow plot is the simplest way to view deminishing returns on variance expla
 
 Then we simply cut the nPCs off at that point to prevent our PCA from being overly complex, or overfitting the data. One way we can quickly show what noise looks like in our scRNA data is by injecting noise into our dataset.
 
-In normal data science, typically we include PCs until we have reached some threshold of variance explained, often 85%. But if we calculate the total variance explained by each PC up to the cutoff we chose by ElbowPlot, we can see it's only 20%. This is because scRNAseq data are highly noisy with a great deal of unique variance per cell. We would have to include 100s of PCs to reach 85% variance explained.
+In standard data science workflows, PCs are included until some threshold of variance explained is reached, often 85%. But if we calculate the total variance explained by each PC up to the cutoff we chose by ElbowPlot, we can see it's only 20%. This is because scRNAseq data are highly noisy with a great deal of unique variance per cell. We would have to include 100s of PCs to reach 85% variance explained.
 
 And, keep in mind this total variance is calculated based only on the highly variable genes we chose.
 ```{r}
@@ -605,7 +609,8 @@ Switching gears a little bit before we get ahead of ourselves making clusters, l
 Usually our batch effects will show up as some vector of variation across a metadata variable. This means they will usually show up in our PCA as a PC, so we can check for them by correlating our PCs with our metadata!
 ```{r, fig.width = 14, fig.height = 14}
 
-plot_batch_effect_heatmap <- function(seurat_object, 
+plot_batch_effect_heatmap <- function(
+                                     seurat_object, 
                                      latent_space = 'pca', 
                                      num_pcs = 20, 
                                      metadata_columns_to_include = NULL,
@@ -616,7 +621,8 @@ plot_batch_effect_heatmap <- function(seurat_object,
 
     categorical_cols <- sapply(metadata, function(col) is.factor(col) || is.character(col))
     
-    metadata[categorical_cols] <- lapply(metadata[categorical_cols], as.factor) # convert character columns to factors for one-hot encoding
+    # convert character columns to factors for one-hot encoding
+    metadata[categorical_cols] <- lapply(metadata[categorical_cols], as.factor)
 
     #1hot without removing redundant dummies
     metadata_encoded <- fastDummies::dummy_cols(metadata, remove_first_dummy = FALSE, remove_selected_columns = TRUE)
@@ -640,13 +646,9 @@ plot_batch_effect_heatmap <- function(seurat_object,
              main = plot_title)
 }
 
-plot_batch_effect_heatmap(se, 
-                        metadata_columns_to_include = c('Age', 
-                                                        'sex', 
-                                                        "donor_id", 
-                                                        "Number of UMI", 
-                                                        "disease",
-                                                        "Severity"))
+plot_batch_effect_heatmap(
+    se, 
+    metadata_columns_to_include = c('Age', 'sex', "donor_id", "Number of UMI", "disease", "Severity"))
 
 ```
 
@@ -700,12 +702,11 @@ We can do this by plotting again the correlation of metadata covariates
 ```{r, fig.width = 14, fig.height = 14}
 plot_batch_effect_heatmap(se, 
                         latent_space = 'harmony',
-                        metadata_columns_to_include = c('Age', 
-                                                        'sex', 
-                                                        "donor_id", 
-                                                        "Number of UMI", 
-                                                        "disease",
-                                                        "Severity"),
+                        metadata_columns_to_include = c('Age', 'sex', "donor_id", "Number of UMI", "disease", "Severity"),
                         plot_title = "Correlation Heatmap of Metadata and Harmony latent variables")
+```
 
+## Session Info
+```{r}
+sessionInfo()
 ```
