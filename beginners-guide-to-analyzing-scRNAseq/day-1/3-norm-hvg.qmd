@@ -55,7 +55,7 @@ In this notebook we are going to look at two big concepts: 1) Why we need to nor
 
 -   We select highly variable genes (HVGs) following the assumption that genes that have variable expression are representative of cellular heterogeneity within our data.
 
--   Feature selection using HVGs is a KEY step in the analysis workflow. It determines the biological information universe we will be using for downstream analysis and is dependent on the data used. Every time we subset the data we have to recompute HVG to update our biological universe so its representative of the new cellular context!
+-   Feature selection using HVGs is a KEY step in the analysis workflow. It determines the biological information universe we will be using for downstream analysis and is dependent on the data used. Every time we subset the data we have to recompute HVG to update our biological universe so it's representative of the new cellular context!
 
 ## Libraries
 
