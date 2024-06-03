@@ -1,7 +1,8 @@
 ---
 title: "3 - Normalization & Highly Variable Gene Selection"
 author: "CDN team"
-date: "`r format(Sys.time(), '%d %B, %Y')`"
+date: last-modified
+date-format: "[Last compiled on] D MMMM, YYYY"
 format:
   html:
     toc: true
