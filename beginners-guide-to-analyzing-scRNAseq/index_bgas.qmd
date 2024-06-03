@@ -1,5 +1,5 @@
 ---
-title: "Navigating the Single-Cell Landscape: A Comprehensive Workshop on scRNAseq"
+title: "A Beginner's Guide to scRNAseq"
 author: "CDN team"
 date: last-modified
 date-format: "[Last compiled on] D MMMM, YYYY"
