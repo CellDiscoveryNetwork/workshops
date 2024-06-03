@@ -7,7 +7,7 @@ All materials used in workshops will be stored here.
 - **Where**: Center for Life Sciences 3 Rosen Conference Room
 - **What do we cover**: How to get started with scRNAseq, provide a broad look at the different analysis available, what is the intuition behind these analyses and how to interpret with their strengths & limitations. 
 
-## [A Beginner's Guide to Analyzing scRNA-seq]()
+## [A Beginner's Guide to Analyzing scRNA-seq](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/index_bgas.html)
 
 - **When**: June 4th & 11th 2024 1-5pm.-
 - **Where**: Karp 11 Conference Room
