@@ -452,7 +452,9 @@ process_batch <- function(batch) {
 processed_doublets <- lapply(exp_btch, process_batch)
 
 ```
+
 TKTK Save doublet foubnd step so we don't run it in the workshop.
+
 ```{r}
 # Add doublet information to the main seurat object
 test <- bind_rows(processed_doublets)
@@ -474,6 +476,16 @@ se <- AddMetaData(
   )
 ```
 
+```{r}
+# Save Doublet information in Seurat object
+saveRDS(se, '../data/workshop-data-withDFinfo.rds')
+```
+
+### Load Pre-Run DF object
+```{r}
+se <- readRDS('../data/workshop-data-withDFinfo.rds')
+```
+
 ### Perform Preprocessing
 
 ```{r}
@@ -489,6 +501,8 @@ se <- se %>%
 ```
 
 Run DoubletFinder based on batch where batch is the 10X run because we're concerned about the technical error that occurs only in the 10X library preparation.
+
+
 
 ```{r, fig.height=5}
 # Plot UMAP colored by batch
@@ -521,6 +535,7 @@ ggplot(se@meta.data, aes(x = pANN, fill = Celltype)) +
   facet_wrap(~Celltype) +
   theme_classic()
 ```
+
 While both Uncategorized Celltpyes are said (by the authors) to be doublets, the distribution of pANN values of Uncategorized1 does not necessarily reflect high pANN values but the distribution of Uncategorized2 does.
 
 ## Filter out cells
@@ -534,10 +549,19 @@ Filter out our data by 4 criteria.
 3.  Any cell with more than 15% mitochondrial genes
 
 ```{r, fig.height=6, fig.width=12}
-se <- subset(
+good <- subset(
   se, 
   subset = nFeature_RNA > 200 & nCount_RNA > 500 & perc.mt < 15)
+# label cells in se if they're in good as "good" and those not in good as "bad"
+se@meta.data$quality <- ifelse(rownames(good) %in% rownames(se), "good quality", "bad quality")
+```
 
+```{r}
+DimPlot(se, reduction = "umap", group.by = "quality") +
+  labs(title = "UMAP Plot Colored by Cell Quality")
+```
+
+```{r}
 s1 <- ggplot(se@meta.data, aes(x = pANN)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
     theme_classic()
@@ -556,7 +580,7 @@ We will keep the potential doublets in the data because they may be biologically
 ## Resave Seurat object
 
 ```{r}
-saveRDS(se, '../data/workshop-data-withDFinfo.rds')
+# saveRDS(se, '../data/workshop-data-withDFinfo.rds')
 ```
 
 ## Session Info
