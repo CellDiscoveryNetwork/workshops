@@ -482,6 +482,7 @@ saveRDS(se, '../data/workshop-data-withDFinfo.rds')
 ```
 
 ### Load Pre-Run DF object
+
 ```{r}
 se <- readRDS('../data/workshop-data-withDFinfo.rds')
 ```
@@ -501,8 +502,6 @@ se <- se %>%
 ```
 
 Run DoubletFinder based on batch where batch is the 10X run because we're concerned about the technical error that occurs only in the 10X library preparation.
-
-
 
 ```{r, fig.height=5}
 # Plot UMAP colored by batch
@@ -553,34 +552,34 @@ good <- subset(
   se, 
   subset = nFeature_RNA > 200 & nCount_RNA > 500 & perc.mt < 15)
 # label cells in se if they're in good as "good" and those not in good as "bad"
-se@meta.data$quality <- ifelse(rownames(good) %in% rownames(se), "good quality", "bad quality")
+se@meta.data <- se@meta.data %>%
+  mutate(quality = ifelse(colnames(se) %in% colnames(good), "good quality", "bad quality"))
 ```
 
-```{r}
-DimPlot(se, reduction = "umap", group.by = "quality") +
-  labs(title = "UMAP Plot Colored by Cell Quality")
-```
 
 ```{r}
 s1 <- ggplot(se@meta.data, aes(x = pANN)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
     theme_classic()
+s1
+```
+
+```{r, fig.height=6, fig.width=12}
 s2 <- FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN") +
   scale_fill_gradient(limits = c(0, 1))
-s1 | s2
+# Plot UMAP of good quality cells
+s3 <- DimPlot(se, reduction = "umap", group.by = "quality") +
+  labs(title = "UMAP Plot Colored by Cell Quality")
+s2 | s3
 ```
 
 We will keep the potential doublets in the data because they may be biologically relevant.
 
-```{r}
-
-```
-
 ## Resave Seurat object
 
 ```{r}
-# saveRDS(se, '../data/workshop-data-withDFinfo.rds')
+saveRDS(good, '../data/workshop-data-withQuality.rds')
 ```
 
 ## Session Info

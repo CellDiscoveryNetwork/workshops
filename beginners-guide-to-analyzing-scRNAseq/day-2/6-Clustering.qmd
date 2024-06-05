@@ -9,6 +9,8 @@ author: Rose Hedderman
 
 ## Introduction
 
+This notebook picks up on the cell filtering from the QC notebook and walks through the clustering steps in scRNA-seq analysis. Below, we cover essential Seurat functions as well as clustering metrics that give quantitative guidelines to how well the clustering process is performing.
+
 ### Key Takeaways
 
 -   one
@@ -63,7 +65,7 @@ Load Data
 
 ```{r}
 # Load the Seurat object with doublet and batch information
-se <- readRDS('../data/workshop-data-withDFinfo.rds')
+se <- readRDS('../data/workshop-data-withQuality.rds')
 se 
 
 # Set color palette
@@ -118,7 +120,11 @@ se_1 <- se_1 %>%
     RunPCA(verbose = FALSE) 
 ```
 
-Plots: - PCA.= scree plot or biplot - cluster visualization or cluster heatmaps
+Plots:
+
+-   PCA = scree plot or biplot
+
+-   cluster visualization or cluster heatmaps
 
 #### PCA
 
