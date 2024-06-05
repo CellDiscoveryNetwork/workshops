@@ -257,8 +257,9 @@ donor_pca <- DimPlot(
         group.by = 'donor_id'
         ) + scale_color_manual(values = donor_pal)
 
-# donor_pca
+donor_pca
 ```
+
 Based on our DimPlot of the first 2 PCs, we can see the major axes of variation in the data are 
 
 - PC1: myeloid (negative) vs. lymphoid (positive)
@@ -312,14 +313,13 @@ By default, the `ElbowPlot` shows the standard deviation of each PC. The standar
 ElbowPlot(se, ndims = 50)
 
 varExplained <- data.frame(
-    varExplained = se@reductions$pca@stdev^(2)/se@reductions$pca@misc$total.variance,
+    varExplained = se@reductions$pca@stdev^(2) / se@reductions$pca@misc$total.variance,
     PC = seq(1:length(se@reductions$pca@stdev))
     )
 
-ggplot(
-        varExplained, 
-        aes(x = PC, 
-            y = varExplained)) + 
+ggplot(varExplained, 
+       aes(x = PC, 
+           y = varExplained)) + 
     geom_point() +
     theme_classic() +
     ylab('percent variance explained per PC')
@@ -334,10 +334,12 @@ In standard data science workflows, PCs are included until some threshold of var
 
 And, keep in mind this total variance is calculated based only on the highly variable genes we chose.
 ```{r}
-varExplained <- data.frame(varExplained = se@reductions$pca@stdev^(2)/se@reductions$pca@misc$total.variance,
-PC = seq(1:length(se@reductions$pca@stdev)), data = 'subsampled real data')
+varExplained <- data.frame(
+    varExplained = se@reductions$pca@stdev^(2) / se@reductions$pca@misc$total.variance,
+    PC = seq(1:length(se@reductions$pca@stdev)),
+    data = 'subsampled real data')
 
-varExplained$cumulativeSum = cumsum(varExplained$varExplained)
+varExplained$cumulativeSum <- cumsum(varExplained$varExplained)
 
 ggplot(varExplained, 
        aes(x = PC, y = cumulativeSum, color = data)) +
@@ -354,15 +356,16 @@ For those curious about just how many PC's we would need to reach that threshold
 
 ```{r}
 # select a random sample of 1000 cells
-seSub <- subset(se,
-                downsample = 1000) %>%
+seSub <- subset(se, downsample = 1000) %>%
         NormalizeData() %>%
         FindVariableFeatures() %>%
         ScaleData() %>%
         RunPCA(npcs = 999)
 
-varExplainedsub <- data.frame(varExplained = seSub@reductions$pca@stdev^(2)/seSub@reductions$pca@misc$total.variance,
-PC = seq(1:length(seSub@reductions$pca@stdev)), data = 'subsampled real data')
+varExplainedsub <- data.frame(
+    varExplained = seSub@reductions$pca@stdev^(2) / seSub@reductions$pca@misc$total.variance,
+    PC = seq(1:length(seSub@reductions$pca@stdev)),
+    data = 'subsampled real data')
 
 varExplainedsub$cumulativeSum = cumsum(varExplainedsub$varExplained)
 
@@ -379,6 +382,7 @@ ggplot(varExplainedsub,
 
 
 ```{r, eval = FALSE, include = FALSE}
+# Draft chunk - not used in the end
 noise_level <- 0.3  # Adjust this to control the amount of noise
 real_data <- seSub[['RNA']]$counts
 
@@ -453,7 +457,7 @@ se <- FindNeighbors(
             k.param = 30
 )
 # Now we can print which cells are closest to one another as a matrix
-se@neighbors$RNA.nn@nn.idx[1:10,1:10]
+se@neighbors$RNA.nn@nn.idx[1:10, 1:10]
 ```
 The nearest neighbors graphs are stored in the neighbors slot of the seurat object, and are stored as two matrices:
     - ```se@neighbors$RNA.nn@nn.dist```; the matrix of distances between each cell (rows) and its closest k.param neighbors (columns)
@@ -473,18 +477,20 @@ You can imagine that if we try to display 30 lines from each cell connecting to 
 
 For educational purposes let's visualize this graph on a subset of 1000 cells:
 ```{r}
-seSub <- subset(se,
-                downsample = 1000) %>%
+seSub <- subset(se, downsample = 1000) %>%
         NormalizeData() %>%
         FindVariableFeatures() %>%
         ScaleData() %>%
         RunPCA(npcs = 30)
 
-seSub <- FindNeighbors(seSub,
-                k.param = 30,
-                return.neighbor = TRUE
+seSub <- FindNeighbors(
+    seSub,
+    k.param = 30,
+    return.neighbor = TRUE
               ) 
 ```
+
+Here we write a function that takes in a `Seurat` object with a KNN-graph in ```se@neighbors$RNA.nn@nn.idx``` and returns a plot with the edges between cells.
 ```{r, include = FALSE, echo = FALSE}
 process_and_graph_connectivity <- function(sr) {
     all_cell_names <- colnames(sr)
@@ -511,7 +517,7 @@ process_and_graph_connectivity <- function(sr) {
         geom_edge_link(aes(alpha = 0.5), show.legend = FALSE) +
         geom_point(aes(x = PC_1, y = PC_2), color = "blue", size = 3) +
         theme_minimal() +
-        labs(title = "Cell Connectivity in PCA Space", x = "PC_1", y = "P_C2")
+        labs(title = "Cell Connectivity in PCA Space", x = "PC_1", y = "PC_2")
 
     return(g)
 }
@@ -519,7 +525,8 @@ process_and_graph_connectivity <- function(sr) {
 
 We've included a function here to graph the kNN graph
 ```{r}
-process_and_graph_connectivity(seSub)
+process_and_graph_connectivity(seSub) + 
+    labs(title = "K=30 Cell Connectivity in PCA Space", x = "PC_1", y = "PC_2")
 ```
 
 We can see here that most cells are connected to those in their immediate vicinity, but cells that are more extreme along the x and y axes are also connected to more distant cells. If we decrease our k.param, this will be less pronounced.
@@ -527,32 +534,44 @@ We can see here that most cells are connected to those in their immediate vicini
 These nearest neighbors are based on the whole PCA latent space - the distances are decided based on the "euclidean distance" between cells in ALL of the dimensions of the PCA. 
 
 ```{r}
-seSub <- FindNeighbors(seSub,
-                k.param = 5,
-                return.neighbor = TRUE
-              ) 
+seSub <- FindNeighbors(
+    seSub,
+    k.param = 5,
+    return.neighbor = TRUE
+    ) 
 
-process_and_graph_connectivity(seSub)
+process_and_graph_connectivity(seSub) + 
+    labs(title = "K=5 Cell Connectivity in PCA Space", x = "PC_1", y = "PC_2")
 ```
 
-Clusters are then calculated based on the shared nearest-neighbor graph. The shared-nearest neighbor graph is a graph where the distances are replaced with the number of shared nearest neighbors between each cell and its nearest neighbors. So the  ```se@neighbors$RNA.snn@nn.idx``` matrix is the same, showing which cells are the nearest neighbors, but the ```se@neighbors$RNA.snn@nn.dist`` would be an integer number, the number of neighbors that are the same between each pair of cells.
+Clusters are then calculated based on the shared nearest-neighbor SNN graph. The shared-nearest neighbor graph is a graph where the distances are replaced with the number of shared nearest neighbors between each cell and its nearest neighbors. So the  ```se@neighbors$RNA.snn@nn.idx``` matrix is the same, showing which cells are the nearest neighbors, but the ```se@neighbors$RNA.snn@nn.dist`` would be an integer number, the number of neighbors that are the same between each pair of cells. The SNN graph is used to make the clustering more robust to outliers.
 
 Let's see what happens to clusters when we modulate our k.param.
 ```{r, fig.width = 10, fig.height = 5}
-seSub <- FindNeighbors(seSub,
-                k.param = 20
-              ) 
+seSub <- FindNeighbors(
+    seSub,
+    k.param = 20
+    ) 
 
 seSub <- FindClusters(seSub)
-knn20 <- DimPlot(seSub, group.by= 'seurat_clusters', reduction='pca') + ggtitle('k.param = 20')
+knn20 <- DimPlot(
+    seSub,
+    group.by = 'seurat_clusters',
+    reduction = 'pca') +
+    ggtitle('k.param = 20')
 
-seSub <- FindNeighbors(seSub,
-                k.param = 5
-              ) 
+seSub <- FindNeighbors(
+    seSub,
+    k.param = 5
+    ) 
 
 seSub <- FindClusters(seSub)
 
-knn5 <- DimPlot(seSub, group.by= 'seurat_clusters', reduction='pca') + ggtitle('k.param = 5')
+knn5 <- DimPlot(
+    seSub, 
+    group.by = 'seurat_clusters',
+    reduction = 'pca') +
+    ggtitle('k.param = 5')
 
 (knn5 + knn20)
 ```
@@ -560,12 +579,24 @@ knn5 <- DimPlot(seSub, group.by= 'seurat_clusters', reduction='pca') + ggtitle('
 As we can see, with a higher k.param, there are fewer clusters. This is because the neighborhoods are smaller when we ask for fewer neighbors! However, in random sub-samples of the data, these clusters will be less stable because the neighbors depend on who is kept in. With a smaller k, we might get spurious clusters. Therefore, choosing k is a balance of stability and resolution on rare cell types.
 
 ```{r, fig.width = 14, fig.height = 12}
+celltype_pca <- DimPlot(
+        seSub,
+        reduction = "pca",
+        group.by = 'Celltype'
+        ) 
+
+donor_pca <- DimPlot(
+        seSub,
+        reduction = "pca",
+        group.by = 'donor_id'
+        ) + scale_color_manual(values = donor_pal)
+
 (knn5 + knn20) / (celltype_pca + donor_pca)
 ```
 
 Even with a smaller k, we are finding multiple clusters within the authors' overarching "classical monocyte" label. However, we see a reasonable distribution of donors across them.
 
-If we create a stacked barplot, we can see the differences between our clusters and the author labels
+If we make an Alluvial plot, we can see the differences between our clusters and the author labels
 
 ```{r}
 se <- FindNeighbors(se, k.param =5)
@@ -591,10 +622,12 @@ Our low resolution clustering has captured the major cell types: 0 appears to be
 
 I like to immediately plot the distribution of samples per celltype to make sure we are getting useful clusters in our data. 
 ```{r}
-se@meta.data %>% count(donor_id, seurat_clusters) %>% 
-    group_by(seurat_clusters) %>% mutate(composition = n/sum(n)) %>%
+se@meta.data %>%
+    count(donor_id, seurat_clusters) %>% 
+    group_by(seurat_clusters) %>%
+    mutate(composition = n/sum(n)) %>%
     ggplot(aes(x = seurat_clusters, y = composition, fill = donor_id)) + 
-        geom_bar(position='stack', stat = 'identity') + 
+        geom_bar(position = 'stack', stat = 'identity') + 
         scale_fill_manual(values = donor_pal)
 ```
 
@@ -625,7 +658,10 @@ plot_batch_effect_heatmap <- function(
     metadata[categorical_cols] <- lapply(metadata[categorical_cols], as.factor)
 
     #1hot without removing redundant dummies
-    metadata_encoded <- fastDummies::dummy_cols(metadata, remove_first_dummy = FALSE, remove_selected_columns = TRUE)
+    metadata_encoded <- fastDummies::dummy_cols(
+        metadata,
+        remove_first_dummy = FALSE,
+        remove_selected_columns = TRUE)
 
     combined_data <- cbind(metadata_encoded, pca_data) # combine metadata and PCA data
     
@@ -648,7 +684,8 @@ plot_batch_effect_heatmap <- function(
 
 plot_batch_effect_heatmap(
     se, 
-    metadata_columns_to_include = c('Age', 'sex', "donor_id", "Number of UMI", "disease", "Severity"))
+    metadata_columns_to_include = c('Age', 'sex', "donor_id", "Number of UMI",
+                                    "disease", "Severity"))
 
 ```
 
@@ -700,10 +737,12 @@ Typically we would next want to check the effects of this change on the correlat
 We can do this by plotting again the correlation of metadata covariates
 
 ```{r, fig.width = 14, fig.height = 14}
-plot_batch_effect_heatmap(se, 
-                        latent_space = 'harmony',
-                        metadata_columns_to_include = c('Age', 'sex', "donor_id", "Number of UMI", "disease", "Severity"),
-                        plot_title = "Correlation Heatmap of Metadata and Harmony latent variables")
+plot_batch_effect_heatmap(
+    se, 
+    latent_space = 'harmony',
+    metadata_columns_to_include = c('Age', 'sex', "donor_id", "Number of UMI",
+                                    "disease", "Severity"),
+    plot_title = "Correlation Heatmap of Metadata and Harmony latent variables")
 ```
 
 ## Session Info
