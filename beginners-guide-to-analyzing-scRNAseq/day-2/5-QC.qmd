@@ -556,7 +556,6 @@ se@meta.data <- se@meta.data %>%
   mutate(quality = ifelse(colnames(se) %in% colnames(good), "good quality", "bad quality"))
 ```
 
-
 ```{r}
 s1 <- ggplot(se@meta.data, aes(x = pANN)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +

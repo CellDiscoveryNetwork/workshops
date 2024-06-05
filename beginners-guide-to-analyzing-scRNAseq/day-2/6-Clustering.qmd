@@ -9,7 +9,7 @@ author: Rose Hedderman
 
 ## Introduction
 
-This notebook picks up on the cell filtering from the QC notebook and walks through the clustering steps in scRNA-seq analysis. Below, we cover essential Seurat functions as well as clustering metrics that give quantitative guidelines to how well the clustering process is performing.
+This notebook picks up on the cell filtering from the QC notebook and circles back to some of the PCA content from notebook 4. Below, we cover essential Seurat functions as well as clustering metrics that give quantitative guidelines to how well the clustering process is performing.
 
 ### Key Takeaways
 
@@ -73,6 +73,16 @@ pal <- paletteMartin
 names(pal) <- sort(unique(se$Celltype))
 ```
 
+We left off last session, filtering out the poor quality data without regard for its distribution. Last week, we left off learning how principle components are calculated, what a latent space is, and defining a kNN (k-nearest neighbors) graph.
+
+To review those:
+
+**PCA** - A dimensionality reduction technique that reduces the number of dimensions in a dataset while retaining as much variance as possible. The first principal component accounts for the most variance in the data, and each subsequent component accounts for less variance.
+
+**Latent Space** - The latent space is the low-dimensional representation of the data that captures the most important features.
+
+**kNN Graph** - A graph that represents the relationships between cells based on their gene expression profiles. Each cell is connected to its k (1, 20, 100) nearest neighbors in the graph.
+
 ## Preprocessing
 
 ```{r}
@@ -128,15 +138,28 @@ Plots:
 
 #### PCA
 
-```{r}
-se_1@reductions$pca
+```{r, fig.width=8, fig.height=8}
+# DimPlot allows us to color the latent space based on categorical values per cell, like cell type or which sample the cell is from
+celltype_pca <- DimPlot(
+        se_1,
+        reduction = "pca",
+        group.by = 'Celltype'
+        ) 
 
-# Plot PC Heatmap
-PCHeatmap(se_1, dims = 1:2)
-# or plot the difference in genes in PC1, PC2
+celltype_pca
 ```
 
-FindNeighbors(): - input: scaled cell by gene matrix - function computes pairwaise distances between cells based on their gene expression common ex: euclidean distance, manhattan distance,Pearson correlation distance, cosine similarity. choice matters. - output used as input for FindClusters() esp with louvain clustering. - This function calculates the K-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the k.param parameter in the FindNeighbors function. The default value is 30. The function also calculates the distance between each cell and its neighbors. notes: *FindNeighbors() is a function that is used to find the nearest neighbors of your single cell data point within a dataset. It works by calculating the neighborhood overlap (Jaccard index) between every cell and its k. param nearest neighbors. It's often employed in various applications such as anomaly detection, and dimensionality reduction. The concept is that given a data point, you want to identify the closest data points to it based on some similarity metric, such as Euclidean distance or cosine similarity. This helps to identify similar points in the dataset, which can be useful for making predictions or understanding the distribution of the data.*
+FindNeighbors(): -
+
+-   input: scaled cell by gene matrix
+
+-   function computes pairwaise distances between cells based on their gene expression common ex: euclidean distance, manhattan distance, Pearson correlation distance, cosine similarity. choice matters.
+
+-   output used as input for FindClusters() esp with louvain clustering.
+
+-   This function calculates the K-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the k.param parameter in the FindNeighbors function. The default value is 30. The function also calculates the distance between each cell and its neighbors.
+
+    notes: *FindNeighbors() is a function that is used to find the nearest neighbors of your single cell data point within a dataset. It works by calculating the neighborhood overlap (Jaccard index) between every cell and its k. param nearest neighbors. It's often employed in various applications such as anomaly detection, and dimensionality reduction. The concept is that given a data point, you want to identify the closest data points to it based on some similarity metric, such as Euclidean distance or cosine similarity. This helps to identify similar points in the dataset, which can be useful for making predictions or understanding the distribution of the data.*
 
 #### FindNeighbors()
 
@@ -272,7 +295,9 @@ lollipop <- ggplot(clusterMetrics, aes(x = seurat_clusters, y = n)) +
 lollipop
 ```
 
-2 - Which samples are in each cluster \# Plot sample distribution per cluster
+2 - Which samples are in each cluster
+
+\# Plot sample distribution per cluster
 
 ```{r}
 # Load necessary packages
