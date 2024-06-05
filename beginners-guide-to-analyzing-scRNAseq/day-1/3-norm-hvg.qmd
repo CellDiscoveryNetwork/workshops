@@ -31,7 +31,7 @@ In this notebook we are going to look at two big concepts: 1) Why we need to nor
 2) Feature selection is necessary to reduce the dimensionality of the dataset while preserving as much biological information as possible. Highly variable genes are selected following the assumption that genes that vary throughout the data will represent different cell types. Genes that have a homogeneous expression are less interesting.
 
 
-### Glossay
+### Glossary
 
 - **Unique molecular identifier (UMI)**: unique molecular barcode added to each transcript before PCR amplification to correct for biases during that process.
 
@@ -174,7 +174,7 @@ We can see how there is widespread variability in the library size across cells 
 
 Basically what [Seurat](https://github.com/satijalab/seurat/blob/1549dcb3075eaeac01c925c4b4bb73c73450fc50/R/preprocessing5.R#L265) is doing under the hood is:
 ```{r, eval = FALSE}
-log1p(x = x / sum(x) * scale.factor)
+log1p(x = xi / sum(x) * scale.factor)
 ```
 
 Three things are happening:
@@ -207,7 +207,8 @@ ggplot(mapping = aes(x = raw_mn, y = raw_sd)) +
 
 As we can observe, in general there is this relationship between the mean and the sd of the genes. If we normalize the data we can see how this relationship is greatly mitigated.
 
-```{r fig.width=6, fig.height=6}
+```{r fig.width=9, fig.height=6}
+se@assays$RNA$data
 se <- NormalizeData(se, normalization.method = "LogNormalize", scale.factor = 1e4)
 
 se@assays$RNA$data[1:15, 1:15]
@@ -262,6 +263,14 @@ plot2 +
 Selecting HVG is a key step in sc-RNAseq analysis since since it ultimately defines the biological space we will be moving in. So if we have a highly heterogeneous datasets with immune, epithelial, and stromal cells the HVG will capture high-level genes that will separate those major populations. Once we have those annotated, we will proceed to subsetting our data to a cell type of interest and **RECOMPUTING** HVG so that they are updated and represent the biological variability in this new dataset! 
 
 Selecting HVG is probably the most important step in the analysis as it subset the genes to be used for downstream processing to compute PCA, knn-graph, clustering... Make sure this concept is clear before you move on!
+
+## Save Data
+```{r}
+saveRDS(object = se, file = "../data/se_notebook3.rds")
+saveRDS(object = VariableFeatures(se), file = "../data/lvl1-hvg.rds")
+
+hvg <- readRDS(file = "../data/lvl1-hvg.rds")
+```
 
 
 ## Session Info
