@@ -20,11 +20,11 @@ editor_options:
 
 -   **Where**: Karp 11 Conference Room
 -   **Course Material**:
-    -   [Introduction to R/Rstudio/Seurat](https://github.com/CellDiscoveryNetwork/workshops/tree/main/beginners-guide-to-analyzing-scRNAseq/prework)
+    -   [Introduction to R/Rstudio/Seurat](https://github.com/CellDiscoveryNetwork/workshops/tree/main/beginners-guide-to-analyzing-scRNAseq/prework) [[Recording](https://drive.google.com/file/d/18x8dqtVaV5gIRz5ZTQkkC296Wj20PARJ/view?usp=sharing)]
         -   How to navigate Rstudio
         -   Fundamentals and data wrangling in R
         -   Working with a Seurat object
-    -   [Basic sc-RNAseq workflow](https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-1/The%20Basic%20scRNAseq%20Analysis%20Workflow.pdf)
+    -   [Basic sc-RNAseq workflow](https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-1/The%20Basic%20scRNAseq%20Analysis%20Workflow.pdf) [[Recording](https://drive.google.com/file/d/1cVlDZP6tCwwmar5BC1PXwhZt33f9AbxX/view?usp=drive_link)]
         -   Main steps for scRNAseq workflow
         -   Intuition behind each step
     -   [Normalization & HVG selection](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-1/3-norm-hvg.html) [[Recording](https://drive.google.com/file/d/14bm8KoiPGc2rJzPV88dHDjiDgEJz6QTO/view?usp=sharing)]
