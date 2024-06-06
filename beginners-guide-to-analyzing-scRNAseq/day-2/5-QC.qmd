@@ -378,9 +378,14 @@ exp_btch <- unique(se@meta.data$'Experimental batch')
 ```{r}
 # Run doubletFinder
 process_batch <- function(batch) {
+  print(batch)
+  
+  # 0 - correct for one of the batches
+
+
   # 1 - Subset Seurat object by batch
   batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
-  
+
   # 2 - Process count data of that subseted Seurat object
   batch_seurat_object <- batch_seurat_object %>%
     NormalizeData() %>%
@@ -388,35 +393,38 @@ process_batch <- function(batch) {
     ScaleData() %>%
     RunPCA() %>%
     FindNeighbors() %>%
-    FindClusters() 
-  
+    FindClusters()
+
   # 3 - Run pK identification with NO ground truth
-  
+
   ## paramSweep: systematically explore a range of parameter values to determine the most appropriate settings for doublet detection
   ## summarizeSweep: summarizes results of paramSweep() function
   sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
   sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
   bcmvn_sample <- find.pK(sweep.stats_sample)
-  
+
   # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
   # ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
   #   geom_point() +
   #   geom_line()
-  
+
   # 4 - Calculate pK where pK is the proportion of cells that are doublets.
   pK <- bcmvn_sample %>%
     filter(BCmetric == max(BCmetric)) %>%
     select(pK)
+  if (batch == 2) {
+    pK[[1]] <- 0.2
+  }
   pK <- as.numeric(as.character(pK[[1]]))
-  
+
   # 5 - nExp defines the expected pANN threshold used to make final doublet-decisions
 
   annotations <- batch_seurat_object@meta.data$seurat_clusters
   # annotations <- Idents(batch_seurat_object)
-  homotypic.prop <- modelHomotypic(annotations) 
+  homotypic.prop <- modelHomotypic(annotations)
   nExp_poi <- round(0.075*nrow(se@meta.data))  # Assuming 7.5% doublet formation rate
   nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
-  
+
   # 6 - Run doubletFinder
   batch_seurat_object <- doubletFinder(
     batch_seurat_object,
@@ -426,11 +434,11 @@ process_batch <- function(batch) {
     nExp = nExp_poi.adj,
     reuse.pANN = FALSE, # If TRUE, pANN will be reused from a previous run
     sct = FALSE) # If TRUE, sctransform will be used for preprocessing
-  
+
   # 7 - Format doublet information for return dataframe
-  pANN <- colnames(batch_seurat_object@meta.data) %>% 
+  pANN <- colnames(batch_seurat_object@meta.data) %>%
     keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data))) # pANN_0.25_0.3_1000
-  DF_class <- colnames(batch_seurat_object@meta.data) %>% 
+  DF_class <- colnames(batch_seurat_object@meta.data) %>%
     keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data))) # DF.classifications_0.25_0.3_1000
   ## Extract values from pANN variable name
   params <- gsub("^pANN_", "", pANN)  # Remove "pANN_"
@@ -438,19 +446,19 @@ process_batch <- function(batch) {
   pN <- params[1]  # Extract "0.1"
   pK <- params[2]  # Extract "0.1"
   doublet_run <- params[3]  # Extract "1000"
-  
+
   ## Create new columns "pN", "pK", and "doublet_run"
   colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == pANN] <- "pANN"
   colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == DF_class] <- "DF_class"
   batch_seurat_object@meta.data$pN <- pN
   batch_seurat_object@meta.data$pK <- pK
   batch_seurat_object@meta.data$doublet_run <- doublet_run
-  
+
   # 8 - Return DF of doublet information here
   df <- data.frame(
     Barcode = colnames(batch_seurat_object),
-    batch = batch_seurat_object@meta.data$'Experimental batch', 
-    pANN = batch_seurat_object@meta.data$'pANN', 
+    batch = batch_seurat_object@meta.data$'Experimental batch',
+    pANN = batch_seurat_object@meta.data$'pANN',
     DF_class = batch_seurat_object@meta.data$'DF_class',
     doublet_run = batch_seurat_object@meta.data$doublet_run,
     pK = batch_seurat_object@meta.data$pK,
@@ -458,105 +466,151 @@ process_batch <- function(batch) {
     )
   rownames(df) <- df$Barcode
   return(df)
-  
+
 }
 
-# processed_doublets <- lapply(exp_btch, process_batch)
+processed_doublets <- lapply(exp_btch, process_batch)
+
+# code for if the first index of exp_btch = 1, then run the first batch
+# class(exp_btch[1])
+# if the first index of exp_btch = 2, then run the second batch
+# if the first index of exp_btch = 3, then run the third batch
+# if the first index of exp_btch = 4, then run the fourth batch
+
 
 ```
 
 ```{r}
-# Run doubletFinder
-
-batch <- 1
-
-# 1 - Subset Seurat object by batch
-batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
-
-# 2 - Process count data of that subseted Seurat object
-batch_seurat_object <- batch_seurat_object %>%
-  NormalizeData() %>%
-  FindVariableFeatures() %>%
-  ScaleData() %>%
-  RunPCA() %>%
-  FindNeighbors() %>%
-  FindClusters()
-
-# 3 - Run pK identification with NO ground truth
-
-## paramSweep: systematically explore a range of parameter values to determine the most appropriate settings for doublet detection
-## summarizeSweep: summarizes results of paramSweep() function
-sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
-sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
-bcmvn_sample <- find.pK(sweep.stats_sample)
-
-# Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-# ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
+# # Run doubletFinder
+# 
+# batch <- 4
+# 
+# # 1 - Subset Seurat object by batch
+# batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
+# 
+# # 2 - Process count data of that subseted Seurat object
+# batch_seurat_object <- batch_seurat_object %>%
+#   NormalizeData() %>%
+#   FindVariableFeatures() %>%
+#   ScaleData() %>%
+#   RunPCA() %>%
+#   FindNeighbors() %>%
+#   FindClusters()
+# 
+# # 3 - Run pK identification with NO ground truth
+# 
+# ## paramSweep: systematically explore a range of parameter values to determine the most appropriate settings for doublet detection
+# ## summarizeSweep: summarizes results of paramSweep() function
+# sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
+# sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
+# bcmvn_sample_4 <- find.pK(sweep.stats_sample)
+# 
+# # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
+# ggplot(bcmvn_sample_4, aes(pK, BCmetric))+
 #   geom_point() +
 #   geom_line()
-
-# 4 - Calculate pK where pK is the proportion of cells that are doublets.
-pK <- bcmvn_sample %>%
-  filter(BCmetric == max(BCmetric)) %>%
-  select(pK)
-pK <- as.numeric(as.character(pK[[1]]))
-
-# 5 - nExp defines the expected pANN threshold used to make final doublet-decisions
-
-annotations <- batch_seurat_object@meta.data$seurat_clusters
-# annotations <- Idents(batch_seurat_object)
-homotypic.prop <- modelHomotypic(annotations)
-nExp_poi <- round(0.075*nrow(se@meta.data))  # Assuming 7.5% doublet formation rate
-nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
-
-# 6 - Run doubletFinder
-batch_seurat_object <- doubletFinder(
-  batch_seurat_object,
-  PCs = 1:20,
-  pN = 0.25,
-  pK = pK,
-  nExp = nExp_poi.adj,
-  reuse.pANN = FALSE, # If TRUE, pANN will be reused from a previous run
-  sct = FALSE) # If TRUE, sctransform will be used for preprocessing
-
-# 7 - Format doublet information for return dataframe
-pANN <- colnames(batch_seurat_object@meta.data) %>%
-  keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data))) # pANN_0.25_0.3_1000
-DF_class <- colnames(batch_seurat_object@meta.data) %>%
-  keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data))) # DF.classifications_0.25_0.3_1000
-## Extract values from pANN variable name
-params <- gsub("^pANN_", "", pANN)  # Remove "pANN_"
-params <- strsplit(params, "_")[[1]]  # Split by "_"
-pN <- params[1]  # Extract "0.1"
-pK <- params[2]  # Extract "0.1"
-doublet_run <- params[3]  # Extract "1000"
-
-## Create new columns "pN", "pK", and "doublet_run"
-colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == pANN] <- "pANN"
-colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == DF_class] <- "DF_class"
-batch_seurat_object@meta.data$pN <- pN
-batch_seurat_object@meta.data$pK <- pK
-batch_seurat_object@meta.data$doublet_run <- doublet_run
-
-# 8 - Return DF of doublet information here
-df <- data.frame(
-  Barcode = colnames(batch_seurat_object),
-  batch = batch_seurat_object@meta.data$'Experimental batch',
-  pANN = batch_seurat_object@meta.data$'pANN',
-  DF_class = batch_seurat_object@meta.data$'DF_class',
-  doublet_run = batch_seurat_object@meta.data$doublet_run,
-  pK = batch_seurat_object@meta.data$pK,
-  pN = batch_seurat_object@meta.data$pN
-  )
-rownames(df) <- df$Barcodes
+# 
+# # 4 - Calculate pK where pK is the proportion of cells that are doublets.
+# pK_4 <- bcmvn_sample_4 %>%
+#   filter(BCmetric == max(BCmetric)) %>%
+#   select(pK)
+# pK_4 <- as.numeric(as.character(pK[[1]]))
+# 
+# # 5 - nExp defines the expected pANN threshold used to make final doublet-decisions
+# 
+# annotations <- batch_seurat_object@meta.data$seurat_clusters
+# # annotations <- Idents(batch_seurat_object)
+# homotypic.prop <- modelHomotypic(annotations)
+# nExp_poi <- round(0.075*nrow(se@meta.data))  # Assuming 7.5% doublet formation rate
+# nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
+# 
+# # 6 - Run doubletFinder
+# batch_seurat_object <- doubletFinder(
+#   batch_seurat_object,
+#   PCs = 1:20,
+#   pN = 0.25,
+#   pK = pK,
+#   nExp = nExp_poi.adj,
+#   reuse.pANN = FALSE, # If TRUE, pANN will be reused from a previous run
+#   sct = FALSE) # If TRUE, sctransform will be used for preprocessing
+# 
+# # 7 - Format doublet information for return dataframe
+# pANN <- colnames(batch_seurat_object@meta.data) %>%
+#   keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data))) # pANN_0.25_0.3_1000
+# DF_class <- colnames(batch_seurat_object@meta.data) %>%
+#   keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data))) # DF.classifications_0.25_0.3_1000
+# ## Extract values from pANN variable name
+# params <- gsub("^pANN_", "", pANN)  # Remove "pANN_"
+# params <- strsplit(params, "_")[[1]]  # Split by "_"
+# pN <- params[1]  # Extract "0.1"
+# pK <- params[2]  # Extract "0.1"
+# doublet_run <- params[3]  # Extract "1000"
+# 
+# ## Create new columns "pN", "pK", and "doublet_run"
+# colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == pANN] <- "pANN"
+# colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == DF_class] <- "DF_class"
+# batch_seurat_object@meta.data$pN <- pN
+# batch_seurat_object@meta.data$pK <- pK
+# batch_seurat_object@meta.data$doublet_run <- doublet_run
+# 
+# # 8 - Return DF of doublet information here
+# df <- data.frame(
+#   Barcode = colnames(batch_seurat_object),
+#   batch = batch_seurat_object@meta.data$'Experimental batch',
+#   pANN = batch_seurat_object@meta.data$'pANN',
+#   DF_class = batch_seurat_object@meta.data$'DF_class',
+#   doublet_run = batch_seurat_object@meta.data$doublet_run,
+#   pK = batch_seurat_object@meta.data$pK,
+#   pN = batch_seurat_object@meta.data$pN
+#   )
+# rownames(df) <- df$Barcodes
 ```
 
 ```{r}
-# testing = 
-one <- process_batch(exp_btch[1])
-two <- process_batch(exp_btch[2])
-three <- process_batch(exp_btch[3])
-four <- process_batch(exp_btch[4])
+# Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
+# p1 <- ggplot(bcmvn_sample_1, aes(pK, BCmetric))+
+#   geom_point() +
+#   geom_line()
+# p2 <- ggplot(bcmvn_sample_2, aes(pK, BCmetric))+
+#   geom_point() +
+#   geom_line()
+# p3 <- ggplot(bcmvn_sample_3, aes(pK, BCmetric))+
+#   geom_point() +
+#   geom_line()
+# p4 <- ggplot(bcmvn_sample_4, aes(pK, BCmetric))+
+#   geom_point() +
+#   geom_line()
+# 
+# p1 | p2 | p3 | p4
+```
+
+```{r}
+```
+
+```{r}
+# 
+# # testing = 
+# one <- process_batch(exp_btch[1])
+# two <- process_batch(exp_btch[2])
+# three <- process_batch(exp_btch[3])
+# four <- process_batch(exp_btch[4])
+# 
+# # plot the pANN values of each batch (one, two, three, four) to see if there are any differences
+# ggplot(one, aes(x = pANN, fill = as.character(batch))) +
+#   geom_density(bins = 100, alpha = 0.5) +
+#   theme_classic()
+# ggplot(two, aes(x = pANN, fill = as.character(batch))) +
+#   geom_density(bins = 100, alpha = 0.5) +
+#   theme_classic()
+# ggplot(three, aes(x = pANN, fill = as.character(batch))) +
+#   geom_density(bins = 100, alpha = 0.5) +
+#   theme_classic()
+# ggplot(four, aes(x = pANN, fill = as.character(batch))) +
+#   geom_density(bins = 100, alpha = 0.5) +
+#   theme_classic()
+```
+
+```{r}
 ```
 
 TKTK Save doublet foubnd step so we don't run it in the workshop.
@@ -604,6 +658,8 @@ se <- se %>%
         verbose = FALSE) %>%
     ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
     RunPCA(verbose = FALSE) %>%
+    FindNeighbors() %>%
+    FindClusters(resolution = 0.05) %>%
     RunUMAP(dims = 1:30, verbose = FALSE)
 ```
 
@@ -615,6 +671,7 @@ DimPlot(se, reduction = "umap", group.by = 'DF_class') +
   labs(title = "UMAP Plot Colored by Doublet Class")
 
 ```
+TKTK: Plot pANN distribution
 
 Let's look at the distribution of pANN values
 
@@ -669,25 +726,88 @@ s1 <- ggplot(se@meta.data, aes(x = pANN)) +
 s1
 ```
 
-```{r, fig.height=6, fig.width=12}
+```{r, fig.height=6, fig.width=18}
 s2 <- FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN") +
   scale_fill_gradient(limits = c(0, 1))
 # Plot UMAP of good quality cells
 s3 <- DimPlot(se, reduction = "umap", group.by = "quality") +
   labs(title = "UMAP Plot Colored by Cell Quality")
-s2 | s3
+s4 <- DimPlot(se, reduction = "umap", group.by = "Celltype") +
+  labs(title = "UMAP Plot Colored by Cell Type")
+s2 | s3 | s4
 ```
 
 We will keep the potential doublets in the data because they may be biologically relevant.
 
-TKTK - Differential Gene Expression comparison between good and bad cells. If we remove a celltype just bc our QC threshold shows its low quality, we're able to see that. so visualize top differentially expressed genes with average gene expression with y axis as avg logFC and color by if mito, ribo, hb, or not with each dot being a gene. should look like a horizontal volcano plot.
+TKTK - Differential Gene Expression comparison between good and bad cells. If we remove a celltype just bc our QC threshold shows its low quality, we're able to see that. so visualize top differentially expressed genes with average gene expression with y axis as avg_logFC and color by if mito, ribo, hb, or not with each dot being a gene. should look like a horizontal volcano plot.
 
+```{r}
+# 1 - Create categories for rb, mt, hb, other
+# Create category column
+se@meta.data$category <- apply(se@meta.data, 1, function(row) {
+  if (row["perc.mt"] > 0) {
+    return("mt")
+  } else if (row["perc.hb"] > 0) {
+    return("hb")
+  } else if (row["perc.ribo"] > 0) {
+    return("rb")
+  } else {
+    return("none")
+  }
+})
+
+# Convert to factor for better control over the plotting order
+se@meta.data$category <- factor(se@meta.data$category, levels = c("mt", "hb", "rb", "none"))
+
+# 1 - Perform differential gene expression on se@meta.data$quality = good and bad
+Idents(se) <- "RNA_snn_res.0.05"
+mgs <- FindAllMarkers(
+    se,
+    test.use = "wilcox",
+    slot = "data",
+    only.pos = TRUE,
+    logfc.threshold = 0.5,
+    min.pct = 0.25)
+```
+
+```{r, fig.height=8, fig.width=5}
+# 2 - 
+# Perform differential expression analysis
+top_genes <- head(rownames(mgs), 20)
+library(EnhancedVolcano)
+EnhancedVolcano(mgs,
+                lab = top_genes,
+                x = 'avg_log2FC',
+                y = 'p_val',
+                xlim = c(-50, 50),
+                ylim = c(-50, 50),
+  #               title = 'Volcano Plot: CD4 T cells',
+  #               subtitle = ' Normal <  -  -  -  -  -  - -  -  -  |  -  -  -  -  -  -  -  -  -  > Flu      ',
+  #               xlab = 'Log2 Fold Change',
+  #               ylab = '-log10 P-Value',
+  #               pCutoff = 0.05,
+  #               FCcutoff = 1.5,
+  #               pointSize = c(ifelse(res$pvalue < 0.05 & abs(res$log2FoldChange) > 1.5, 1.5, 1)),
+  #               labSize = 4.0,
+  #               col = c('grey30', 'forestgreen', 'royalblue', 'red2'),
+  #               colAlpha = 1,
+  #               legendLabels=c('Not Significant', 'Log2FC', 'P-Value', 'Log2FC & P-Value'),
+  #               legendPosition = 'right',
+  #               legendLabSize = 14,
+  #               drawConnectors = TRUE,
+  #               widthConnectors = 0.5,
+  #               colConnectors = 'grey30') + 
+  # theme(
+  #   plot.subtitle = element_text(hjust = 0.5), 
+  #   legend.position = 'bottom'
+  )
+```
 
 ## Resave Seurat object
 
 ```{r}
-saveRDS(good, '../data/workshop-data-withQuality.rds')
+# saveRDS(good, '../data/workshop-data-withQuality.rds')
 ```
 
 ## Session Info
