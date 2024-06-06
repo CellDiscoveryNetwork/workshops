@@ -459,11 +459,12 @@ process_batch <- function(batch) {
   nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
   # 6 - Run doubletFinder
+  # TKTK: Set pK to 0.1 and look at the distribution of pANN values.
   batch_seurat_object <- doubletFinder(
     batch_seurat_object,
     PCs = 1:20,
-    pN = 0.25,
-    pK = pK,
+    pN = 0.1,
+    pK = 50 / ncol(batch_seurat_object), # set a k to aproximately 50 cells per neighborhood for pANN
     nExp = nExp_poi.adj,
     reuse.pANN = FALSE, # If TRUE, pANN will be reused from a previous run
     sct = FALSE) # If TRUE, sctransform will be used for preprocessing
@@ -860,7 +861,7 @@ data.frame(logFC, abundance) %>%
     theme_classic() + 
     labs(title = "Average Gene Expression vs. Log2 Fold Change", x = "Average Gene Expression", y = "Log2 Fold Change")
 ```
-Very few genees that are differentially expressed in the low quality cells which adds a layer of confidence that we're not removing a true celltype. -marc 2024, BCH, EN 649. TKTK
+Very few genes that are differentially expressed in the low quality cells which adds a layer of confidence that we're not removing a true celltype. -marc 2024, BCH, EN 649. TKTK Ribosomal genes turned up on good quality cells. TKTK add labels for good quality and bad quality.
 
 ## Resave Seurat object
 
