@@ -137,7 +137,28 @@ From [BioStars](https://www.biostars.org/p/9572463/) FindNeighbors() is a functi
 
 ### FindNeighbors()
 
-The default values of FindNeighbors() are: `FindNeighbors(   object,   reduction = "pca",   dims = 1:10,   assay = NULL,   features = NULL,   k.param = 20,   return.neighbor = FALSE,   compute.SNN = !return.neighbor,   prune.SNN = 1/15,   nn.method = "annoy",   n.trees = 50,   annoy.metric = "euclidean",   nn.eps = 0,   verbose = TRUE,   do.plot = FALSE,   graph.name = NULL,   l2.norm = FALSE,   cache.index = FALSE,   ... )`
+The default values of FindNeighbors() are: 
+
+`FindNeighbors(   
+  object,   
+  reduction = "pca",   
+  dims = 1:10,   
+  assay = NULL,   
+  features = NULL,   
+  k.param = 20,   
+  return.neighbor = FALSE,   
+  compute.SNN = !return.neighbor,   
+  prune.SNN = 1/15,   
+  nn.method = "annoy",   
+  n.trees = 50,   
+  annoy.metric = "euclidean",   
+  nn.eps = 0,   
+  verbose = TRUE,   
+  do.plot = FALSE,   
+  graph.name = NULL,   
+  l2.norm = FALSE,   
+  cache.index = FALSE,   
+... )`
 
 Let's modify these to fit our analysis:
 
@@ -189,11 +210,10 @@ se_1 <- FindClusters(
 
 The Louvian algorithm was developed in 2008 and is a most popular community detection algorithm widely used in scRNA-seq. *It recursively merges communities into a single node and executes the modularity clustering on the condensed graphs.*([Zhang](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10158997/)) Both Seurat and scanpy use Louvain as the default clustering algorithm.
 
+<img src="../data/clustering.jpeg" width="900"/>\
+*Leiden Algorithm*
 
-knitr::include_graphics("https://www.sc-best-practices.org/\_images/clustering/leiden.png")
-
-
-The Leiden algorithm was published in 2020 as an improvement of the Louvain algorithm . *Leiden creates clusters by taking into account the number of links between cells in a cluster versus the overall expected number of links in the dataset. It computes a clustering on a KNN graph obtained from the PC reduced expression space. It starts with an initial partition where each node from its own community. Next, the algorithm moves single nodes from one community to another to find a partition, which is then refined. Based on a refined partition an aggregate network is generated, which is again refined until no further improvements can be obtained, and the final partition is reached.* ([Single Cell Best Practices](https://www.sc-best-practices.org/clustering/clustering.html))
+The Leiden algorithm was published in 2020 as an improvement of the Louvain algorithm. *Leiden creates clusters by taking into account the number of links between cells in a cluster versus the overall expected number of links in the dataset. It computes a clustering on a KNN graph obtained from the PC reduced expression space. It starts with an initial partition where each node from its own community. Next, the algorithm moves single nodes from one community to another to find a partition, which is then refined. Based on a refined partition an aggregate network is generated, which is again refined until no further improvements can be obtained, and the final partition is reached.* ([Single Cell Best Practices](https://www.sc-best-practices.org/clustering/clustering.html))
 
 #### RunUMAP
 
