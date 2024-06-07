@@ -1,42 +1,47 @@
 # A Beginner's Guide to Analyzing scRNA-seq
 
 ## Day 1: June 4th 2024
-- **Where**: Karp 11 Conference Room
-- **Course Material**:
-    - Introduction to R/Rstudio
-        - What is R studio and how to navigate it
-        - How to work with R studio projects
-        - Basics of R for scRNAseq
-    - Basic understanding of the SC workflow
-        - What are the key steps taken in scRNAseq data preprocessing 
-        - What is the goal of data preprocessing
-        - Why and how we need to normalize our data
-        - Why do we need to select highly variable genes (HVG)
-        - What is a K nearest neighbor graph
-    - Normalization & HVG selection
-        - How to normalize a scRNAseq count matrix
-        - How do we select HVGs
-    - Principal Component Analysis, Integration, Graph representation
-        - How to carry out PCA
-        - When and how do we need to integrate our data
-        - Bulding a graph representation of our data
+
+-   **Where**: Karp 11 Conference Room
+-   **Course Material**:
+    -   [Introduction to R/Rstudio/Seurat](https://github.com/CellDiscoveryNetwork/workshops/tree/main/beginners-guide-to-analyzing-scRNAseq/prework) [[Recording](https://drive.google.com/file/d/18x8dqtVaV5gIRz5ZTQkkC296Wj20PARJ/view?usp=sharing)]
+        -   How to navigate Rstudio
+        -   Fundamentals and data wrangling in R
+        -   Working with a Seurat object
+    -   [Basic sc-RNAseq workflow](https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-1/The%20Basic%20scRNAseq%20Analysis%20Workflow.pdf) [[Recording](https://drive.google.com/file/d/1cVlDZP6tCwwmar5BC1PXwhZt33f9AbxX/view?usp=sharing)]
+        -   Main steps for scRNAseq workflow
+        -   Intuition behind each step
+    -   [Normalization & HVG selection](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-1/3-norm-hvg.html)[[Recording](https://drive.google.com/file/d/14bm8KoiPGc2rJzPV88dHDjiDgEJz6QTO/view?usp=sharing)]
+        -   Why and how to normalize sc-RNAseq data
+        -   Why and how to select highly variable genes
+    -   [PCA, Integration & KNN graphs](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-1/4-PCA_Harmony_kNN.html)[[Recording](https://drive.google.com/file/d/13qvJhqK-EwnEJ4F_QI6eoLlknAcoNs18/view?usp=sharing)]
+        -   Brief overview on PCA and how to use it for sc-RNAseq
+        -   KNN-graph representation of the data
+        -   Correcting batch effects with Harmony
 
 ## Day 2: June 11th 2024
-- **Where**: Karp 11 Conference Room
-- **Course Material**:
-    - Quality Control Analysis
-        - Tips and tricks on how to carry out QC
-        - What metrics do we need to look at and what do they mean
-        - How can we detect low quality cells
-        - How to spot doublets
-    - Clustering
-        - What is clustering and how does it work
-        - What algorithms can we use
-        - How do we find the right resolution
-    - Differential expression and level 1 annotation
-        - What is differential expression and how to do it
-        - Evaluating the results
-        - Annotating our clusters
-    - Level 2 annotation and why we need it
-        - Why do we need to subset and carry out a level-2 annotation
-        - How to do it
+
+-   **Where**: Karp 11 Conference Room
+-   **Course Material**:
+    -   [Quality Control]()
+        -   How to carry out QC analysis
+        -   What parameters do we need to look at and how to interpret them
+        -   Computing doublet scores
+        -   Tips and tricks during the QC process
+    -   [Clustering]()
+        -   How to cluster sc-RNAseq data
+        -   What algorithms can we use
+        -   How to assess if a clustering resolution is good
+    -   [Differential Gene Expression & Level 1 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/7-dge-annotlvl1.html)
+        -   How to compute differentially expressed genes between clusters
+        -   How to evaluate differential expression statistics
+        -   Reference-based cell type annotation
+        -   Manual cell type annotation
+    -   [Subclustering & Level 2 Annotation]()
+        -   What does level 2 annotation mean and why we need it
+        -   How to iteratively annotate a dataset
+
+### Exit Forms
+-   Please take a moment to fill out the exit form for day 1 [here](https://forms.gle/SFMgoJTXsQF4SiE68). It really helps us plan better future workshops and improve the material of our current ones!
+
+-   Please take a moment to fill out the exit form for day 2 [here](https://forms.gle/aMMufpccqcoMkdQr5). It really helps us plan better future workshops and improve the material of our current ones!
