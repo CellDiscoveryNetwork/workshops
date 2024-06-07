@@ -26,9 +26,9 @@ options(width = 1200)
 
 ## Introduction
 
-This notebook reviews the quality control steps recommended at the beginning and at each subsequent annotation phase. In order to denoise a sparse cell by gene matrix, we take out unhelpful and distracting cell data to create a better representation of an experiment. In this notebook, we will look at UMI and gene counts, filter out cells with high mitochondrial levels, investigate potential doublets (using DoubletFinder), and compare the cell by gene distribution before and after filtering.
+This notebook reviews the quality control steps recommended at the beginning and at each subsequent annotation phase in analyzing scRNA-seq. In order to denoise a sparse cell by gene matrix, we take out non-informative cell data to create a better representation of an experiment. In this notebook, we will look at UMI and gene counts, filter out cells with high mitochondrial levels, investigate potential doublets (using DoubletFinder), and compare the cell by gene distribution before and after filtering.
 
-TKTK add figure
+<img src="../data/quality_control.jpeg" width="900"/>\
 
 ### Key Takeaways
 
@@ -40,11 +40,11 @@ TKTK add figure
 
 **Why are mitochondrial genes highly expressed and found in many datasets?**
 
-There are often disproportionately high mitochondrial cells in many datasets because cells upregulate mitochondrial genes during stress (such as during library prep) and near death.
+There is a disproportionate number of mitochondrial-high cells because cells upregulate mitochondrial genes during stress (such as during library prep) and near death.
 
 From **Orchestrating single-cell analysis with Bioconductor**:
 
-*"High proportions are indicative of poor-quality cells (Islam et al. [2014](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-islam2014quantitative); Ilicic et al. [2016](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-ilicic2016classification)), presumably because of loss of cytoplasmic RNA from perforated cells. The reasoning is that, in the presence of modest damage, the holes in the cell membrane permit efflux of individual transcript molecules but are too small to allow mitochondria to escape, leading to a relative enrichment of mitochondrial transcripts."*
+*"High proportions* (of mitochondria) *are indicative of poor-quality cells (Islam et al. [2014](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-islam2014quantitative); Ilicic et al. [2016](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-ilicic2016classification)), presumably because of loss of cytoplasmic RNA from perforated cells. The reasoning is that, in the presence of modest damage, the holes in the cell membrane permit efflux of individual transcript molecules but are too small to allow mitochondria to escape, leading to a relative enrichment of mitochondrial transcripts."*
 
 ### Glossary
 
@@ -99,7 +99,7 @@ set.seed(687)
 ```
 
 ```{r}
-# TKTK - load other seurat object. 
+# TKTK - load other seurat object after pushing to main..?
 
 se <- readRDS('../data/workshop-data.rds')
 # Load a provided gene conversion table to convert ENSG to readable gene symbols
@@ -173,7 +173,8 @@ ggplot(se@meta.data, aes(x = nFeature_RNA)) +
         labels = scales::unit_format(unit = "K", scale = 1e-3)) +
     theme_classic()
 ```
-A distribution showing incredibly high number of genes per cell is indicative of doublets or large cells. Cells on the left side of the distribution with low gene counts could be low quality cells or just RBCs or platelets. 
+
+A distribution showing incredibly high number of genes per cell is indicative of doublets or large cells. Cells on the left side of the distribution with low gene counts could be low quality cells or just RBCs or platelets.
 
 3 - Percentage of mitochondrial genes
 
@@ -199,7 +200,6 @@ VlnPlot(se,
   pt.size = 0, 
   ) + NoLegend()
 ```
-
 
 ```{r, fig.width=8, fig.height=6}
 # Plot Percent of ribosomal genes by Sample
@@ -254,8 +254,8 @@ FeatureScatter
 
 Another way to visualize these distributions is:
 
-TKTK library size v library complexity
-Note: Way to see high library size.
+TKTK library size v library complexity Note: Way to see high library size.
+
 ```{r}
 # Percent Mitochondrial Genes
 se@meta.data %>%
@@ -278,8 +278,8 @@ se@meta.data %>%
 
 ```
 
-The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.
-Ribsomal cells are super prevalent in tumor cells.
+The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above. Ribsomal cells are super prevalent in tumor cells.
+
 ```{r}
 # Percent Ribosomal Genes
 se@meta.data %>%
@@ -323,6 +323,7 @@ se@meta.data %>%
         labels = scales::unit_format(unit = "K", scale = 1e-3))
 
 ```
+
 Highlight overexpression of hemoglobin genes in *Flu 5*. Flu 5 has fewer cells than some other samples... TKTK
 
 ```{r}
@@ -721,8 +722,8 @@ p1 | p2
 #   labs(title = "UMAP Plot Colored by Batch")
 ```
 
-Let's see if celltypes annotated by the authors are show the pANN distribution.
-TKTK ridge plot instead
+Let's see if celltypes annotated by the authors are show the pANN distribution. TKTK ridge plot instead
+
 ```{r}
 ggplot(se@meta.data, aes(x = pANN, fill = Celltype)) +
   geom_density(bins = 100, alpha = 0.5) +
@@ -773,8 +774,8 @@ s4 <- DimPlot(se, reduction = "umap", group.by = "Celltype") +
   labs(title = "UMAP Plot Colored by Cell Type")
 s2 | s3 | s4
 ```
-Lack of overlap between pANN dist and doublet dist is good because odds of a doublet of two poor quality cells is low.
-TKTK add color pallette
+
+Lack of overlap between pANN dist and doublet dist is good because odds of a doublet of two poor quality cells is low. TKTK add color pallette
 
 We will keep the potential doublets in the data because they may be biologically relevant.
 
@@ -823,7 +824,6 @@ mgs <- mgs %>%
 mgs
 ```
 
-
 ```{r}
 ggplot(mgs, aes(x = pct.1, y = avg_log2FC, color = gene_type)) +
   geom_point() +
@@ -861,6 +861,7 @@ data.frame(logFC, abundance) %>%
     theme_classic() + 
     labs(title = "Average Gene Expression vs. Log2 Fold Change", x = "Average Gene Expression", y = "Log2 Fold Change")
 ```
+
 Very few genes that are differentially expressed in the low quality cells which adds a layer of confidence that we're not removing a true celltype. -marc 2024, BCH, EN 649. TKTK Ribosomal genes turned up on good quality cells. TKTK add labels for good quality and bad quality.
 
 ## Resave Seurat object
