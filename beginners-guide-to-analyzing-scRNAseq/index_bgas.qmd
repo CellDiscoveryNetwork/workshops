@@ -48,7 +48,7 @@ editor_options:
         -   How to cluster sc-RNAseq data
         -   What algorithms can we use
         -   How to assess if a clustering resolution is good
-    -   [Differential Gene Expression & Level 1 Annotation]()
+    -   [Differential Gene Expression & Level 1 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/7-dge-annotlvl1.html)
         -   How to compute differentially expressed genes between clusters
         -   How to evaluate differential expression statistics
         -   Reference-based cell type annotation
