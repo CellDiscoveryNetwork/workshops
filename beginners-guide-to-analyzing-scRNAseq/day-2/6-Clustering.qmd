@@ -79,7 +79,7 @@ Load Data
 
 ```{r}
 # Load the Seurat object with doublet and batch information
-se <- readRDS('../data/workshop-data-withQuality.rds')
+se <- readRDS('../data/Covid_Flu_Seurat_Object_Quality.rds')
 se 
 
 # Set color palette
@@ -103,76 +103,34 @@ Today, we're going to: 1. Look at the FindClusters() function, its default param
 
 **kNN Graph** - A graph that represents the relationships between cells based on their gene expression profiles. Each cell is connected to its k (1, 20, 100) nearest neighbors in the graph.
 
-## Preprocessing
-
-### UMAP of Counts and QC Metrics
-
 ## Clustering
-
-Before clustering, these are the preprocessing steps we took:
-
-```{r}
-# se %>%
-#     NormalizeData(verbose = FALSE) %>%
-#     FindVariableFeatures(
-#         method = "vst",
-#         nfeatures = 3000,
-#         verbose = FALSE) %>%
-#     ScaleData(verbose = FALSE) %>% # Scales data to have mean 0 and variance 1
-#     RunPCA(verbose = FALSE) 
-```
-
-Plots:
-
--   PCA = scree plot or biplot
-
--   cluster visualization or cluster heatmaps
 
 ### PCA
 
 Let's start by visualizing PC1 and PC2 by Celltype.
 
-```{r, fig.width=8, fig.height=8}
-# DimPlot allows us to color the latent space based on categorical values per cell, like cell type or which sample the cell is from
+```{r, fig.width=6, fig.height=6}
 celltype_pca <- DimPlot(
         se,
         reduction = "pca",
-        group.by = 'Celltype'
+        group.by = 'Celltype',
+        cols = pal
         ) 
 
 celltype_pca
 ```
 
-Construct the kNN graph:
+### Construct the kNN graph with `FindNeighbors()`:
 
-FindNeighbors() is the Seurat function that calculates the K-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the k.param parameter in the FindNeighbors function. The default value is 30. The function also calculates the distance between each cell and its neighbors. The function computes pairwaise distances between cells based on their gene expression common ex: euclidean distance, manhattan distance, Pearson correlation distance, cosine similarity. choice matters.
+`FindNeighbors()` is the Seurat function that calculates the K-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the k.param parameterwith a default value of 30. It computes pairwaise distances between cells based on their gene expression using comming algorithms such as: euclidean distance, manhattan distance, Pearson correlation distance, and cosine similarity. choice matters.
 
-From [BioStars](https://www.biostars.org/p/9572463/) FindNeighbors() is a function that is used to find the nearest neighbors of your single cell data point within a dataset. It works by calculating the neighborhood overlap (Jaccard index) between every cell and its k. param nearest neighbors. It's often employed in various applications such as anomaly detection, and dimensionality reduction. The concept is that given a data point, you want to identify the closest data points to it based on some similarity metric, such as Euclidean distance or cosine similarity. This helps to identify similar points in the dataset, which can be useful for making predictions or understanding the distribution of the data.\*
+From [BioStars](https://www.biostars.org/p/9572463/):
 
-### FindNeighbors()
+*`FindNeighbors()` is a function that is used to find the nearest neighbors of your single cell data point within a dataset. It works by calculating the neighborhood overlap (Jaccard index) between every cell and its k.param nearest neighbors. It's often employed in various applications such as anomaly detection and dimensionality reduction. The concept is that given a data point, you want to identify the closest data points to it based on some similarity metric, such as Euclidean distance or cosine similarity. This helps to identify similar points in the dataset, which can be useful for making predictions or understanding the distribution of the data.*
 
-The default values of FindNeighbors() are: 
+The default values of FindNeighbors() are:
 
-`FindNeighbors(   
-  object,   
-  reduction = "pca",   
-  dims = 1:10,   
-  assay = NULL,   
-  features = NULL,   
-  k.param = 20,   
-  return.neighbor = FALSE,   
-  compute.SNN = !return.neighbor,   
-  prune.SNN = 1/15,   
-  nn.method = "annoy",   
-  n.trees = 50,   
-  annoy.metric = "euclidean",   
-  nn.eps = 0,   
-  verbose = TRUE,   
-  do.plot = FALSE,   
-  graph.name = NULL,   
-  l2.norm = FALSE,   
-  cache.index = FALSE,   
-... )`
+<img src="../data/FindNeighbors.png" width="250"/>
 
 Let's modify these to fit our analysis:
 
@@ -191,32 +149,23 @@ se_1 <- se %>%
 se_1@graphs
 ```
 
-TKTK: is there any reason or way to look at the neighbors computed?
+TKTK: Is there any reason or way to look at the neighbors computed?
 
 ### FindClusters
 
-From BioStars: *FindClusters() is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.*
-
-FindClusters() is used for identifying clusters of cells based on their neighborhood relationships typically obtained from PCA or t-SNE. It inputs the graph made from FindNeighbors and. outputs cluster assignments for each cell found at `se@meta.data$seurat_clusters`.
-
-There are a couple of popular clustering algorithms. There is no one way to cluster as clustering is a means of looking at the data from different angles. The most popular clustering algortihms are the louvain algorithm, leiden algorithm, hierarchical clustering, and k-means clustering. Seruat uses the Leiden algorithm by default which is an improvement on the Louvain algorithm.
+`FindClusters()` is used for identifying clusters of cells based on their neighborhood relationships typically obtained from PCA or t-SNE. It inputs the graph made from FindNeighbors and outputs cluster assignments for each cell found at `se@meta.data$seurat_clusters`.
 
 The resolution parameter controls the granularity of the clustering. Higher values of resolution will result in more clusters, while lower values will result in fewer clusters. The default value is 0.8.
+
+From BioStars:\
+*`FindClusters()` is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.*
+
+<img src="../data/FindClusters.png" width="250"/>\
+*where when 'algorithm' = 1 original Louvain algorithm = 2 Louvain algorithm with multilevel refinement = 3 SLM (Smart Local Moving) algorithm = 4 Leiden algorithm. See `?FindClusters` for more information.*
 
 In clustering, the goal is not to see how many clusters you can pull apart but it is an iterative process. especially in the first pass, you want to pull apart main cell groups such as epithelial cells and immune cells so you can further refine the clustering to get more granular cell types in the next iteration.
 
 After clustering, we'll review some cluster validation techniques to qualitatively and quantitatively check the quality of the clustering results.
-
-#### FindClusters
-
-The default values for FindClusters() are: 
-FindClusters( 
-  object, 
-  graph.name = NULL, 
-  cluster.name = NULL, 
-  modularity.fxn = 1, 
-  initial.membership = NULL, 
-  node.sizes = NULL, resolution = 0.8, method = "matrix", algorithm = 1, n.start = 10, n.iter = 10, random.seed = 0, group.singletons = TRUE, temp.file.location = NULL, edge.file.name = NULL, verbose = TRUE, ... ) where when 'algorithm' = 1 original Louvain algorithm = 2 Louvain algorithm with multilevel refinement = 3 SLM (Smart Local Moving) algorithm = 4 Leiden algorithm *See `?FindClusters` for more information*
 
 We modify those to fit our object:
 
@@ -236,7 +185,7 @@ se_1@meta.data %>% select(contains("RNA_snn_res")) %>% colnames()
 
 TKTK Define "community detection algorithm". Shared nearest neighbors, why we use sNN. Define unsupervised clustering. we're computing this over the dimensionality reduction space that we chose.
 
-The Louvian algorithm was developed in 2008 and is a most popular community detection algorithm widely used in scRNA-seq. *It recursively merges communities into a single node and executes the modularity clustering on the condensed graphs.*([Zhang](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10158997/)) Both Seurat and scanpy use Louvain as the default clustering algorithm.
+The Louvain algorithm was developed in 2008 and is a most popular community detection algorithm widely used in scRNA-seq. *It recursively merges communities into a single node and executes the modularity clustering on the condensed graphs.*([Zhang](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10158997/)) Both *Seurat* and *scanpy* use Louvain as the default clustering algorithm.
 
 <img src="../data/clustering.jpeg" width="900"/>\
 *Leiden Algorithm*
@@ -244,8 +193,8 @@ The Louvian algorithm was developed in 2008 and is a most popular community dete
 The Leiden algorithm was published in 2020 as an improvement of the Louvain algorithm. *Leiden creates clusters by taking into account the number of links between cells in a cluster versus the overall expected number of links in the dataset. It computes a clustering on a KNN graph obtained from the PC reduced expression space. It starts with an initial partition where each node from its own community. Next, the algorithm moves single nodes from one community to another to find a partition, which is then refined. Based on a refined partition an aggregate network is generated, which is again refined until no further improvements can be obtained, and the final partition is reached.* ([Single Cell Best Practices](https://www.sc-best-practices.org/clustering/clustering.html))
 
 #### RunUMAP
-Show that one weird figure figure as it goes from one resolution to the next. Show that hierarchal clustering takes 2 groups and splits each group into more rgoups. but with graph based, a higher resolution splits the whole dataset into more groups. k-means is greedy algo splits into equal size clusters. Look for proliferating cells. Look at MS4A1 for proliferating cells. For choosing 0.05 as the resolution, compare to 0.1 and note the big blobs splitting therefore keep them together for first round of clustering and get into the weeds in level 2 annotation.
 
+Show that one weird figure figure as it goes from one resolution to the next. Show that hierarchal clustering takes 2 groups and splits each group into more rgoups. but with graph based, a higher resolution splits the whole dataset into more groups. k-means is greedy algo splits into equal size clusters. Look for proliferating cells. Look at MS4A1 for proliferating cells. For choosing 0.05 as the resolution, compare to 0.1 and note the big blobs splitting therefore keep them together for first round of clustering and get into the weeds in level 2 annotation.
 
 -   This function runs the UMAP algorithm on the PCA space. The dims parameter specifies which dimensions of the PCA space to use for the UMAP calculation. The default value is 1:30, which uses all dimensions. The n.components parameter specifies the number of dimensions in the UMAP embedding. The default value is 2.
 
@@ -280,7 +229,7 @@ DimPlot(
 
 Let's go with 0.05 and perform cluster validation.
 
-## Cluster Metrics - most important part.
+## Cluster Metrics
 
 ### Cluster Diversity
 
@@ -528,6 +477,10 @@ d4 <- DimPlot(se,
 d1 | d2
 d3 | d4
 ```
+
+## More on Clustering Algorithms
+
+There are a couple of popular clustering algorithms. There is no one way to cluster as clustering is a means of looking at the data from different angles. The most popular clustering algortihms are the louvain algorithm, leiden algorithm, hierarchical clustering, and k-means clustering. Seurat uses the Leiden algorithm by default which is an improvement on the Louvain algorithm.
 
 ## Session Info
 
