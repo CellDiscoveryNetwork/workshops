@@ -99,23 +99,12 @@ set.seed(687)
 ```
 
 ```{r}
-# TKTK - load other seurat object after pushing to main..?
-
-se <- readRDS('../data/workshop-data.rds')
-# Load a provided gene conversion table to convert ENSG to readable gene symbols
-genes <- read_csv('../data/cov_flu_gene_names_table.csv') 
-
-# Remake Seurat object
-mtx <- se@assays$RNA@data
-rownames(mtx) <- genes[match(row.names(mtx),genes$index), ]$feature_name
-
-se <- CreateSeuratObject(counts = mtx, meta.data = se@meta.data)
-
+# Load Seurat object
+se <- readRDS('../data/Covid_Flu_Seurat_Object.rds')
 se
 ```
 
 ```{r}
-rm(mtx)
 # Set color palette
 pal <- paletteMartin
 names(pal) <- sort(unique(se$Celltype))
@@ -123,7 +112,7 @@ names(pal) <- sort(unique(se$Celltype))
 
 ## Filter out the overexpressed genes
 
-According to *Current best practices in single-cell RNA-seq*, we want to look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitochondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.
+Let's look at the number of counts per barcode, the number of genes per barcode, and the percentage of mitochondrial genes per barcode. These distributions will help us determine the quality of the data by allowing us to see any outliers. These outliers could be dying cells with high mitochondrial counts or doublets with high gene counts.
 
 In public datasets, use `colnames()` to find the processing and metadata already analyzed.
 
@@ -139,16 +128,19 @@ colnames(se@meta.data)[1:10]
 
 1 - Number of UMIs
 
-`nCount_RNA` is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell. Cells with low `nCount_RNA` values may be dying or dead cells OR biologically relevant cell types that have low mRNA content such as neutrophils. While cells with high `nCount_RNA` values may be doublets or very large cells like macrophages. Note the figure below plots UMIs on a log10 scale.
+`nCount_RNA` is the number of UMIs per cell. This is a measure of the total number of transcripts detected in a cell and is a good way to visualize the library size. Cells with low `nCount_RNA` values may be dying cells or biologically relevant cell types with low mRNA content such as neutrophils. Cells with high `nCount_RNA` values may be doublets or very large cells like macrophages. Note the figure below plots UMIs on a log10 scale.
 
-```{r}
+```{r, fig.width=5, fig.height=4}
 ggplot(se@meta.data, aes(x = nCount_RNA)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
     scale_x_continuous(
         transform = "log10",
         labels = scales::unit_format(unit = "K", scale = 1e-3)) +
-    theme_classic()
+    theme_classic() +
+  scale_color_manual(values = pal)
 ```
+
+Plotting the UMIs by cell type shows that if we were to make a hard cut off at 500 UMIs, we would lose a large portion of platelets.
 
 ```{r}
 ggplot(se@meta.data, aes(x = nCount_RNA, fill = Celltype)) +
@@ -158,29 +150,31 @@ ggplot(se@meta.data, aes(x = nCount_RNA, fill = Celltype)) +
     scale_x_continuous(
         transform = "log10",
         labels = scales::unit_format(unit = "K", scale = 1e-3)) +
-    theme_classic() 
+    theme_classic() +
+  scale_color_manual(values = pal)
 ```
 
 2 - Number of genes
 
-`nFeature_RNA` is the number of genes detected in a cell. This is a measure of the total number of genes detected in a cell. Similarly, we want to look out for cells with significantly low or high feature count. Feature counts give us an idea of library complexity while UMI counts looks at library size. Note that the figure below plots genes (features) on a log10 scale.
+`nFeature_RNA` is the number of genes detected in a cell. Similarly, we want to look for cells with significantly low or high feature count. The feature count distribution gives us an idea of library complexity while UMI counts looks at library size. Note that the figure below plots genes (features) on a log10 scale.
 
-```{r}
+```{r, fig.width=5, fig.height=4}
 ggplot(se@meta.data, aes(x = nFeature_RNA)) +
     geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
     scale_x_continuous(
         transform = "log10",
         labels = scales::unit_format(unit = "K", scale = 1e-3)) +
-    theme_classic()
+    theme_classic() +
+  scale_color_manual(values = pal)
 ```
 
-A distribution showing incredibly high number of genes per cell is indicative of doublets or large cells. Cells on the left side of the distribution with low gene counts could be low quality cells or just RBCs or platelets.
+A plot showing incredibly high number of genes per cell is indicative of doublets or large cells. Cells on the left side of the distribution with low gene counts could be low quality cells or just RBCs or platelets.
 
 3 - Percentage of mitochondrial genes
 
-Notice the object already has `Percent of mitochondrial genes` calculated. We are going to calculate them again to show how to do it.
+Notice the object already has `Percent of mitochondrial genes` calculated. We are going to calculate them again to show the process.
 
-Seurat's `PercentageFeatureSet` function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression to filter these out by gene name.
+Seurat's `PercentageFeatureSet` function calculates the percentage of a feature set in each cell. This function is useful for calculating the percentage of mitochondrial genes, ribosomal genes, or any other gene set of interest using regular expression (string matching) to filter these out by gene name.
 
 ```{r}
 # Calculate the percentage of mitochondrial genes
@@ -191,14 +185,15 @@ se <- PercentageFeatureSet(se, pattern = "^RPS|^RPL", col.name = "perc.ribo")
 se <- PercentageFeatureSet(se, pattern = "^HB[^(P)]", col.name = "perc.hb")
 ```
 
-```{r, fig.width=8, fig.height=6}
+```{r, fig.width=5, fig.height=4}
 # Plot Percent of mitochondrial genes by Sample
 VlnPlot(se,
   group.by = "Sample ID",
   features = "perc.mt",
   # log = TRUE,
   pt.size = 0, 
-  ) + NoLegend()
+  ) + NoLegend() +
+  scale_color_manual(values = pal)
 ```
 
 ```{r, fig.width=8, fig.height=6}
@@ -208,7 +203,8 @@ VlnPlot(se,
   features = "perc.ribo",
   # log = TRUE,
   pt.size = 0
-  ) + NoLegend()
+  ) + NoLegend() +
+  scale_color_manual(values = pal)
 ```
 
 ```{r, fig.width=8, fig.height=6}
@@ -218,7 +214,8 @@ VlnPlot(se,
   features = "perc.hb",
   # log = TRUE,
   pt.size = 0
-  ) + NoLegend()
+  ) + NoLegend() +
+  scale_color_manual(values = pal)
 ```
 
 ```{r, fig.width=16, fig.height=6}
@@ -228,8 +225,11 @@ VlnPlot(se,
   features = c("perc.mt", "perc.ribo", "perc.hb"),
   # log = TRUE,
   pt.size = 0
-  ) + NoLegend()
+  ) + NoLegend() +
+  scale_color_manual(values = pal)
 ```
+
+With these distributions, something notable is going on in Flu 5. Let's perform other quality control visualizations to see if we can find out what is happening.
 
 ```{r, fig.width = 12, fig.height = 6}
 # Comparison of mitochondrial and hemoglobin genes
@@ -240,21 +240,16 @@ p1 <- se@meta.data %>%
 p2 <- se@meta.data %>%
   ggplot2::ggplot(., ggplot2::aes(x = perc.mt, y = perc.hb, color = donor_id)) +
     ggplot2::geom_point() +
-    ggplot2::theme_classic()
+    ggplot2::theme_classic() 
 p1 | p2
+
 ```
 
-With these distributions, something notable is going on in *Flu 5*. Let's perform other quality control visualizations to see if we can find out what is happening.
-
-TKTK Need to look at how these features look together, not just on their own.
-
-FeatureScatter
+Plotting the hemoglobin genes by mitochondrial genes shows that the Flu 5 has low mitochondria and high hemoglobin suggesting its sample contained a lot of blood and is not poor quality.
 
 ### Feature Covariation
 
-Another way to visualize these distributions is:
-
-TKTK library size v library complexity Note: Way to see high library size.
+TKTK This style plot colors by a specified variable in order to see its prevalence across the data. Below, the distribution of mitochondrial percentage across the dataset is shown in relation to the library size.
 
 ```{r}
 # Percent Mitochondrial Genes
@@ -278,7 +273,9 @@ se@meta.data %>%
 
 ```
 
-The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above. Ribsomal cells are super prevalent in tumor cells.
+The authors mention they filter out UMIs with higher than 15% mitochondrial genes. This explains the cap we see at that range above.
+
+Below we look at teh distribution of ribosomal expression which can be helpful as they can be more prevalent in tumor cells.
 
 ```{r}
 # Percent Ribosomal Genes
@@ -302,6 +299,8 @@ se@meta.data %>%
 
 ```
 
+Lastly, let's plot the hemoglobin distribution and investigate the likely bloodier samples.
+
 ```{r}
 # Percent Hemoglobin Genes
 se@meta.data %>%
@@ -324,14 +323,15 @@ se@meta.data %>%
 
 ```
 
-Highlight overexpression of hemoglobin genes in *Flu 5*. Flu 5 has fewer cells than some other samples... TKTK
+The odd distribution of Flu 5 makes more sense seeing its high hemoglobin content with lower cell counts. Let's plot the cell type annotations to see how they support this.
 
 ```{r}
 # Plot by cell type
 se@meta.data %>%
   ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = Celltype)) +
   geom_point() +
-  theme_classic() 
+  theme_classic() + 
+  scale_color_manual(values = pal)
 ```
 
 ```{r, fig.width=10, fig.height = 10}
@@ -340,7 +340,8 @@ se@meta.data %>%
   ggplot(., ggplot2::aes(x = nCount_RNA, y = nFeature_RNA, color = Celltype)) +
   geom_point() +
   facet_wrap(~Celltype) +
-  theme_classic()
+  theme_classic() +
+  scale_color_manual(values = pal)
 
 ```
 
@@ -348,9 +349,9 @@ After looking at the cell type distribution, the hemoglobin concentration makes 
 
 ## Add Batch Information
 
-Preprocessed Seurat object's will often contain information about what batch the samples were processed in as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified as "Uncategorized". Because they did not include the doublet information in the metadata, we will add it in this section.
+Preprocessed Seurat object's will often contain batch and sample informatio as well as how doublets were calculated. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified as "Uncategorized". Because they did not include the doublet information in the metadata, we will add it in this section.
 
-To define doublets, packages in both R and Python run per batch. We imported the batch information so we could subset the larger object and filter out doublets per batch.
+Packages to find doublets in both R and Python run one batch at a time as doublets are only a source of error at the 10X run level. We imported the batch information so we could subset the larger object and filter out doublets per batch.
 
 ```{r}
 # Make a data frame and extract barcode and Sample ID metadata from se obj
@@ -382,27 +383,27 @@ se <- AddMetaData(se, info)
 
 ## DoubletFinder
 
-Doublet detection and removal is sensitive because you don't want to remove any valuable outliers but still take into consideration the noisiness of the data. There are many different packages that can be used to detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, DoubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called `doubletFinder` that takes in a Seurat object and returns a Seurat object with doublet information in the metadata.
+Doublet detection and removal is sensitive because you don't want to remove any valuable outliers but still take into consideration the noisiness of the data. There are many different packages that can be used to detect doublets. If you are familiar with Python, we use Scrublet most often. But for the sake of staying in one programming language, DoubletFinder was found to be one of the most accurate R packages. DoubletFinder uses a nearest neighbor approach to identify doublets. The package has a function called `doubletFinder` that takes in a Seurat object and returns a Seurat object with doublet information added in the metadata.
 
 ### How it Works
 
-TKTK DoubletFinder looks at the expression profiles of the cells in the batch and generates two parameters pK and pANN to identify doublets by inserting artificial doublets into the data to determine which cells are real doublets. DoubletFinder combines random cell's gene expression profiles to create these "fake doublets." Then a k-nearest neighbors graph is calculated where the best pK is surveyed and calculated for each batch.
+TKTK DoubletFinder looks at the expression profiles of cells in a batch and generates two parameters (pK & pANN) to identify doublets. DoubletFinder combines random cell's gene expression profiles to create "fake doublets." The artificial doublets are inserted into the data and their expression profiles are compared to the real cells to determine which cells are real doublets. This is done by a k-nearest neighbors graph where the best pK is surveyed and calculated for each batch.
 
-Here, you have a k-nearest neighbor graph where each cell has k neighbors. pANN is the proportion of each cell's neighbors that are artificial. A high pANN value says that a larger proportion of the cell around a specific cell are fake doublets suggesting that the cell itself is a doublet. The higher the pK, the higher the pANN needs to be to make a difference.
+Here, you have a k-nearest neighbor graph where each cell has k most-genetically-similar neighbors. pANN is the proportion of each cell's neighbors that are artificial. A high pANN value says that a larger proportion of the cells around a specific cell in the kNN graph are fake doublets which suggests that the cell itself is a doublet. The higher the pK, the higher the pANN needs to be to make a difference.
 
-Cells in transitioning states or cells with mixed phenotpyes can be mistaken for doublets. It is important not to disgard cells just because they have a large doublet score (pANN value) becuase there might be very interesting biological information in these cells.
+Cells in transitioning states or cells with mixed phenotpyes can be mistaken for doublets. It is important not to disgard cells just because they have a large doublet score (pANN value) because there might be interesting biological information in these cells.
 
 DoubletFinder allows you to set a threshold and will give each cell a categorical result of 'Singlet' or 'Doublet' but we suggest looking at the raw pANN values to understand the distribution of these cells and make threshold adjustments accordingly.
 
 ### Parameters
 
-`pK parameter` = the expected proportion of doublets in our dataset. This metric determines the accuracy of the model. The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets. It is the PC neighborhood size used to compute pANN, expressed as a proportion of the merged real-artificial data.
+`pK parameter` = the expected proportion of doublets in our dataset. This metric determines the accuracy of the model. *The higher the pK, the more stringent the model is in classifying doublets. The lower the pK, the more lenient the model is in classifying doublets.* pK is the PC neighborhood size that is used to compute pANN, and it is expressed as a proportion of the merged real-artificial data.
 
-`pN parameter` = default number of doublets we expect to find (set to 0.25 by default). pN functions as the threshold.
+`pN parameter` = default number of doublets we expect to find (default = 0.25). pN functions as the threshold.
 
 `pANN` = proportion of artificial nearest neighbors or the "doublet score".
 
-DoubletFinder is only sensitive to heterotypic doublets (transcriptionally-distinct doublets) so the developer suggests using a cell-type annotations (here: `batch_seurat_object@meta.data$seurat_clusters`) to model the expected proportion of homotypic (transcriptionally-similar) doublets.
+Note: DoubletFinder is only sensitive to heterotypic doublets (transcriptionally-distinct doublets) so the developer suggests using a cell-type annotations (here: `batch_seurat_object@meta.data$seurat_clusters`) to model the expected proportion of homotypic (transcriptionally-similar) doublets.
 
 ```{r, results='hide', message=FALSE, warning=FALSE}
 library(DoubletFinder)
@@ -429,38 +430,14 @@ process_batch <- function(batch) {
     FindNeighbors() %>%
     FindClusters()
 
-  # 3 - Run pK identification with NO ground truth
-
-  ## paramSweep: systematically explore a range of parameter values to determine the most appropriate settings for doublet detection
-  ## summarizeSweep: summarizes results of paramSweep() function
-  sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
-  sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
-  bcmvn_sample <- find.pK(sweep.stats_sample)
-
-  # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-  # ggplot(bcmvn_sample, aes(pK, BCmetric, group = 1))+
-  #   geom_point() +
-  #   geom_line()
-
-  # 4 - Calculate pK where pK is the proportion of cells that are doublets.
-  pK <- bcmvn_sample %>%
-    filter(BCmetric == max(BCmetric)) %>%
-    select(pK)
-  if (batch == 2) {
-    pK[[1]] <- 0.2
-  }
-  pK <- as.numeric(as.character(pK[[1]]))
-
-  # 5 - nExp defines the expected pANN threshold used to make final doublet-decisions
+  # 3 - nExp defines the expected pANN threshold used to make final doublet-decisions
 
   annotations <- batch_seurat_object@meta.data$seurat_clusters
-  # annotations <- Idents(batch_seurat_object)
   homotypic.prop <- modelHomotypic(annotations)
   nExp_poi <- round(0.075*nrow(se@meta.data))  # Assuming 7.5% doublet formation rate
   nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
 
   # 6 - Run doubletFinder
-  # TKTK: Set pK to 0.1 and look at the distribution of pANN values.
   batch_seurat_object <- doubletFinder(
     batch_seurat_object,
     PCs = 1:20,
@@ -505,161 +482,11 @@ process_batch <- function(batch) {
 }
 
 processed_doublets <- lapply(exp_btch, process_batch)
-
-# code for if the first index of exp_btch = 1, then run the first batch
-# class(exp_btch[1])
-# if the first index of exp_btch = 2, then run the second batch
-# if the first index of exp_btch = 3, then run the third batch
-# if the first index of exp_btch = 4, then run the fourth batch
-
-
 ```
-
-```{r}
-# # Run doubletFinder
-# 
-# batch <- 4
-# 
-# # 1 - Subset Seurat object by batch
-# batch_seurat_object <- subset(se, cells = which(se@meta.data$'Experimental batch' == batch))
-# 
-# # 2 - Process count data of that subseted Seurat object
-# batch_seurat_object <- batch_seurat_object %>%
-#   NormalizeData() %>%
-#   FindVariableFeatures() %>%
-#   ScaleData() %>%
-#   RunPCA() %>%
-#   FindNeighbors() %>%
-#   FindClusters()
-# 
-# # 3 - Run pK identification with NO ground truth
-# 
-# ## paramSweep: systematically explore a range of parameter values to determine the most appropriate settings for doublet detection
-# ## summarizeSweep: summarizes results of paramSweep() function
-# sweep.res.list_sample <- paramSweep(batch_seurat_object, PCs = 1:20, sct = FALSE)
-# sweep.stats_sample <- summarizeSweep(sweep.res.list_sample, GT = FALSE)
-# bcmvn_sample_4 <- find.pK(sweep.stats_sample)
-# 
-# # Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-# ggplot(bcmvn_sample_4, aes(pK, BCmetric))+
-#   geom_point() +
-#   geom_line()
-# 
-# # 4 - Calculate pK where pK is the proportion of cells that are doublets.
-# pK_4 <- bcmvn_sample_4 %>%
-#   filter(BCmetric == max(BCmetric)) %>%
-#   select(pK)
-# pK_4 <- as.numeric(as.character(pK[[1]]))
-# 
-# # 5 - nExp defines the expected pANN threshold used to make final doublet-decisions
-# 
-# annotations <- batch_seurat_object@meta.data$seurat_clusters
-# # annotations <- Idents(batch_seurat_object)
-# homotypic.prop <- modelHomotypic(annotations)
-# nExp_poi <- round(0.075*nrow(se@meta.data))  # Assuming 7.5% doublet formation rate
-# nExp_poi.adj <- round(nExp_poi*(1-homotypic.prop))
-# 
-# # 6 - Run doubletFinder
-# batch_seurat_object <- doubletFinder(
-#   batch_seurat_object,
-#   PCs = 1:20,
-#   pN = 0.25,
-#   pK = pK,
-#   nExp = nExp_poi.adj,
-#   reuse.pANN = FALSE, # If TRUE, pANN will be reused from a previous run
-#   sct = FALSE) # If TRUE, sctransform will be used for preprocessing
-# 
-# # 7 - Format doublet information for return dataframe
-# pANN <- colnames(batch_seurat_object@meta.data) %>%
-#   keep(grepl('^pANN*', colnames(batch_seurat_object@meta.data))) # pANN_0.25_0.3_1000
-# DF_class <- colnames(batch_seurat_object@meta.data) %>%
-#   keep(grepl('^DF.classifications*', colnames(batch_seurat_object@meta.data))) # DF.classifications_0.25_0.3_1000
-# ## Extract values from pANN variable name
-# params <- gsub("^pANN_", "", pANN)  # Remove "pANN_"
-# params <- strsplit(params, "_")[[1]]  # Split by "_"
-# pN <- params[1]  # Extract "0.1"
-# pK <- params[2]  # Extract "0.1"
-# doublet_run <- params[3]  # Extract "1000"
-# 
-# ## Create new columns "pN", "pK", and "doublet_run"
-# colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == pANN] <- "pANN"
-# colnames(batch_seurat_object@meta.data)[colnames(batch_seurat_object@meta.data) == DF_class] <- "DF_class"
-# batch_seurat_object@meta.data$pN <- pN
-# batch_seurat_object@meta.data$pK <- pK
-# batch_seurat_object@meta.data$doublet_run <- doublet_run
-# 
-# # 8 - Return DF of doublet information here
-# df <- data.frame(
-#   Barcode = colnames(batch_seurat_object),
-#   batch = batch_seurat_object@meta.data$'Experimental batch',
-#   pANN = batch_seurat_object@meta.data$'pANN',
-#   DF_class = batch_seurat_object@meta.data$'DF_class',
-#   doublet_run = batch_seurat_object@meta.data$doublet_run,
-#   pK = batch_seurat_object@meta.data$pK,
-#   pN = batch_seurat_object@meta.data$pN
-#   )
-# rownames(df) <- df$Barcodes
-```
-
-```{r}
-# Line plot to show the pK values for BCmetric. The highest BCmetric is where the most optimal pK value is.
-# p1 <- ggplot(bcmvn_sample_1, aes(pK, BCmetric))+
-#   geom_point() +
-#   geom_line()
-# p2 <- ggplot(bcmvn_sample_2, aes(pK, BCmetric))+
-#   geom_point() +
-#   geom_line()
-# p3 <- ggplot(bcmvn_sample_3, aes(pK, BCmetric))+
-#   geom_point() +
-#   geom_line()
-# p4 <- ggplot(bcmvn_sample_4, aes(pK, BCmetric))+
-#   geom_point() +
-#   geom_line()
-# 
-# p1 | p2 | p3 | p4
-```
-
-```{r}
-```
-
-```{r}
-# 
-# # testing = 
-# one <- process_batch(exp_btch[1])
-# two <- process_batch(exp_btch[2])
-# three <- process_batch(exp_btch[3])
-# four <- process_batch(exp_btch[4])
-# 
-# # plot the pANN values of each batch (one, two, three, four) to see if there are any differences
-# ggplot(one, aes(x = pANN, fill = as.character(batch))) +
-#   geom_density(bins = 100, alpha = 0.5) +
-#   theme_classic()
-# ggplot(two, aes(x = pANN, fill = as.character(batch))) +
-#   geom_density(bins = 100, alpha = 0.5) +
-#   theme_classic()
-# ggplot(three, aes(x = pANN, fill = as.character(batch))) +
-#   geom_density(bins = 100, alpha = 0.5) +
-#   theme_classic()
-# ggplot(four, aes(x = pANN, fill = as.character(batch))) +
-#   geom_density(bins = 100, alpha = 0.5) +
-#   theme_classic()
-```
-
-```{r}
-```
-
-TKTK Save doublet foubnd step so we don't run it in the workshop.
 
 ```{r}
 # Add doublet information to the main seurat object
 test <- bind_rows(processed_doublets)
-# plot pANN against batch
-head(test)
-ggplot(test, aes(x = pANN, fill = as.character(batch))) +
-  geom_density(bins = 100, alpha = 0.5) +
-  theme_classic()
-
-table(test$batch)
 ```
 
 ```{r}
@@ -673,13 +500,13 @@ se <- AddMetaData(
 
 ```{r}
 # Save Doublet information in Seurat object
-saveRDS(se, '../data/workshop-data-withDFinfo.rds')
+saveRDS(se, '../data/Covid_Flu_Seurat_Object_DF.rds')
 ```
 
 ### Load Pre-Run DF object
 
 ```{r}
-se <- readRDS('../data/workshop-data-withDFinfo.rds')
+se <- readRDS('../data/Covid_Flu_Seurat_Object_DF.rds')
 ```
 
 ### Perform Preprocessing
@@ -698,8 +525,6 @@ se <- se %>%
     RunUMAP(dims = 1:30, verbose = FALSE)
 ```
 
-Run DoubletFinder based on batch where batch is the 10X run because we're concerned about the technical error that occurs only in the 10X library preparation.
-
 ```{r, fig.height=5}
 # Plot UMAP colored by batch
 DimPlot(se, reduction = "umap", group.by = 'DF_class') +
@@ -712,27 +537,34 @@ Let's look at the distribution of pANN values
 ```{r, fig.height=6, fig.width=12}
 # Plot UMAP by pANN
 p1 <- FeaturePlot(se, reduction = "umap", features = "pANN") +
-  labs(title = "UMAP Plot Colored by pANN")
+  labs(title = "UMAP Plot Colored by pANN") 
 # Plot UMAP by cell type
 p2 <- DimPlot(se, reduction = "umap", group.by = "Celltype") +
-  labs(title = "UMAP Plot Colored by Cell Type")
+  labs(title = "UMAP Plot Colored by Cell Type") +
+  scale_color_manual(values = pal)
 
 p1 | p2
+
 # DimPlot(se, reduction = "umap", group.by = "Celltype") +
 #   labs(title = "UMAP Plot Colored by Batch")
 ```
 
-Let's see if celltypes annotated by the authors are show the pANN distribution. TKTK ridge plot instead
+Let's see if celltypes annotated by the authors are show the pANN distribution.
 
-```{r}
-ggplot(se@meta.data, aes(x = pANN, fill = Celltype)) +
-  geom_density(bins = 100, alpha = 0.5) +
-  # facet by cell type
-  facet_wrap(~Celltype) +
-  theme_classic()
+```{r, fig.width = 8, fig.height = 5}
+if (!requireNamespace("ggridges", quietly = TRUE)) {
+  install.packages("ggridges")
+}
+
+library(ggridges)
+
+# Assuming se@meta.data is your data frame
+ggplot(se@meta.data, aes(x = pANN, y = Celltype, fill = Celltype)) +
+  geom_density_ridges(alpha = 0.5) +
+  theme_classic() +
+  scale_color_manual(values = pal)
+
 ```
-
-While both Uncategorized Celltpyes are said (by the authors) to be doublets, the distribution of pANN values of Uncategorized1 does not necessarily reflect high pANN values but the distribution of Uncategorized2 does.
 
 ## Filter out cells
 
@@ -745,10 +577,6 @@ Filter out our data by 4 criteria.
 3.  Any cell with more than 15% mitochondrial genes
 
 ```{r, fig.height=6, fig.width=12}
-# good <- subset(
-#   se, 
-#   subset = nFeature_RNA > 200 & nCount_RNA > 500 & perc.mt < 15)
-# label cells in se if they're in good as "good" and those not in good as "bad"
 se@meta.data <- se@meta.data %>%
   mutate(
     quality = if_else(nFeature_RNA > 200 & nCount_RNA > 500 & perc.mt < 15, "good quality", "bad quality"),
@@ -756,50 +584,26 @@ se@meta.data <- se@meta.data %>%
     )
 ```
 
-```{r}
-s1 <- ggplot(se@meta.data, aes(x = pANN)) +
-    geom_density(color = "#6abcb6", fill = "#6abcb6", alpha = 0.7) +
-    theme_classic()
-s1
-```
-
 ```{r, fig.height=6, fig.width=18}
 s2 <- FeaturePlot(se, reduction = "umap", features = "pANN") +
   labs(title = "UMAP Plot Colored by pANN") +
   scale_fill_gradient(limits = c(0, 1))
 # Plot UMAP of good quality cells
-s3 <- DimPlot(se, reduction = "umap", group.by = "quality_t") +
-  labs(title = "UMAP Plot Colored by Cell Quality")
+s3 <- DimPlot(se, reduction = "umap", group.by = "quality") +
+  labs(title = "UMAP Plot Colored by Cell Quality") 
 s4 <- DimPlot(se, reduction = "umap", group.by = "Celltype") +
-  labs(title = "UMAP Plot Colored by Cell Type")
+  labs(title = "UMAP Plot Colored by Cell Type") +
+  scale_color_manual(values = pal)
 s2 | s3 | s4
 ```
 
-Lack of overlap between pANN dist and doublet dist is good because odds of a doublet of two poor quality cells is low. TKTK add color pallette
+Lack of overlap between pANN dist and doublet dist is good because odds of a doublet of two poor quality cells is low.
 
 We will keep the potential doublets in the data because they may be biologically relevant.
 
-TKTK - Differential Gene Expression comparison between good and bad cells. If we remove a celltype just bc our QC threshold shows its low quality, we're able to see that. so visualize top differentially expressed genes with average gene expression with y axis as avg_logFC and color by if mito, ribo, hb, or not with each dot being a gene. should look like a horizontal volcano plot.
+#### Differential Gene Expression comparison between good and bad quality cells
 
 ```{r}
-# 1 - Create categories for rb, mt, hb, other
-# Create category column
-
-# se@meta.data$category <- apply(se@meta.data, 1, function(row) {
-#   if (row["perc.mt"] > 0) {
-#     return("mt")
-#   } else if (row["perc.hb"] > 0) {
-#     return("hb")
-#   } else if (row["perc.ribo"] > 0) {
-#     return("rb")
-#   } else {
-#     return("none")
-#   }
-# })
-
-# Convert to factor for better control over the plotting order
-# se@meta.data$category <- factor(se@meta.data$category, levels = c("mt", "hb", "rb", "none"))
-
 # 1 - Perform differential gene expression on se@meta.data$quality = good and bad
 Idents(se) <- se$quality
 mgs <- FindMarkers(
@@ -825,14 +629,6 @@ mgs
 ```
 
 ```{r}
-ggplot(mgs, aes(x = pct.1, y = avg_log2FC, color = gene_type)) +
-  geom_point() +
-  geom_hline(yintercept = 1, color = "red", linetype = "dashed") +
-  geom_hline(yintercept = -1, color = "red", linetype = "dashed") +
-  theme_classic()
-```
-
-```{r}
 # Using the non-batched 'discard' vector for demonstration purposes,
 # as it has more cells for stable calculation of 'lost'.
 discard <- se$quality == "bad quality"
@@ -844,6 +640,7 @@ logged <- cpm(cbind(lost, kept), log=TRUE, prior.count=2)
 logFC <- logged[,1] - logged[,2]
 abundance <- rowMeans(logged)
 
+# Assuming you have a data frame with logFC and abundance
 data.frame(logFC, abundance) %>%
   rownames_to_column("gene") %>%
   mutate(
@@ -858,16 +655,20 @@ data.frame(logFC, abundance) %>%
     geom_point() +
     geom_hline(yintercept = 1, color = "red", linetype = "dashed") +
     geom_hline(yintercept = -1, color = "red", linetype = "dashed") +
+    annotate("segment", x = 12, xend = 12, y = 1, yend = 3, color = "blue", arrow = arrow(length = unit(0.2, "cm"))) +
+    annotate("text", x = 13, y = 2, label = "poor quality", vjust = -1, hjust = 1, color = "blue") +
+    annotate("segment", x = 12, xend = 12, y = -Inf, yend = -1, color = "blue", arrow = arrow(length = unit(0.2, "cm"), ends = "first")) +
+    annotate("text", x = 12, y = -1.5, label = "good quality", vjust = 1, hjust = -0.1, color = "blue") +
     theme_classic() + 
-    labs(title = "Average Gene Expression vs. Log2 Fold Change", x = "Average Gene Expression", y = "Log2 Fold Change")
+    labs(title = "Average Gene Expression vs. Log2 Fold Change", x = "Average Gene Expression", y = "Log2 Fold Change") 
 ```
 
-Very few genes that are differentially expressed in the low quality cells which adds a layer of confidence that we're not removing a true celltype. -marc 2024, BCH, EN 649. TKTK Ribosomal genes turned up on good quality cells. TKTK add labels for good quality and bad quality.
+Very few genes that are differentially expressed in the low quality cells which adds a layer of confidence that we're not removing a true celltype. This shows ribosomal-high cells as good quality cells with some hemoglbin-high as low quality.
 
 ## Resave Seurat object
 
 ```{r}
-# saveRDS(good, '../data/workshop-data-withQuality.rds')
+saveRDS(se, '../data/Covid_Flu_Seurat_Object_Quality.rds')
 ```
 
 ## Session Info
