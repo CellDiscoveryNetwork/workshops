@@ -1,0 +1,30 @@
+---
+title: "6 - Clustering"
+author: "CDN team"
+date: last-modified
+date-format: "[Last compiled on] D MMMM, YYYY"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+# Clustering
+
+## Introduction
+
+This notebook picks up on the cell filtering from the QC notebook and circles back to some of the PCA content from notebook 4. Below, we cover essential Seurat functions as well as clustering metrics that give quantitative guidelines to how well the clustering process is performing.
+
