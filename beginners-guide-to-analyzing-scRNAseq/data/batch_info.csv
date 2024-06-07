@@ -1,0 +1,23 @@
+Sample ID,Patient ID,Disease group,Age,Sex,"Experimental
+batch",GEO upload info
+Flu 1,F1,severe influenza,68,M,1,Flu 1 scRNA-seq
+Flu 2,F2,severe influenza,75,F,1,Flu 2 scRNA-seq
+Flu 3,F3,severe influenza,70,M,2,Flu 3 scRNA-seq
+Flu 4,F4,severe influenza,56,F,2,Flu 4 scRNA-seq
+Flu 5,F5,severe influenza,78,M,2,Flu 5 scRNA-seq
+nCoV 1,C1,severe COVID-19,63,M,1,nCoV 1 scRNA-seq
+nCoV 2,C2,mild COVID-19,82,F,1,nCoV 2 scRNA-seq
+nCoV 3,C3,severe COVID-19,67,F,3,nCoV 3 scRNA-seq
+nCoV 4,,severe COVID-19,,,3,nCoV 4 scRNA-seq
+nCoV 5,C4,mild COVID-19,46,M,3,nCoV 5 scRNA-seq
+nCoV 6,C5,mild COVID-19,38,F,3,nCoV 6 scRNA-seq
+nCoV 7,C6,severe COVID-19,73,F,4,nCoV 7 scRNA-seq
+nCoV 8,,severe COVID-19,,,4,nCoV 8 scRNA-seq
+nCoV 9,C7,severe COVID-19,61,M,4,nCoV 9 scRNA-seq
+nCoV 10,,mild COVID-19,,,4,nCoV 10 scRNA-seq
+nCoV 11,C8,"mild COVID-19
+(asymptomatic)",62,F,4,nCoV 11 scRNA-seq
+Normal 1,N1,Healthy donor,63,F,2,Normal 1 scRNA-seq
+Normal 2,N2,Healthy donor,54,F,3,Normal 2 scRNA-seq
+Normal 3,N3,Healthy donor,67,F,3,Normal 3 scRNA-seq
+Normal 4,N4,Healthy donor,63,M,4,Normal 4 scRNA-seq
