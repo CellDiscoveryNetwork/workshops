@@ -26,15 +26,17 @@ options(width = 1200)
 
 ## Introduction
 
-Clustering takes place on good quality cells after dimensionality reduction. After filtering out non-informative cells and reducing the dimensionality of our dataset, the data is ready to cluster. Clustering is the process of grouping cell identities based on their gene expression profiles. It is done by computing a nearest neighbor graph and then grouping cells based on their connectivity in this graph. To effectively cluster an experiment, it should be done iteratively so the least amount of information is lost or misidentified.
+Clustering takes place after dimensionality reduction. Clustering is the process of grouping cell identities based on their gene expression profiles. For scRNAseq data we use community detection algorithms, this is done by computing a K-nearest-neighbor graph and then grouping cells based on their shared nearest neighbors. To effectively obtain fine grained annotations, it should be done iteratively so the least amount of information is lost or misidentified.
 
 In this notebook, we learn:
 
--   Clustering in Seurat requires the computation of a nearest neighbor graph followed by the identification of clusters in this graph using functions `FindNeighbors()` and `FindClusters()`.
+-   Clustering in Seurat requires the computation of a K-nearest-neighbor graph followed by the identification of clusters in this graph using the functions `FindNeighbors()` and `FindClusters()`.
 
--   The resolution parameter in `FindClusters()` controls the granularity of the clustering. A higher resolution results in more clusters.
+-   The `k` parameters in `FindNeighbors()` determines the connectivity of the graph. A higher the K sets a more highly connected graph which results in fewer clusters.
 
--   Clustering results can be evaluated quantitatively by looking at the sample and batch distribution across clusters and a silhouette analysis of the clusters.
+-   The `resolution` parameter in `FindClusters()` controls the granularity of the clustering. A higher resolution results in more clusters.
+
+-   Clustering results can be evaluated quantitatively by looking at the sample and batch distribution across clusters, using the Simpson diversity index, and a silhouette analysis of the clusters.
 
 ## Review
 
@@ -42,22 +44,24 @@ We left off (last session) filtering out the poor quality data without regard fo
 
 To review those:
 
-We take a cell x gene matrix, normalize it, and reduce its dimensionality using PCA. We looked at an Elbow plot to determine the best number of PCs that accurately show the variance explained. After selecting the top 30 PCs, we generated a k-nearest neighbors (kNN) graph to represent the relationships between cells based on their gene expression profiles and ran `FindClusters()` to identify clusters of cells based on their neighborhood relationships. Kyle introduced Harmony as an integration technique to correct for batch effects and I just went over QC metrics including doublet detection that help us understand the quality and content of our data.
+We take a cell x gene matrix, normalize it, and reduce its dimensions using PCA. We looked at the Elbow plot to determine the optimal number of PCs to capture the variance. After selecting the top 30 PCs, we generated a k-nearest neighbors (kNN) graph to represent the relationships between cells based on their gene expression profiles and ran `FindClusters()` to identify clusters of cells based on their neighborhood relationships. Kyle introduced Harmony as an integration technique to correct for batch effects and I just went over QC metrics including doublet detection that help us understand the quality and content of our data.
 
 ### Glossary
 
-**PCA** - A dimensionality reduction technique that reduces the number of dimensions in a dataset while retaining as much variance as possible. The first principal component accounts for the most variance in the data, and each subsequent component accounts for less variance.
+**PCA** - A dimensionality reduction technique that reduces the number of dimensions in a dataset while retaining as much variance as possible. The first principal component captures the axis with most variance in the data, each subsequent component captures the next independent/orthogonal axis of variability accounting for the most variance left.
 
 **Latent Space** - The latent space is the low-dimensional representation of the data that captures the most important features.
 
 **kNN Graph** - A graph that represents the relationships between cells based on their gene expression profiles. Each cell is connected to its k (1, 20, 100) nearest neighbors in the graph.
 
+**SNN Graph** - A graph that represents how many neighbors are shared between 2 cells. This ensures a more robust graph to outliers.
+
 ### Resources
 
-1.  [Current best practices in single-cell RNA-seq analysis: a tutorial](https://www.embopress.org/doi/full/10.15252/msb.20188746)
-2.  [Bioconductor](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html)
-3.  [Single Cell Best Practices](https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html)
-4.  [Challenges in unsupervised clustering of single-cell RNA-seq data](https://www-nature-com.ezp-prod1.hul.harvard.edu/articles/s41576-018-0088-9)
+1.  [Challenges in unsupervised clustering of single-cell RNA-seq data](https://www-nature-com.ezp-prod1.hul.harvard.edu/articles/s41576-018-0088-9)
+2.  [Current best practices in single-cell RNA-seq analysis: a tutorial](https://www.embopress.org/doi/full/10.15252/msb.20188746)
+3.  [Bioconductor](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html)
+4.  [Single Cell Best Practices](https://www.sc-best-practices.org/preprocessing_visualization/quality_control.html)
 
 ## Load Libraries and Data
 
@@ -80,6 +84,10 @@ if (!requireNamespace("ggplot2", quietly = TRUE))
     install.packages('ggplot2')
 if (!requireNamespace("ggalluvial", quietly = TRUE))
     install.packages("ggalluvial") 
+if (!requireNamespace("tidygraph", quietly = TRUE))
+    install.packages("tidygraph") 
+if (!requireNamespace("ggraph", quietly = TRUE))
+    install.packages("ggraph") 
 ```
 
 ```{r}
@@ -93,6 +101,8 @@ library(cluster)
 library(viridis)
 library(ggplot2)
 library(ggalluvial)
+library(tidygraph)
+library(ggraph)
 
 set.seed(687)
 ```
@@ -141,26 +151,25 @@ celltype_pca
 
 ### Construct the kNN graph with `FindNeighbors()`:
 
-`FindNeighbors()` is the Seurat function that calculates the k-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the k.param parameter with a default value of 30. It computes pairwaise distances between cells based on their gene expression using comming algorithms such as: euclidean distance, manhattan distance, Pearson correlation distance, and cosine similarity. choice matters.
+`FindNeighbors()` is the Seurat function that calculates the k-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the `k.param` parameter with a default value of 30. It computes pairwise distances between cells based on their gene expression using algorithms such as: euclidean distance, manhattan distance, Pearson correlation distance, or cosine similarity. choice matters.
 
 From [BioStars](https://www.biostars.org/p/9572463/):
 
 *`FindNeighbors()` is a function that is used to find the nearest neighbors of your single cell data point within a dataset. It works by calculating the neighborhood overlap (Jaccard index) between every cell and its k.param nearest neighbors. It's often employed in various applications such as anomaly detection and dimensionality reduction. The concept is that given a data point, you want to identify the closest data points to it based on some similarity metric, such as Euclidean distance or cosine similarity. This helps to identify similar points in the dataset, which can be useful for making predictions or understanding the distribution of the data.*
 
-The default values of FindNeighbors() are:
+The default values of `FindNeighbors()` are:
 
 <img src="../data/FindNeighbors.png" width="200"/>
 
 Let's modify these to fit our analysis:
 
 ```{r}
-se <- se %>% 
+se <- se %>%
     FindNeighbors( 
-      object = se,
-      reduction = "pca",
-      dims = 1:30,
-      k.param = 30,
-      verbose = FALSE
+        reduction = "pca",
+        dims = 1:30,
+        k.param = 30,
+        verbose = FALSE
     )
 ```
 
@@ -176,7 +185,9 @@ se@graphs
 The resolution parameter controls the granularity of the clustering. Higher values of resolution will result in more clusters, while lower values will result in fewer clusters. The default value is 0.8.
 
 From BioStars:\
+```
 *`FindClusters()` is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.*
+```
 
 <img src="../data/FindClusters.png" width="200"/>\
 *where 'algorithm' =*
@@ -199,17 +210,112 @@ In clustering, the goal is not to see how many clusters you can pull apart but i
 
 After clustering, we'll review some cluster validation techniques to qualitatively and quantitatively check the quality of the clustering results.
 
-```{r}
+```{r message=FALSE}
 se <- FindClusters(
       object = se,
-      resolution = c(0.01, 0.05, 0.1, 0.15, 0.2,0.25)) 
+      resolution = c(0.01, 0.05, 0.1, 0.15, 0.2,0.25),
+      algorithm = 1) 
 # Find clusters based on nearest neighbors at a resolution of 0.5
 ```
 
 ```{r}
 # Results seen at RNA_snn_res in metadata
-se@meta.data %>% select(contains("RNA_snn_res")) %>% colnames()
+colnames(se@meta.data)[str_detect(colnames(se@meta.data), "RNA_snn_res")]
 ```
+
+#### KNN vs SNN
+
+Subset seurat object to visualize KNN and SNN
+```{r}
+se_sub <- se[, sample(colnames(se), 1000)]
+
+se_sub <- se_sub %>%
+    FindNeighbors(
+        reduction = "pca",
+        dims = 1:30,
+        k.param = 10,
+        verbose = FALSE,
+        return.neighbor = FALSE,
+        compute.SNN = TRUE
+    )
+```
+
+Now let's do some processing to visualize the KNN and SNN graphs
+```{r}
+# Extract PCA
+pca_coords <- se_sub@reductions$pca@cell.embeddings[, 1:3] %>%
+    as.data.frame() %>%
+    rownames_to_column("name")
+
+## Edges for KNN graph
+edges_knn <- data.frame(se_sub@graphs$RNA_nn, check.names = FALSE) %>%
+    tibble::rownames_to_column("source") %>%
+    pivot_longer(cols = -source, names_to = "target") %>%
+    dplyr::filter(source != target & value > 0) %>%
+    dplyr::select(-value)
+
+## Edges for SNN graph
+edges_snn <- data.frame(se_sub@graphs$RNA_snn, check.names = FALSE) %>%
+    tibble::rownames_to_column("source") %>%
+    pivot_longer(cols = -source, names_to = "target", values_to = "jaccard") %>%
+    # Prune SNN - for this use case we need to have a jaccard index > 0.14
+    dplyr::filter(source != target & jaccard > 1 / 7) %>%
+    dplyr::select(-jaccard)
+
+# Prune SNN - for this use case we need to have a jaccard index > 0.14. This is 
+# a strict threshold for visualization purposes to highlight the robustness to 
+# outliers
+
+# Create graph objects
+graph_knn <- tbl_graph(
+        edges = edges_knn,
+        nodes = pca_coords,
+        directed = FALSE) %>%
+    activate(nodes)
+
+graph_snn <- tbl_graph(
+        edges = edges_snn,
+        nodes = pca_coords,
+        directed = FALSE) %>%
+    activate(nodes)
+```
+
+Visualike KNN and SNN graph
+```{r fig.height=6, fig.width=12}
+# Visualize KNN graph
+pknn12 <- ggraph(graph_knn, layout = 'manual', x = PC_1, y = PC_2) +
+    geom_edge_link(aes(alpha = 0.5), show.legend = FALSE) +
+    geom_point(aes(x = PC_1, y = PC_2), color = "blue", size = 3) +
+    theme_minimal() +
+    labs(title = "KNN in PCA Space", x = "PC_1", y = "PC_2")
+
+# Visualize SNN graph
+psnn12 <- ggraph(graph_snn, layout = 'manual', x = PC_1, y = PC_2) +
+    geom_edge_link(aes(alpha = 0.5), show.legend = FALSE) +
+    geom_point(aes(x = PC_1, y = PC_2), color = "orange", size = 3) +
+    theme_minimal() +
+    labs(title = "SNN in PCA Space", x = "PC_1", y = "PC_2")
+
+pknn12 | psnn12
+
+# Looking also PC1 vs PC3 for a different perspective
+pknn13 <- ggraph(graph_knn, layout = 'manual', x = PC_1, y = PC_3) +
+    geom_edge_link(aes(alpha = 0.5), show.legend = FALSE) +
+    geom_point(aes(x = PC_1, y = PC_3), color = "blue", size = 3) +
+    theme_minimal() +
+    labs(title = "KNN in PCA Space", x = "PC_1", y = "PC_3")
+
+# Visualize SNN graph
+psnn13 <- ggraph(graph_snn, layout = 'manual', x = PC_1, y = PC_3) +
+    geom_edge_link(aes(alpha = 0.5), show.legend = FALSE) +
+    geom_point(aes(x = PC_1, y = PC_3), color = "orange", size = 3) +
+    theme_minimal() +
+    labs(title = "SNN in PCA Space", x = "PC_1", y = "PC_3")
+
+pknn13 | psnn13
+```
+
+We can see that by looking at the SNN graphs we prune connections between extreme points and, therefore, improve the robustness of our clustering
 
 #### RunUMAP
 
@@ -232,30 +338,32 @@ DimPlot(
 )
 ```
 
-Community detection graphs split whole datasets into more groups at higher resolution and do not subcluster based on major clusters that are present at lower resolutions. Clustering at a low resolution splits the dataset into a certain number of groups while clustering at a high resolution draws different lines on that same larger corpus of data. Below we show how this method of clustering (community detection) is different from hierarchical clustering.
+Community detection don't follow a hierarchical clustering process. The algorithm splits the graph into more communities at higher resolution and do not subcluster based on major clusters that are present at lower resolutions. Clustering at a low resolution splits the dataset into a certain number of groups while clustering at a high resolution draws different lines on that same larger corpus of data. Below we show how this method of clustering (community detection) is different from hierarchical clustering.
 
-```{r}
-se_1 <- se %>%
-  FindClusters(resolution = 0.25) 
-
-metadata <- se@meta.data
-metadata_1 <- se_1@meta.data
-plot_data <- as.data.frame(table(metadata$seurat_clusters, metadata_1$seurat_clusters))
-colnames(plot_data) <- c("Cluster 0.05", "Cluster 0.25", "Freq")
-```
-
-```{r, fig.width=12, fig.height=8}
-ggplot(plot_data,
-       aes(axis1 = `Cluster 0.05`, axis2 = `Cluster 0.25`, y = Freq)) +
-    geom_alluvium(aes(fill = `Cluster 0.05`), width = 0.1) +
+```{r fig.width=9, fig.height=6}
+se@meta.data %>%
+    dplyr::count(
+        Celltype, RNA_snn_res.0.01, RNA_snn_res.0.05,
+        RNA_snn_res.0.1, RNA_snn_res.0.25) %>% 
+    ggplot(
+        aes(axis1 = RNA_snn_res.0.01, axis2 = RNA_snn_res.0.05,
+            axis3 = RNA_snn_res.0.1, axis4 = RNA_snn_res.0.25,
+            y = n)) +
+    geom_alluvium(aes(fill = RNA_snn_res.0.01), width = 0.1) +
     geom_stratum(width = 0.1) +
     geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
-    scale_x_discrete(limits = c("Cluster 0.05", "Cluster 0.25"), expand = c(0.15, 0.05)) +
-    labs(title = "Compare Cluster Resolution of 0.05 and 0.25",
+    scale_x_discrete(
+        limits = c("RNA_snn_res.0.01", "RNA_snn_res.0.05",
+                   "RNA_snn_res.0.1", "RNA_snn_res.0.25"),
+        expand = c(0.15, 0.05)) +
+    scale_fill_brewer(palette = "Dark2") +
+    labs(title = "Compare Cluster Resolution of 0.01, 0.05, 0.1 and 0.25",
          x = "Clusters",
          y = "Count") +
     theme_minimal()
 ```
+
+We see how in this case it follows a pretty good hierarchical splitting across higher resolutions some cells do tend to branch out into other clusters. 
 
 #### Different Resolutions
 
@@ -277,7 +385,7 @@ Comparing the 0.05 and the 0.1 resolutions, Cluster 0 in the 0.05 resolution app
 
 Splitting the clusters by cluster size and sample diversity allows us to make sure not one sample is being clustered separately from others.
 ```{r}
-seurat_clusters <- "RNA_snn_res.0.05"
+# seurat_clusters <- "RNA_snn_res.0.05"
 diversityPerGroup <- function(df, species, group, diversity_metric = 'simpson') {
   # Convert strings to symbols for curly-curly operator
   species_sym <- rlang::sym(species)
@@ -310,113 +418,136 @@ diversityPerGroup <- function(df, species, group, diversity_metric = 'simpson') 
 }
 
 # Calculate simpson's diversity per cluster
-clusterMetrics <- diversityPerGroup(se_1@meta.data,
+clusterMetrics <- diversityPerGroup(se@meta.data,
                         species = 'RNA_snn_res.0.05',
                         group = 'Sample ID',
                         diversity_metric = 'simpson')
 
 # Calculate number of cells per cluster and join to metrics table
-clusterMetrics <- clusterMetrics %>% left_join(se_1@meta.data %>% count(RNA_snn_res.0.05))
-
-# clusterMetrics
+clusterMetrics <- clusterMetrics %>% left_join(se@meta.data %>% count(RNA_snn_res.0.05))
+head(clusterMetrics)
 ```
 
+Let's visualize Simpson's diversity index by cluster
 ```{r}
-
-seurat_clusters <- "RNA_snn_res.0.05"
-clusterMetrics$seurat_clusters <- as.numeric(clusterMetrics$RNA_snn_res.0.05)
-
-div <- ggplot(clusterMetrics, aes(x = seurat_clusters, y = n)) +
-  geom_segment(aes(x = seurat_clusters, xend = seurat_clusters, y = 0, yend = n),
-               size = 1.5, color = 'grey80') + # Draw lines for lollipops
-  geom_point(aes(colour = `Sample ID_diversity`), size = 5) + # Add colored lollipop 'heads', coloring by 'Sample ID_diversity'
+ggplot(clusterMetrics, aes(x = RNA_snn_res.0.05, y = n)) +
+  geom_segment(aes(
+          x = RNA_snn_res.0.05, xend = RNA_snn_res.0.05,
+          y = 0, yend = n),
+      size = 1.5, color = 'grey80') + # Draw lines for lollipops
+  geom_point(aes(color = `Sample ID_diversity`), size = 5) + # Add colored lollipop 'heads', coloring by 'Sample ID_diversity'
   scale_y_log10() +
-  scale_x_continuous(breaks = seq(0,20)) + 
-  scale_colour_viridis(option = "C", name = "Sample ID Diversity", direction = 1, limits = c(0,1)) + # Colorblind-friendly, vibrant color palette
+  # scale_x_continuous(breaks = seq(0, 20)) + 
+  scale_colour_viridis(
+      option = "C",
+      name = "Sample ID Diversity",
+      direction = 1,
+      limits = c(0, 1)) + # Colorblind-friendly, vibrant color palette
   theme_minimal(base_size = 10) +
   theme(legend.position = "bottom",
         axis.text = element_text(size = 12), 
         axis.title = element_text(size = 14), 
         title = element_text(size = 16)) +
-  labs(x = "Seurat Clusters",
-       y = "cluster size (log-scaled)",
-       title = "Cluster Diversity Metrics") +
+  labs(x = "Clusters",
+       y = "log(cluster size)",
+       title = "Simpson Diversity Index per Cluster") +
   guides(colour = guide_colourbar(title.position = "top", title.hjust = 0.5))
 
-div
 ```
-Cluster 4 appears to be the least diverse in terms of sample diversity. Let's investigate which samples are in each cluster to see if there is any bias.
+Clusters 4 and 6 appear to have very low sample diversity. Let's investigate which samples are in each cluster to see if there is any bias.
 
 Plot sample distribution per cluster
 
-```{r, fig.width = 8, fig.height = 6}
+```{r fig.width = 8, fig.height = 6}
 # Assuming se_1@meta.data has columns 'seurat_clusters' and 'Sample ID'
 
 # Prepare the data for plotting
-plot_sample <- se_1@meta.data %>%
+plot_sample <- se@meta.data %>%
   count(RNA_snn_res.0.05, `Sample ID`) %>%
   group_by(RNA_snn_res.0.05) %>%
   mutate(proportion = n / sum(n)) %>%
   ungroup()
 
 # Create a stacked bar plot
-ggplot(plot_sample, aes(x = factor(RNA_snn_res.0.05), y = proportion, fill = `Sample ID`)) +
+ggplot(
+    plot_sample,
+    aes(x = factor(RNA_snn_res.0.05),
+        y = proportion,
+        fill = `Sample ID`)) +
   geom_bar(stat = "identity", position = "stack") +
-  labs(x = "Seurat Clusters", y = "Proportion", fill = "Sample ID",
-       title = "Distribution of Sample IDs Across Clusters") +
+  labs(
+      title = "Distribution of Sample IDs Across Clusters",
+      x = "Seurat Clusters",
+      y = "Proportion",
+      fill = "Sample ID") +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_manual(values = donor_pal)
 ```
-Sample `Flu 1` appears to make up the majority of Cluster 4.
+Sample `Flu 1` appears to make up the majority of Cluster 4 and `Flu 3`of cluster 6. Looking at it with a table -
 
-Another way to visualize cluster diversity is through a stacked bar plot instead of lollipops. This provides a super clear way to compare these numercial metrics side by side.
+```{r}
+table(se$`Sample ID`, se$RNA_snn_res.0.05)
+```
+
+Another way to visualize cluster diversity is through a stacked bar plot instead of lollipops. This provides a super clear way to compare these numerical metrics side by side.
 
 ```{r, fig.width = 6, fig.height = 4}
-p2 <- ggplot(clusterMetrics, aes(y=as.character(seurat_clusters), fill=`Sample ID_diversity`, x = 1, label = n)) +
+ggplot(clusterMetrics,
+       aes(
+           x = 1, 
+           y = as.character(RNA_snn_res.0.05),
+           fill = `Sample ID_diversity`,
+           label = n)) +
   geom_tile(colour = "white") +
   geom_text(nudge_x = 1.5, size = 3) +
   geom_text(aes(label = signif(`Sample ID_diversity`, 2)),size = 3) +
   scale_fill_distiller(palette = "Spectral", limits = c(0,1)) + theme_classic() +
   coord_fixed(ratio = 0.25) + 
   expand_limits(x = c(0.5,3)) +
-  labs(x = "Diversity                                   Size") +
+  labs(
+      x = "Diversity                                   Size",
+      y = "RNA_snn_res.0.05",
+      fill = "Simpson Diversity\nfor Sample") +
   theme(axis.text.y = element_text(hjust = 1, vjust = 0.5, size = 12),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         axis.title.y = element_text(size = 15),
         legend.key.size = unit(1, 'cm'),
-        legend.title = element_text(size=10), 
-        legend.text = element_text(size=10)
-  ) 
-p2
+        legend.title = element_text(size = 10), 
+        legend.text = element_text(size = 10)
+        )
 ```
 
 Visualizing cluster diversity based on batch is also an important thing to look out for. This is similar to the QC motivation where these plots provide a way to explain your data and possible findings before claiming any biological phenomena.
 ```{r, fig.width = 8, fig.height = 6}
 # Prepare the data for plotting
-plot_batch <- se_1@meta.data %>%
-  count(RNA_snn_res.0.05, batch) %>%
-  group_by(RNA_snn_res.0.05) %>%
-  mutate(proportion = n / sum(n)) %>%
-  ungroup()
-
-# Create a stacked bar plot
-ggplot(plot_batch, aes(x = factor(RNA_snn_res.0.05), y = proportion, fill = batch)) +
-  geom_bar(stat = "identity", position = "stack") +
-  labs(x = "Seurat Clusters", y = "Proportion", fill = "Batch",
+se@meta.data %>%
+    count(RNA_snn_res.0.05, batch) %>%
+    group_by(RNA_snn_res.0.05) %>%
+    mutate(
+        proportion = n / sum(n),
+        batch = as.character(batch)) %>%
+    ungroup() %>%
+    # Create a stacked bar plot
+    ggplot(
+        aes(x = factor(RNA_snn_res.0.05),
+            y = proportion,
+            fill = batch)) +
+    geom_bar(stat = "identity", position = "stack") +
+    labs(x = "Seurat Clusters", y = "Proportion", fill = "Batch",
        title = "Distribution of Batches Across Clusters") +
-  # theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_color_manual(values = donor_pal)
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+    scale_color_manual(values = donor_pal)
 ```
 
 ### Silhouette Analysis
 
-As covered in the last workshop, silhouette analysis is a way to measure how similar an object is to its own cluster compared to other clusters. The silhouette value ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters.
+As covered in our workshop, silhouette analysis is a way to measure how similar each cell is to the other cells in its own cluster compared to ones in other clusters. The silhouette value ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters and viceversa.
 
 ```{r}
-seurat_clusters <- se_1@meta.data$RNA_snn_res.0.05
+seurat_clusters <- as.character(se@meta.data$RNA_snn_res.0.05)
 
 pca_embeddings <- Embeddings(se, reduction = 'pca')
 
@@ -425,16 +556,17 @@ sil_scores <- silhouette(x = as.numeric(seurat_clusters), dist = dist(pca_embedd
 
 # Extract silhouette scores
 silhouette_data <- as.data.frame(sil_scores)
-# Recover cell type names
-silhouette_data$seurat_clusters <- as.character(seurat_clusters)
+head(silhouette_data)
 
+# recover cell type names
 row.names(silhouette_data) <- row.names(pca_embeddings)
 
 silhouette_arranged <- silhouette_data %>% 
-  group_by(seurat_clusters) %>% 
+  group_by(cluster) %>% 
   arrange(-sil_width)
 ```
 
+Visualize silhouette scores
 ```{r}
 overall_average <- silhouette_arranged %>% 
   ungroup %>% 
@@ -469,36 +601,26 @@ So let's look at silhouette scores on a UMAP
 
 ```{r, fig.width = 10, fig.height = 5}
 d5 <- DimPlot(se,
-        reduction='umap',
-        group.by='RNA_snn_res.0.05', 
+        reduction = 'umap',
+        group.by = 'RNA_snn_res.0.05', 
         label = TRUE)
 
-se_1$CellID <- row.names(se_1@meta.data)
+se$CellID <- rownames(se@meta.data)
 
-sil_ids <- silhouette_data %>% rownames_to_column('CellID') %>% left_join(se_1@meta.data, by='CellID')
-se_1 <- AddMetaData(se_1, sil_ids)
+sil_ids <- silhouette_data %>%
+    rownames_to_column('CellID') %>%
+    left_join(se@meta.data, by = 'CellID')
+se <- AddMetaData(se, sil_ids)
 
 FeaturePlot(
-  se_1, 
+  se, 
   feature = "sil_width") + 
   ggtitle('Silhouette width') + 
   scale_color_viridis(limits = c(-1,1), 
                         option = "magma") | d5
 ```
 
-Lastly, we should look at cells that might be between cell types or proliferating. These are often cells in transition and can be clustered across the UMAP.
-```{r, fig.width = 12, fig.height = 6}
-p1 <- FeaturePlot(
-  se,
-  features = c("MS4A1")
-)
-p2 <- DimPlot(
-    se,
-    group.by = "RNA_snn_res.0.05",
-    label = TRUE
-  )
-p1 | p2
-```
+Cluster 5 seems to have a specifically poor silhouette score. This potentially means these cells are not clustered correctly. This could be due to this cluster being under-clustered - leading to multiple cell types/states ending up within it. Let's check if there is heterogeneity within cluster 5. In the next notebook we will take a closer look on what might be going on
 
 ## Extra: More on Clustering Algorithms
 
@@ -509,7 +631,7 @@ The Louvain algorithm was developed in 2008 and is a popular community detection
 
 The Leiden algorithm was published in 2020 as an improvement of the Louvain algorithm. *Leiden creates clusters by taking into account the number of links between cells in a cluster versus the overall expected number of links in the dataset. It computes a clustering on a KNN graph obtained from the PC reduced expression space. It starts with an initial partition where each node from its own community. Next, the algorithm moves single nodes from one community to another to find a partition, which is then refined. Based on a refined partition an aggregate network is generated, which is again refined until no further improvements can be obtained, and the final partition is reached.* ([Single Cell Best Practices](https://www.sc-best-practices.org/clustering/clustering.html)).
 
-There are a couple of popular clustering algorithms. There is no one way to cluster as clustering is a means of looking at the data from different angles. The most popular clustering algortihms are the louvain algorithm, leiden algorithm, hierarchical clustering, and k-means clustering. Seurat uses the Leiden algorithm by default which is an improvement on the Louvain algorithm.
+There are a couple of popular clustering algorithms. There is no one way to cluster as clustering is a means of looking at the data from different angles. The most popular clustering algorithms are the louvain algorithm, leiden algorithm, hierarchical clustering, and k-means clustering. Seurat uses the Leiden algorithm by default which is an improvement on the Louvain algorithm.
 
 ## Session Info
 
