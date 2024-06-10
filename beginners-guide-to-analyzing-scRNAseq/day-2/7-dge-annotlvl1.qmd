@@ -150,7 +150,8 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS("../data/Covid_Flu_Seurat_Object.rds")
+# se <- readRDS("../data/Covid_Flu_Seurat_Object.rds")
+se <- readRDS(file = "../data/clustered_se.rds")
 ```
 
 Generate a color palette for our cell types
@@ -163,37 +164,9 @@ names(pal) <- sort(unique(se$Celltype))
 
 ## Analysis
 
-### Quick processing
+The seurat object already comes pre-processed from the previous step! We can go right in to annotate the clusters.
 
-```{r}
-se <- se %>%
-    NormalizeData(verbose = FALSE) %>%
-    FindVariableFeatures(
-        method = "vst",
-        nfeatures = 3000,
-        verbose = FALSE) %>%
-    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
-    RunPCA(verbose = FALSE)
-
-ElbowPlot(se, ndims = 50)
-```
-
-Let's run `FindNeighbors` and `FindClusters` to label our data:
-
-```{r}
-se <- FindNeighbors(se, reduction = "pca") %>% 
-    FindClusters(resolution = c(0.01, 0.05, 0.1, 0.25))
-```
-
-Let's compute the UMAP
-
-```{r}
-se <- se %>%
-    RunUMAP(dims = 1:30, verbose = FALSE)
-```
-
-We can now take a look on the UMAP space how the clusters look
-
+Check how the clusters look on the UMAP
 ```{r fig.width=12, fig.height=10}
 se$sample_id <- se$`Sample ID`
 DimPlot(
@@ -243,7 +216,7 @@ DT::datatable(mgs, filter = "top")
 
 Look at the results in a heatmap
 
-```{r fig.width=20, fig.height=15}
+```{r fig.width=20, fig.height=20}
 top10 <- mgs %>%
     arrange(cluster, desc(avg_log2FC)) %>% 
     group_by(cluster) %>%
@@ -404,7 +377,7 @@ FeaturePlot(se, features = c("prediction.score.max", "prediction.score.Unassigne
 
 #### Manual Annotation
 
-##### Cluster 0 & 4
+##### Cluster 0 & 5
 
 Let's look at genes that are differentially expressed
 
@@ -422,27 +395,27 @@ VlnPlot(
     dim_plt
 ```
 
-Clusters 0 & 4 seem to have a lot of expression of T cell related genes so at this level 1 we are going to label them as T cells.
+Clusters 0 & 5 seem to have a lot of expression of T cell related genes so at this level 1 we are going to label them as T cells.
 
-##### Cluster 1
+##### Cluster 1, 4 & 6
 
 Let's look at genes that are differentially expressed
 
 ```{r fig.height=10, fig.width=15}
 FeaturePlot(
     se,
-    features = c("CD14", "S100A8", "VCAN", "LYZ", "MS4A6A"),
+    features = c("CD14", "FCGR3A", "S100A8", "VCAN", "LYZ"),
     ncol = 3) +
     dim_plt
 
 VlnPlot(
     se,
-    features = c("CD14", "S100A8", "VCAN", "LYZ", "MS4A6A"),
+    features = c("CD14", "FCGR3A", "S100A8", "VCAN", "LYZ"),
     group.by = "RNA_snn_res.0.05") +
     dim_plt
 ```
 
-Cluster 1 is expressing a lot of monocyte-like genes, at this level 1 we are going to label them as monocytes.
+Cluster 1, 4 & 6 express a lot of monocyte-like genes, at this level 1 we are going to label them as monocytes.
 
 ##### Cluster 2
 
@@ -484,7 +457,7 @@ VlnPlot(
 
 Cluster 3 is expressing platelet genes
 
-##### Cluster 5
+##### Cluster 7
 
 Let's look at genes that are differentially expressed
 
@@ -502,9 +475,9 @@ VlnPlot(
     dim_plt
 ```
 
-Cluster 5 is expressing hemoglobin genes so they are likely RBC
+Cluster 7 is expressing hemoglobin genes so they are likely RBC
 
-##### Cluster 6
+##### Cluster 8
 
 Let's look at genes that are differentially expressed
 
@@ -522,7 +495,7 @@ VlnPlot(
     dim_plt
 ```
 
-Cluster 6 is expressing genes predominantly expressed by pDCs.
+Cluster 8 is expressing genes predominantly expressed by pDCs.
 
 ## Annotate
 
@@ -536,9 +509,12 @@ se@meta.data <- se@meta.data %>%
       RNA_snn_res.0.05 == 1 ~ "Monocytes",
       RNA_snn_res.0.05 == 2 ~ "B cells",
       RNA_snn_res.0.05 == 3 ~ "Platelets",
-      RNA_snn_res.0.05 == 4 ~ "T cells",
-      RNA_snn_res.0.05 == 5 ~ "RBC",
-      RNA_snn_res.0.05 == 6 ~ "pDCs")
+      RNA_snn_res.0.05 == 4 ~ "Monocytes",
+      RNA_snn_res.0.05 == 5 ~ "T cells",
+      RNA_snn_res.0.05 == 6 ~ "Monocytes",
+      RNA_snn_res.0.05 == 7 ~ "RBC",
+      RNA_snn_res.0.05 == 8 ~ "pDCs"
+      )
   )
 
 DimPlot(se, group.by = "annotation_lvl1")
@@ -585,7 +561,7 @@ Seurat::DotPlot(
 
 We can also visualize this as a heatmap using Seurat's `DoHeatmap` function:
 
-```{r}
+```{r fig.width=12, fig.height=9}
 Seurat::DoHeatmap(
     se,
     features = dplot_genes,
@@ -707,6 +683,49 @@ se@meta.data %>%
 
 ```{r}
 saveRDS(object = se, file = "../data/se_lvl1.rds")
+```
+
+## Playground with cluster 5
+
+Cluster 5 seems to have a particularly low Silhouette analysis. This potentially means these cells are not clustered correctly. This could be due to this cluster being under-clustered - leading to multiple cell types/states ending up within it. Let's check if there is heterogeneity within cluster 5.
+
+```{r message=FALSE, eval=FALSE}
+Idents(se) <- se$RNA_snn_res.0.05
+se <- FindSubCluster(se, cluster = 5, resolution = c(0.1), graph.name = "RNA_snn")
+
+se_5 <- se[, se$RNA_snn_res.0.05 == 5]
+DimPlot(se_5, group.by = "sub.cluster")
+
+## It looks like it has found 5 subclusters on SNN embedding space
+Idents(se_5) <- se_5$sub.cluster
+mgs <- FindAllMarkers(
+    se_5,
+    only.pos = TRUE,
+    logfc.threshold = 0.5,
+    min.pct = 0.25)
+DT::datatable(mgs, filter = "top")
+```
+
+Lastly, we should look at cells that might be between cell types or proliferating. These are often cells in transition and can be clustered across the UMAP.
+```{r fig.width=18, fig.height = 25, eval=FALSE}
+FeaturePlot(
+  se_5,
+  features = c(
+      # T cell genes
+      "TRDC", "TRGC1", "TRGC2",
+      "TRAC", "TRBC1", "TRBC2",
+      # Proliferation genes
+      "TOP2A", "MKI67", "STMN1",
+      # Myeloid genes
+      "S100A8", "S100A9", "HBB",
+      # B cell genes
+      "JCHAIN", "CD79A", "MS4A1",
+      "IGHA1", "MZB1", "IGHG1", "IGHG3",
+      # NK genes
+      "FCGR3A", "KLRF1", "KLRC2",
+      "NCR1", "NCR2", "NCR3"),
+  ncol = 3
+)
 ```
 
 ## Extra!!!

@@ -13,7 +13,7 @@ format:
     embed-resources: true
     self-contained-math: true
 editor_options: 
-  chunk_output_type: inline
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -21,8 +21,6 @@ knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center',
                       message = FALSE, warning = FALSE, cache = FALSE)
 options(width = 1200)
 ```
-
-# Clustering
 
 ## Introduction
 
@@ -167,8 +165,8 @@ Let's modify these to fit our analysis:
 se <- se %>%
     FindNeighbors( 
         reduction = "pca",
-        dims = 1:30,
-        k.param = 30,
+        dims = 1:20,
+        k.param = 20,
         verbose = FALSE
     )
 ```
@@ -185,8 +183,9 @@ se@graphs
 The resolution parameter controls the granularity of the clustering. Higher values of resolution will result in more clusters, while lower values will result in fewer clusters. The default value is 0.8.
 
 From BioStars:\
-```
-*`FindClusters()` is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.*
+
+```         
+FindClusters() is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.
 ```
 
 <img src="../data/FindClusters.png" width="200"/>\
@@ -226,6 +225,7 @@ colnames(se@meta.data)[str_detect(colnames(se@meta.data), "RNA_snn_res")]
 #### KNN vs SNN
 
 Subset seurat object to visualize KNN and SNN
+
 ```{r}
 se_sub <- se[, sample(colnames(se), 1000)]
 
@@ -241,6 +241,7 @@ se_sub <- se_sub %>%
 ```
 
 Now let's do some processing to visualize the KNN and SNN graphs
+
 ```{r}
 # Extract PCA
 pca_coords <- se_sub@reductions$pca@cell.embeddings[, 1:3] %>%
@@ -281,6 +282,7 @@ graph_snn <- tbl_graph(
 ```
 
 Visualike KNN and SNN graph
+
 ```{r fig.height=6, fig.width=12}
 # Visualize KNN graph
 pknn12 <- ggraph(graph_knn, layout = 'manual', x = PC_1, y = PC_2) +
@@ -320,6 +322,7 @@ We can see that by looking at the SNN graphs we prune connections between extrem
 #### RunUMAP
 
 UMAP runs on the PCA space. The dims parameter specifies which dimensions of the PCA space to use for the UMAP calculation. The default value is 1:30, which uses all dimensions. The n.components parameter specifies the number of dimensions in the UMAP embedding. The default value is 2.
+
 ```{r}
 se <- se %>% 
     RunUMAP(dims = 1:30, verbose = FALSE) # Run UMAP 
@@ -363,7 +366,7 @@ se@meta.data %>%
     theme_minimal()
 ```
 
-We see how in this case it follows a pretty good hierarchical splitting across higher resolutions some cells do tend to branch out into other clusters. 
+We see how in this case it follows a pretty good hierarchical splitting across higher resolutions some cells do tend to branch out into other clusters.
 
 #### Different Resolutions
 
@@ -377,13 +380,15 @@ DimPlot(
     label = TRUE
     )
 ```
-Comparing the 0.05 and the 0.1 resolutions, Cluster 0 in the 0.05 resolution appears to split into 2 looking at Clusters 1 and 2 in resolution 0.1. While this seems helpful in sifting through the data, we've decided to keep the large blobs together. This saves us visibility of our dataset in the second level of annotation. Resolution 0.05 has the best distribution, but let's quantitatively analyze it's clusters quality. 
+
+Comparing the 0.05 and the 0.1 resolutions, Cluster 0 in the 0.05 resolution appears to split into 2 looking at Clusters 1 and 2 in resolution 0.1. While this seems helpful in sifting through the data, we've decided to keep the large blobs together. This saves us visibility of our dataset in the second level of annotation. Resolution 0.05 has the best distribution, but let's quantitatively analyze it's clusters quality.
 
 ## Cluster Metrics
 
 ### Cluster Diversity
 
 Splitting the clusters by cluster size and sample diversity allows us to make sure not one sample is being clustered separately from others.
+
 ```{r}
 # seurat_clusters <- "RNA_snn_res.0.05"
 diversityPerGroup <- function(df, species, group, diversity_metric = 'simpson') {
@@ -429,6 +434,7 @@ head(clusterMetrics)
 ```
 
 Let's visualize Simpson's diversity index by cluster
+
 ```{r}
 ggplot(clusterMetrics, aes(x = RNA_snn_res.0.05, y = n)) +
   geom_segment(aes(
@@ -454,6 +460,7 @@ ggplot(clusterMetrics, aes(x = RNA_snn_res.0.05, y = n)) +
   guides(colour = guide_colourbar(title.position = "top", title.hjust = 0.5))
 
 ```
+
 Clusters 4 and 6 appear to have very low sample diversity. Let's investigate which samples are in each cluster to see if there is any bias.
 
 Plot sample distribution per cluster
@@ -484,6 +491,7 @@ ggplot(
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
   scale_fill_manual(values = donor_pal)
 ```
+
 Sample `Flu 1` appears to make up the majority of Cluster 4 and `Flu 3`of cluster 6. Looking at it with a table -
 
 ```{r}
@@ -520,6 +528,7 @@ ggplot(clusterMetrics,
 ```
 
 Visualizing cluster diversity based on batch is also an important thing to look out for. This is similar to the QC motivation where these plots provide a way to explain your data and possible findings before claiming any biological phenomena.
+
 ```{r, fig.width = 8, fig.height = 6}
 # Prepare the data for plotting
 se@meta.data %>%
@@ -562,22 +571,25 @@ head(silhouette_data)
 row.names(silhouette_data) <- row.names(pca_embeddings)
 
 silhouette_arranged <- silhouette_data %>% 
-  group_by(cluster) %>% 
-  arrange(-sil_width)
+    mutate(cluster = as.character(cluster)) %>%
+    group_by(cluster) %>% 
+    arrange(-sil_width)
 ```
 
 Visualize silhouette scores
+
 ```{r}
 overall_average <- silhouette_arranged %>% 
   ungroup %>% 
   summarize(ave = as.numeric(mean(sil_width))) %>% 
   pull(ave)
 
-full_plot <- ggplot(silhouette_arranged, 
-                    aes(x = sil_width, 
-                        y = seurat_clusters, 
-                        fill = seurat_clusters, 
-                        group = seurat_clusters)) +
+ggplot(
+    silhouette_arranged, 
+    aes(x = sil_width, 
+        y = cluster, 
+        fill = cluster, 
+        group = cluster)) +
     geom_bar(stat = "identity", position = 'dodge2') +
     geom_vline(xintercept = overall_average,
                color = 'red',
@@ -592,10 +604,9 @@ full_plot <- ggplot(silhouette_arranged,
         axis.ticks.x = element_blank(),
         axis.title.y = element_text(size = 20),
         legend.position = "None")
-
-full_plot
 ```
-The dashed red lines shows the average silhouette width across all clusters. The silhouette width is a measure of how similar an object is to its own cluster compared to other clusters. A high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters. The mystery of Cluster 4 is shown a bit more clearly here as the plot shows that Cluster 4 is more similar to other clusters than to itself. 
+
+The dashed red lines shows the average silhouette width across all clusters. The silhouette width is a measure of how similar an object is to its own cluster compared to other clusters. A high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters. The mystery of Cluster 4 is shown a bit more clearly here as the plot shows that Cluster 4 is more similar to other clusters than to itself.
 
 So let's look at silhouette scores on a UMAP
 
@@ -616,11 +627,18 @@ FeaturePlot(
   se, 
   feature = "sil_width") + 
   ggtitle('Silhouette width') + 
-  scale_color_viridis(limits = c(-1,1), 
-                        option = "magma") | d5
+  scale_color_distiller(
+      type = "div",
+      palette = "BrBG") | d5
 ```
 
 Cluster 5 seems to have a specifically poor silhouette score. This potentially means these cells are not clustered correctly. This could be due to this cluster being under-clustered - leading to multiple cell types/states ending up within it. Let's check if there is heterogeneity within cluster 5. In the next notebook we will take a closer look on what might be going on
+
+## Save Seurat object
+```{r}
+saveRDS(se, file = "../data/clustered_se.rds")
+```
+
 
 ## Extra: More on Clustering Algorithms
 
