@@ -24,7 +24,7 @@ options(width = 1200)
 
 ## Introduction
 
-Clustering takes place after dimensionality reduction. Clustering is the process of grouping cell identities based on their gene expression profiles. For scRNAseq data we use community detection algorithms, this is done by computing a K-nearest-neighbor graph and then grouping cells based on their shared nearest neighbors. To effectively obtain fine grained annotations, it should be done iteratively so the least amount of information is lost or misidentified.
+Clustering is the process of grouping cell identities based on their gene expression profiles and takes place after dimensionality reduction. For scRNAseq data we use community detection algorithms, this is done by computing a K-nearest-neighbor graph and then grouping cells based on their shared nearest neighbors. To effectively obtain fine grained annotations, it should be done iteratively so the least amount of information is lost or misidentified.
 
 In this notebook, we learn:
 
@@ -38,7 +38,7 @@ In this notebook, we learn:
 
 ## Review
 
-We left off (last session) filtering out the poor quality data without regard for its distribution. Last week, we learned how principle components are calculated, what a latent space is, and defined a kNN (k-nearest neighbors) graph.
+We left off (last session) filtering out the poor quality data without regard for its distribution. Last week, we learned how principal components are calculated, what a latent space is, and defined a kNN (k-nearest neighbors) graph.
 
 To review those:
 
@@ -134,7 +134,7 @@ names(donor_pal) <- c(
 
 ### PCA
 
-Let's first look at the data according to the top 2 principle components.
+Let's first look at the data according to the top 2 principal components.
 
 ```{r, fig.width=6, fig.height=6}
 celltype_pca <- DimPlot(
@@ -149,7 +149,7 @@ celltype_pca
 
 ### Construct the kNN graph with `FindNeighbors()`:
 
-`FindNeighbors()` is the Seurat function that calculates the k-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the `k.param` parameter with a default value of 30. It computes pairwise distances between cells based on their gene expression using algorithms such as: euclidean distance, manhattan distance, Pearson correlation distance, or cosine similarity. choice matters.
+`FindNeighbors()` is the Seurat function that calculates the k-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the `k.param` parameter with a default value of 30. It computes pairwise distances between cells based on their gene expression using algorithms such as: euclidean distance, manhattan distance, Pearson correlation distance, or cosine similarity. 
 
 From [BioStars](https://www.biostars.org/p/9572463/):
 
@@ -158,7 +158,7 @@ From [BioStars](https://www.biostars.org/p/9572463/):
 The default values of `FindNeighbors()` are:
 
 <img src="../data/FindNeighbors.png" width="200"/>
-
+*See `?FindNeighbors` for more information.*
 Let's modify these to fit our analysis:
 
 ```{r}
@@ -184,9 +184,8 @@ The resolution parameter controls the granularity of the clustering. Higher valu
 
 From BioStars:\
 
-```         
-FindClusters() is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.
-```
+*`FindClusters()` is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.*  
+
 
 <img src="../data/FindClusters.png" width="200"/>\
 *where 'algorithm' =*
@@ -203,7 +202,7 @@ FindClusters() is a function used for clustering data points into groups or clus
 
 ## Clustering
 
-Clustering is considered a classical unsupervised machine learning task. Seurat uses the community detection algorithm, Leiden, to identify cell clusters. A community detection algorithm identifies groups of nodes in a network that as densely connected. The Leiden algorithm connects cells by finding tightly connected communities in the shared nearest neighbor graph computed in `FindNeighbors.` Shared nearest neighbor graphs are more robust than k-nearest neighbors graphs. sNN graphs weight edges based on the number of shared edges with other cells. Leiden is a 2019 improvement on the Louvain algorithm so it is common to see both in scRNA-seq analysis.
+Clustering is considered a classical unsupervised machine learning task. Seurat uses the community detection algorithm, Leiden, to identify cell clusters. A community detection algorithm identifies groups of nodes in a network that are densely connected. The Leiden algorithm connects cells by finding tightly connected communities in the shared nearest neighbor graph computed in `FindNeighbors.` Shared nearest neighbor graphs are more robust than k-nearest neighbors graphs. sNN graphs weight edges based on the number of shared edges with other cells. Leiden is a 2019 improvement on the Louvain algorithm so it is common to see both in scRNA-seq analysis.
 
 In clustering, the goal is not to see how many clusters you can pull apart but it is an iterative process. Especially in the first pass, you want to pull apart main cell groups such as epithelial cells and immune cells so you can further refine clusters to extract more granular cell types in the next iteration.
 
@@ -227,7 +226,7 @@ colnames(se@meta.data)[str_detect(colnames(se@meta.data), "RNA_snn_res")]
 Subset seurat object to visualize KNN and SNN
 
 ```{r}
-se_sub <- se[, sample(colnames(se), 1000)]
+se_sub <- se[, sample(colnames(se), 1000)] # Subset to 1000 cells
 
 se_sub <- se_sub %>%
     FindNeighbors(
@@ -281,7 +280,7 @@ graph_snn <- tbl_graph(
     activate(nodes)
 ```
 
-Visualike KNN and SNN graph
+Visualize KNN and SNN graph
 
 ```{r fig.height=6, fig.width=12}
 # Visualize KNN graph
@@ -317,7 +316,7 @@ psnn13 <- ggraph(graph_snn, layout = 'manual', x = PC_1, y = PC_3) +
 pknn13 | psnn13
 ```
 
-We can see that by looking at the SNN graphs we prune connections between extreme points and, therefore, improve the robustness of our clustering
+We can see that by looking at the SNN graphs we prune connections between extreme points and, therefore, improve the robustness of our clustering.  
 
 #### RunUMAP
 
@@ -341,7 +340,7 @@ DimPlot(
 )
 ```
 
-Community detection don't follow a hierarchical clustering process. The algorithm splits the graph into more communities at higher resolution and do not subcluster based on major clusters that are present at lower resolutions. Clustering at a low resolution splits the dataset into a certain number of groups while clustering at a high resolution draws different lines on that same larger corpus of data. Below we show how this method of clustering (community detection) is different from hierarchical clustering.
+Community detection doesn't follow a hierarchical clustering process. The algorithm splits the graph into more communities at higher resolution and does not subcluster based on major clusters that are present at lower resolutions. Clustering at a low resolution splits the dataset into a certain number of groups while clustering at a high resolution draws different lines on that same larger corpus of data. Below we show how this method of clustering (community detection) is different from hierarchical clustering.
 
 ```{r fig.width=9, fig.height=6}
 se@meta.data %>%
@@ -466,8 +465,6 @@ Clusters 4 and 6 appear to have very low sample diversity. Let's investigate whi
 Plot sample distribution per cluster
 
 ```{r fig.width = 8, fig.height = 6}
-# Assuming se_1@meta.data has columns 'seurat_clusters' and 'Sample ID'
-
 # Prepare the data for plotting
 plot_sample <- se@meta.data %>%
   count(RNA_snn_res.0.05, `Sample ID`) %>%
@@ -492,7 +489,7 @@ ggplot(
   scale_fill_manual(values = donor_pal)
 ```
 
-Sample `Flu 1` appears to make up the majority of Cluster 4 and `Flu 3`of cluster 6. Looking at it with a table -
+Sample `Flu 1` appears to make up the majority of Cluster 4 and `Flu 3` of cluster 6. Looking at it with a table -
 
 ```{r}
 table(se$`Sample ID`, se$RNA_snn_res.0.05)
@@ -553,7 +550,7 @@ se@meta.data %>%
 
 ### Silhouette Analysis
 
-As covered in our workshop, silhouette analysis is a way to measure how similar each cell is to the other cells in its own cluster compared to ones in other clusters. The silhouette value ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters and viceversa.
+As covered in our workshop, silhouette analysis is a way to measure how similar each cell is to the other cells in its own cluster compared to ones in other clusters. The silhouette value ranges from -1 to 1, where a high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters and vice versa.
 
 ```{r}
 seurat_clusters <- as.character(se@meta.data$RNA_snn_res.0.05)
@@ -606,7 +603,7 @@ ggplot(
         legend.position = "None")
 ```
 
-The dashed red lines shows the average silhouette width across all clusters. The silhouette width is a measure of how similar an object is to its own cluster compared to other clusters. A high value indicates that the object is well matched to its own cluster and poorly matched to neighboring clusters. The mystery of Cluster 4 is shown a bit more clearly here as the plot shows that Cluster 4 is more similar to other clusters than to itself.
+The dashed red lines shows the average silhouette width across all clusters. Clusters 1 and 5 stick out here and we can look at their distribution on a UMAP for more context.  
 
 So let's look at silhouette scores on a UMAP
 
