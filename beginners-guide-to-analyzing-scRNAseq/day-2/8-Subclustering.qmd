@@ -422,7 +422,89 @@ compare_pca_loadings(loadings_l, loadings_h, cell_type_markers = cell_type_marke
 ```
 
 ## Comparison to subclustering
+```{r}
+se <- se %>%
+    FindVariableFeatures(
+            method = "vst",
+            nfeatures = 2000,
+            verbose = FALSE) %>%
+        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+        RunPCA(
+            npcs = 20,
+            verbose = FALSE
+        ) %>%
+        FindNeighbors() %>%
+        FindClusters(resolution = 0.05) %>%
+        RunUMAP(dims = 1:20)
+tse <- subset(se, idents = 0)
+tse <- tse %>% 
+    FindVariableFeatures(
+            method = "vst",
+            nfeatures = 2000,
+            verbose = FALSE) %>%
+        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+        RunPCA(
+            npcs = 20,
+            verbose = FALSE
+        ) %>%
+    FindNeighbors() %>%
+    FindClusters(resolution = 0.05) %>%
+    RunUMAP(dims = 1:20)
+DimPlot(tse, reduction='umap')
+```
 
+What you're probably wondering first is, hey would I have found these clusters if I had just increased the number of clusters I used? 
+```{r}
+tse_barcodes <- colnames(tse)
+# subset paramscan to only subclustering cells
+paramscan_subset <- paramscan[rownames(paramscan) %in% tse_barcodes, ]
+# Select the relevant columns
+paramscan_relevant <- paramscan_subset %>%
+    select(nf5000_pc50_k10_res0.5, nf2000_pc20_k10_res0.5) %>%
+    mutate(seurat_clusters = tse@meta.data[rownames(paramscan_subset),]$seurat_clusters,
+    Celltype = tse@meta.data[rownames(paramscan_subset),]$Celltype)
+# Reshape data for plotting
+data_alluvial <- pivot_longer(paramscan_relevant,
+                              cols = c("nf5000_pc50_k10_res0.5", "nf2000_pc20_k10_res0.5"),
+                              names_to = "parameter",
+                              values_to = "cluster")
+data_alluvial <- data_alluvial %>% rename(subcluster = seurat_clusters,
+                                          paramcluster = cluster) %>%
+                                    count(parameter,subcluster,paramcluster,Celltype)
+ggplot(data = data_alluvial,
+       aes(axis1 = paramcluster, axis2 = subcluster, axis3 = Celltype, y = n)) +
+    geom_alluvium(aes(fill = subcluster), width = 0.1) +
+    geom_stratum(width = 0.1) +
+    geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+    theme_minimal() +
+    facet_wrap(. ~ parameter) +
+    labs(title = "Alluvial plot of parameter scans vs Seurat clusters",
+         x = "Parameter combination",
+         y = "Cluster assignment")
+```
+
+And it's true, you would have. But the path to getting there is different. 
+
+If we check for example the overlap of highly variable features between the two methods, we'll find there are very few overlapping
+
+```{r}
+nh <- setdiff(VariableFeatures(se), VariableFeatures(tse)) %>% length
+paste('Number of genes in 5k variable features not in the T cell subset:', nh)
+paste('Number of genes in 2k variable features in the T cell subset:', 
+setdiff(VariableFeatures(tse), VariableFeatures(se)) %>% length)
+```
+
+And if we compare their PCAs, we see that the greatest differences in the PCAs towards the T cell subset are genes very important to T cell subset status 
+```{r}
+loadings_t_subclustering <- tse@reductions$pca@feature.loadings
+var_t <- tse@reductions$pca@stdev
+loadings_nf2k_20pcs <- loadings_l
+compare_pca_loadings(loadings_t_subclustering, loadings_nf2k_20pcs, top_n = 40)
+loadings_nf5k_50pcs <- loadings_h
+compare_pca_loadings(loadings_t_subclustering, loadings_nf5k_50pcs, top_n = 40)
+```
+
+## Comparing subclustering by a second method - using full dataset HVGs within only the subset
 To do this we will focus on the T cell compartment.
 
 ```{r}
