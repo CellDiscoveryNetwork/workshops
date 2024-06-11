@@ -53,6 +53,8 @@ AKA parameter sweep, this is the process of systematically varying parameters in
 
 -   Iterative subclustering is essential to uncover fine grained populations
 
+-   In addition to finding fine-grained populations, subclustering can help create better divisions between the different "species" of celltypes and subtypes.
+
 ## Libraries
 
 ```{r message=FALSE, warning=FALSE}
@@ -333,30 +335,29 @@ compare_pca_loadings <- function(loadings1, loadings2, top_n = 20, cell_type_mar
     outlines[loadings2_zero] <- "blue"
     # outlines[loadings1_zero & loadings2_zero] <- "white" # Both are zero
 
-    # Align the number of PCs if different
-    min_pcs <- min(ncol(loadings1_aligned), ncol(loadings2_aligned))
-    loadings1_aligned <- loadings1_aligned[, 1:min_pcs]
-    loadings2_aligned <- loadings2_aligned[, 1:min_pcs]
+    max_loadings1 <- apply(abs(loadings1_aligned), 1, max)
+    max_loadings2 <- apply(abs(loadings2_aligned), 1, max)
 
-    # Calculate signed differences in loadings
-    loadings_difference <- loadings2_aligned - loadings1_aligned
+    # Calculate the differences between the maximum absolute loadings across all PCs
+    loadings_difference <- max_loadings2 - max_loadings1
 
-    # Summarize the differences to find the genes with the greatest changes
-    differences_summarized <- rowSums(abs(loadings_difference))
-    directionality <- rowSums(loadings_difference)
-
-    # Create a data frame for plotting
-    genes_differences_df <- data.frame(
-        Feature = names(differences_summarized),
-        TotalDifference = directionality,
-        AbsoluteDifference = differences_summarized,
-        Direction = ifelse(directionality > 0, paste("Higher in", loadings2_name), paste("Higher in", loadings1_name)),
-        Outline = outlines[match(names(differences_summarized), all_genes)]
-    )
-
+    # Determine the direction of the difference
+    directionality <- ifelse(loadings_difference > 0, paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
 
     fillpal <- c('steelblue','salmon')
     names(fillpal) = c(paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
+
+    # Create a data frame for plotting
+    genes_differences_df <- data.frame(
+        Feature = rownames(loadings1_aligned),  # Assuming both matrices have the same rownames
+        Difference = loadings_difference,
+        Direction = directionality,
+        Outline = outlines[match(rownames(loadings1_aligned), all_genes)]
+    )
+
+    genes_differences_df <- genes_differences_df %>% mutate(
+                MaxAbsLoadings1 = ifelse(Direction == names(fillpal)[1], -max_loadings1, max_loadings1),
+                MaxAbsLoadings2 = ifelse(Direction == names(fillpal)[2], -max_loadings2, max_loadings2))
 
     if (!is.null(cell_type_markers)) {
         marker_genes <- unlist(cell_type_markers, use.names = FALSE)
@@ -369,7 +370,7 @@ compare_pca_loadings <- function(loadings1, loadings2, top_n = 20, cell_type_mar
         }
         
         
-        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, TotalDifference), y = TotalDifference, fill = Direction)) +
+        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
             geom_col() +
             coord_flip() +
             theme_minimal() +
@@ -382,10 +383,10 @@ compare_pca_loadings <- function(loadings1, loadings2, top_n = 20, cell_type_mar
             facet_wrap(~CellType, scales = "free_y", ncol = 1, drop = TRUE)
     } else {
         genes_differences_df <- genes_differences_df %>%
-            dplyr::arrange(desc(AbsoluteDifference)) %>%
+            dplyr::arrange(desc(Difference)) %>%
             dplyr::slice(1:top_n)
 
-        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, TotalDifference), y = TotalDifference, fill = Direction)) +
+        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
             geom_col(show.legend = FALSE) +
             scale_color_manual(name = "Outline Color", values = c("green" = "green", "blue" = "blue", "purple" = "purple"), labels = c(paste("Zero in", loadings1_name), paste("Zero in", loadings2_name), "Zero in Both")) +
             coord_flip() +
