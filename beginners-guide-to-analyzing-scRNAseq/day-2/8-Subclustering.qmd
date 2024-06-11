@@ -47,13 +47,11 @@ The term data analysts use to describe phenomena that appear when analyzing data
 
 AKA parameter sweep, this is the process of systematically varying parameters in an algorithm to analyze the effects of their changes on the outcome. Parameter scans are widely used in computationaly biology to identify optimal parameters or test the stability of our models. 
 
-## Additional Reading
-
-
-
 ## Key Takeaways
 
-- 
+-   Recomputing highly variable genes at each subclustering step resets the biological universe we are looking at to the capture the "new" sources of variability.
+
+-   Iterative subclustering is essential to uncover fine grained populations
 
 ## Libraries
 
@@ -104,23 +102,27 @@ set.seed(687)
 We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from the [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
 
 ```{r message=FALSE, warning=FALSE, output=FALSE}
-se <- readRDS("../data/Covid_Flu_Seurat_Object.rds")
+se <- readRDS("../data/se_lvl1.rds")
 ```
 
 ### Color palette
 
 ```{r}
+# Set color palette for cell types
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
+
 donor_pal <- c(
     "#66C2A4", "#41AE76", "#238B45", "#006D2C",
     "#41B6C4", "#1D91C0", "#225EA8", "#253494", "#081D58",
-    "#FFEDA0", "#FED976", "#FEB24C", "#FD8D3C",
-    "#FC4E2A", "#E31A1C", "#BD0026", "#800026")
+    "#FFEDA0", "#FED976", "#FEB24C", "#f79736", "#FD8D3C",
+    "#FC4E2A", "#E31A1C", "#BD0026", "#ad393b", "#800000", "#800050")
 
 names(donor_pal) <- c(
     "Normal 1", "Normal 2", "Normal 3", "Normal 4",
     "Flu 1", "Flu 2", "Flu 3", "Flu 4", "Flu 5",
-    "nCoV 1", "nCoV 2", "nCoV 3_4", "nCoV 5",
-    "nCoV 6", "nCoV 7_8", "nCoV 9_10", "nCoV 11"  
+    "nCoV 1", "nCoV 2", "nCoV 3", "nCoV 4", "nCoV 5",
+    "nCoV 6", "nCoV 7", "nCoV 8", "nCoV 9", "nCoV 10", "nCoV 11"  
 )
 ```
 
@@ -133,11 +135,14 @@ se <- se %>%
         method = "vst",
         nfeatures = 3000,
         verbose = FALSE) %>%
-    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>%
-    RunPCA() %>%
-    FindNeighbors() %>%
-    FindClusters(resolution = 0.05)
+    ScaleData(verbose = FALSE, features = VariableFeatures(.))
 ```
+
+Let's extract the top 3000 HVGs from the whole data across all cell types.
+```{r}
+hvg_full <- VariableFeatures(se)
+```
+
 
 ## Analysis
 
@@ -145,12 +150,12 @@ se <- se %>%
 
 For many of us, our first idea for finding rare celltypes is to modulate the parameters of what we have already to find the right celltypes. As we saw in the previous clustering notebook, we can find NK and T cell clusters this way, but it still seems like there's some heterogeneity in the clusters we've found. For illustration, I've run a parameter scan on the following variables:
 
-- FindVariableFeatures nfeatures
-- RunPCA npcs, 
-- FindNeighbors k.param, 
-- FindClusters resolution
+- `FindVariableFeatures` nfeatures
+- `RunPCA` npcs, 
+- `FindNeighbors` k.param, 
+- `FindClusters` resolution
 
-```{r}
+```{r fig.width=9, fig.height=9}
 parameter_df <- expand.grid(
   nf = c(2000, 3000, 5000),
   pc = c(20, 30, 50),
@@ -190,10 +195,12 @@ ggplot(paramscan_long %>%
   geom_bar(stat='identity') +
   facet_grid(paste('k=',k) + paste('nf =',nf) ~ paste('resolution =',res)) +
   scale_y_continuous(labels = scales::label_number()) +
-  scale_fill_manual(values=unname(donor_pal[c(1,6,11)])) +
-  labs(title = "Number of clusters Across Parameters",
-       x = "Clustering resolution + nPCs", y = "Number of clusters",
-       fill = "k param") +
+  scale_fill_manual(values = unname(donor_pal[c(1,6,11)])) +
+  labs(
+      title = "Number of clusters Across Parameters",
+      x = "Clustering resolution + nPCs",
+      y = "Number of clusters",
+      fill = "k param") +
   theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 
@@ -211,8 +218,6 @@ Here we will compare latent spaces between a low-parameter PCA and a high-parame
 
 
 ```{r}
-
-
 tic()
 se <- se %>%
     FindVariableFeatures(
@@ -261,16 +266,16 @@ combined_variance <- bind_rows(var_l_df, var_h_df)
 
 # Plotting the variance explained and cumulative variance
 ggplot(combined_variance, aes(x = PC)) +
-  geom_line(aes(y = CumulativeVariance, color = Set), size = 1.2) +
-  geom_point(aes(y = CumulativeVariance, color = Set), size = 2) +
-  scale_color_manual(values = c("blue", "red")) +
-  scale_linetype_manual(values = c("solid", "dashed")) +
-  theme_minimal() +
-  labs(title = "Cumulative Variance Explained",
-       x = "Principal Component",
-       y = "Proportion of Variance Explained") +
-  guides(color = guide_legend(title = "Parameter Set"), 
-         linetype = guide_legend(title = "Variance Type"))
+    geom_line(aes(y = CumulativeVariance, color = Set), size = 1.2) +
+    geom_point(aes(y = CumulativeVariance, color = Set), size = 2) +
+    scale_color_manual(values = c("blue", "red")) +
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    theme_minimal() +
+    labs(title = "Cumulative Variance Explained",
+         x = "Principal Component",
+         y = "Proportion of Variance Explained") +
+    guides(color = guide_legend(title = "Parameter Set"), 
+           linetype = guide_legend(title = "Variance Type"))
 
 ```
 
@@ -416,107 +421,167 @@ compare_pca_loadings(loadings_l, loadings_h, cell_type_markers = cell_type_marke
 ```
 
 ## Comparison to subclustering
+
+To do this we will focus on the T cell compartment.
+
 ```{r}
-se <- se %>%
-    FindVariableFeatures(
-            method = "vst",
-            nfeatures = 2000,
-            verbose = FALSE) %>%
-        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
-        RunPCA(
-            npcs = 20,
-            verbose = FALSE
-        ) %>%
-        FindNeighbors() %>%
-        FindClusters(resolution = 0.05) %>%
-        RunUMAP(dims = 1:20)
+tse <- se[, se$annotation_lvl1 == "T cells"]
+```
 
-tse <- subset(se, idents = 0)
-
-tse <- tse %>% 
-    FindVariableFeatures(
-            method = "vst",
-            nfeatures = 2000,
-            verbose = FALSE) %>%
-        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
-        RunPCA(
-            npcs = 20,
-            verbose = FALSE
-        ) %>%
+First let's process our object with the HVG obtained from the whole dataset
+```{r}
+tse_full <- tse %>%
+    NormalizeData() %>%
+    ScaleData(
+        verbose = FALSE,
+        features = hvg_full) %>% 
+    RunPCA(
+        features = hvg_full,
+        npcs = 20,
+        verbose = FALSE) %>%
     FindNeighbors() %>%
-    FindClusters(resolution = 0.05) %>%
+    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2))
+
+# Visualize these clusters
+DimPlot(
+    tse_full,
+    reduction = 'umap',
+    group.by = c("RNA_snn_res.0.05", "RNA_snn_res.0.1",
+                 "RNA_snn_res.0.15", "RNA_snn_res.0.2"))
+
+dim_full <- DimPlot(
+    tse_full,
+    reduction = 'umap',
+    group.by = "RNA_snn_res.0.15")
+```
+
+Now let's recompute the HVG for the 
+```{r}
+tse_sub <- tse %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+    RunPCA(
+        npcs = 20,
+        verbose = FALSE
+    ) %>%
+    FindNeighbors() %>%
+    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2)) %>%
     RunUMAP(dims = 1:20)
 
+# Visualize these clusters
+DimPlot(
+    tse_sub,
+    reduction = 'umap',
+    group.by = c("RNA_snn_res.0.05", "RNA_snn_res.0.1",
+                 "RNA_snn_res.0.15", "RNA_snn_res.0.2"))
 
+dim_sub <- DimPlot(
+    tse_sub,
+    reduction = 'umap',
+    group.by = "RNA_snn_res.0.15")
+```
 
-DimPlot(tse, reduction='umap')
+Right off the bat, how do these UMAPs compare to each other
+```{r fig.width=12, fig.height=5}
+dim_full + dim_sub
 ```
 
 What you're probably wondering first is, hey would I have found these clusters if I had just increased the number of clusters I used? 
 ```{r}
-
-tse_barcodes <- colnames(tse)
-# subset paramscan to only subclustering cells
-paramscan_subset <- paramscan[rownames(paramscan) %in% tse_barcodes, ]
-
-# Select the relevant columns
-paramscan_relevant <- paramscan_subset %>%
-    select(nf5000_pc50_k10_res0.5, nf2000_pc20_k10_res0.5) %>%
-    mutate(seurat_clusters = tse@meta.data[rownames(paramscan_subset),]$seurat_clusters,
-    Celltype = tse@meta.data[rownames(paramscan_subset),]$Celltype)
-
-# Reshape data for plotting
-data_alluvial <- pivot_longer(paramscan_relevant,
-                              cols = c("nf5000_pc50_k10_res0.5", "nf2000_pc20_k10_res0.5"),
-                              names_to = "parameter",
-                              values_to = "cluster")
-
-data_alluvial <- data_alluvial %>% rename(subcluster = seurat_clusters,
-                                          paramcluster = cluster) %>%
-                                    count(parameter,subcluster,paramcluster,Celltype)
+data_alluvial <- data.frame(
+    bc = colnames(tse_full),
+    full_hvg = tse_full$RNA_snn_res.0.15,
+    sub_hvg = tse_sub[, colnames(tse_full)]$RNA_snn_res.0.15) %>% 
+    dplyr::count(full_hvg, sub_hvg)
 
 ggplot(data = data_alluvial,
-       aes(axis1 = paramcluster, axis2 = subcluster, axis3 = Celltype, y = n)) +
-    geom_alluvium(aes(fill = subcluster), width = 0.1) +
+       aes(axis1 = full_hvg, axis2 = sub_hvg, y = n)) +
+    geom_alluvium(aes(fill = full_hvg), width = 0.1) +
     geom_stratum(width = 0.1) +
     geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
     theme_minimal() +
-    facet_wrap(. ~ parameter) +
-    labs(title = "Alluvial plot of parameter scans vs Seurat clusters",
-         x = "Parameter combination",
-         y = "Cluster assignment")
+    labs(title = "Alluvial plot of Clustering using full data HVG or  subcluster HVG",
+         x = "Cluster assignment",
+         y = "N")
 
 ```
 
-And it's true, you would have. But the path to getting there is different. 
+Both clustering resolutions seem to be very similar but using specific HVG we are able to detect one more cluster at the same resolution and, *in theory*, the clusters should be more specific.
 
 If we check for example the overlap of highly variable features between the two methods, we'll find there are very few overlapping
 
 ```{r}
-nh <- setdiff(VariableFeatures(se), VariableFeatures(tse)) %>% length
-
-paste('Number of genes in 5k variable features not in the T cell subset:', nh)
-
-paste('Number of genes in 2k variable features in the T cell subset:', 
-setdiff(VariableFeatures(tse), VariableFeatures(se)) %>% length)
-
+table(VariableFeatures(tse_sub) %in% hvg_full)
+head(setdiff(VariableFeatures(tse_sub),  hvg_full), n = 50)
 ```
 
-And if we compare their PCAs, we see that the greatest differences in the PCAs towards the T cell subset are genes very important to T cell subset status 
+We can see how by recomputing the HVG we replace 33% of the HVG genes which capture the variability present in the T cell subset. 
+
+### Annotation playground
+
+Let's find the marker genes of this new clustering
 ```{r}
+Idents(tse_sub) <- tse_sub$RNA_snn_res.0.15
+mgs <- FindAllMarkers(
+    tse_sub,
+    logfc.threshold = 0.25,
+    only.pos = TRUE,
+    min.pct = 0.25)
 
-loadings_t_subclustering <- tse@reductions$pca@feature.loadings
-var_t <- tse@reductions$pca@stdev
-
-loadings_nf2k_20pcs <- loadings_l
-
-compare_pca_loadings(loadings_t_subclustering, loadings_nf2k_20pcs, top_n = 40)
-
-loadings_nf5k_50pcs <- loadings_h
-
-compare_pca_loadings(loadings_t_subclustering, loadings_nf5k_50pcs, top_n = 40)
-
+DT::datatable(mgs, filter = "top")
 ```
+
+Do you think you can annotate these new clusters....
+
+#### Cluster 1
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    tse_sub,
+    features = c("CD3D", "CD3E", "TRAC",
+                 "TRBC1", "TRBC2", "TRDC",
+                 "TRGC1", "TRGC2"),
+    ncol = 3) +
+    dim_sub
+
+VlnPlot(
+    tse_sub,
+    features = c("CD3D", "CD3E", "TRAC",
+                 "TRBC1", "TRBC2", "TRDC",
+                 "TRGC1", "TRGC2"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_sub
+```
+
+
+....
+
+
+#### Annotate
+```{r}
+tse_sub@meta.data <- tse_sub@meta.data %>%
+  dplyr::mutate(
+    annotation_lvl2 = dplyr::case_when(
+      RNA_snn_res.0.15 == 0 ~ "",
+      RNA_snn_res.0.15 == 1 ~ "",
+      RNA_snn_res.0.15 == 2 ~ "",
+      RNA_snn_res.0.15 == 3 ~ "",
+      RNA_snn_res.0.15 == 4 ~ "",
+      RNA_snn_res.0.15 == 5 ~ "",
+      RNA_snn_res.0.15 == 6 ~ "",
+      RNA_snn_res.0.15 == 7 ~ ""
+      )
+  )
+
+DimPlot(tse_sub, group.by = "annotation_lvl2")
+```
+
+
 
 ## Session Info
 ```{r}
