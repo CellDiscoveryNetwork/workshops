@@ -1,0 +1,590 @@
+---
+title: "8 - Subclustering"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+```
+
+
+## Introduction
+
+In this vignette we will examine methods for increasing resolution on cell subtypes and cell states. We will compare two methods: increasing resolution and other parameters to find more clusters, and subclustering. Subclustering is the process of clustering, subsetting to one cluster, then running the clustering pipeline again. In high-dimensional datasets, especially ones with lots of technical or biological noise, focusing on specific celltypes individually improves detection of subtype and state patterns. Highly variable gene selection and latent-space calculation are both affected by noise and outliers. Subclustering can also improve computational efficiency - finding small clusters can be expensive if working with the full dataset. 
+
+However, it's important to keep in mind that iterative subclustering can lead to "overfitting" the data. This means we might identify noise as clusters, and we will have to contend more with the "curse of dimensionality" in downstream analysis. We should always validate our clusters according to expression of marker genes, use technical replicates, bootstrapping methods, or check their existence in external datasets. 
+
+### Vocabulary
+
+**Subclustering**
+
+The process of dividing a previously identified cluster into smaller, more detailed clusters (subclusters). Subclustering is used to uncover finer, often subtle distinctions within a dataset that might not be visible in an initial analysis.
+
+**Overfitting**
+
+Overfitting is when an analyst describes random noise in the data rather than underlying general relationships. Overfit models perform well on their dataset, but very poorly on other data. 
+
+**Curse of Dimensionality**
+
+The term data analysts use to describe phenomena that appear when analyzing data in high-dimensional spaces. As dimensionality increases, the data can become sparse. Sparsity is problematic for statistical significance testing. Additionally, by increasing dimensions, we increase the number of false positives when using p-value thresholds.
+
+**Parameter scan** 
+
+AKA parameter sweep, this is the process of systematically varying parameters in an algorithm to analyze the effects of their changes on the outcome. Parameter scans are widely used in computationaly biology to identify optimal parameters or test the stability of our models. 
+
+## Key Takeaways
+
+-   Recomputing highly variable genes at each subclustering step resets the biological universe we are looking at to the capture the "new" sources of variability.
+
+-   Iterative subclustering is essential to uncover fine grained populations
+
+-   In addition to finding fine-grained populations, subclustering can help create better divisions between the different "species" of celltypes and subtypes.
+
+## Libraries
+
+```{r message=FALSE, warning=FALSE}
+
+### Make sure all the packages are installed
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages("Seurat")
+
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages("tidyverse")
+
+if (!requireNamespace("devtools", quietly = TRUE))
+    install.packages("devtools")
+
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages("colorBlindness")
+
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages("DT")    
+
+if (!requireNamespace("scales", quietly = TRUE))
+    install.packages("scales") 
+
+if (!requireNamespace("tictoc", quietly = TRUE))
+    install.packages("tictoc") 
+
+if (!requireNamespace("ggalluvial", quietly = TRUE))
+    install.packages("ggalluvial") 
+
+### Load all the necessary libraries
+library(Seurat)
+library(tidyverse)
+library(devtools)
+library(colorBlindness)
+library(DT)
+library(scales)
+library(RColorBrewer)
+library(scales)
+library(tictoc)
+library(ggalluvial)
+
+set.seed(687)
+```
+
+## Load data
+
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from the [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
+
+```{r message=FALSE, warning=FALSE, output=FALSE}
+se <- readRDS("../data/se_lvl1.rds")
+```
+
+### Color palette
+
+```{r}
+# Set color palette for cell types
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
+
+donor_pal <- c(
+    "#66C2A4", "#41AE76", "#238B45", "#006D2C",
+    "#41B6C4", "#1D91C0", "#225EA8", "#253494", "#081D58",
+    "#FFEDA0", "#FED976", "#FEB24C", "#f79736", "#FD8D3C",
+    "#FC4E2A", "#E31A1C", "#BD0026", "#ad393b", "#800000", "#800050")
+
+names(donor_pal) <- c(
+    "Normal 1", "Normal 2", "Normal 3", "Normal 4",
+    "Flu 1", "Flu 2", "Flu 3", "Flu 4", "Flu 5",
+    "nCoV 1", "nCoV 2", "nCoV 3", "nCoV 4", "nCoV 5",
+    "nCoV 6", "nCoV 7", "nCoV 8", "nCoV 9", "nCoV 10", "nCoV 11"  
+)
+```
+
+### To get up to speed with the previous worksheets, process the data in the same way.
+
+```{r}
+se <- se %>%
+    NormalizeData(verbose = FALSE) %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.))
+```
+
+Let's extract the top 3000 HVGs from the whole data across all cell types.
+```{r}
+hvg_full <- VariableFeatures(se)
+```
+
+
+## Analysis
+
+### Finding rare celltypes
+
+For many of us, our first idea for finding rare celltypes is to modulate the parameters of what we have already to find the right celltypes. As we saw in the previous clustering notebook, we can find NK and T cell clusters this way, but it still seems like there's some heterogeneity in the clusters we've found. For illustration, I've run a parameter scan on the following variables:
+
+- `FindVariableFeatures` nfeatures
+- `RunPCA` npcs, 
+- `FindNeighbors` k.param, 
+- `FindClusters` resolution
+
+```{r fig.width=9, fig.height=9}
+parameter_df <- expand.grid(
+  nf = c(2000, 3000, 5000),
+  pc = c(20, 30, 50),
+  k = c(10, 30, 50),
+  res = c(0.5, 0.8, 1.2)
+)
+
+paramscan <- readRDS('../data/covid_flu_srobj_clusters_paramscan.rds')
+paramscan <- bind_cols(paramscan)
+
+row.names(paramscan) <- colnames(se)
+
+paramscan_long <- paramscan %>%
+  rownames_to_column(var = "cell_id") %>%
+  pivot_longer(
+    cols = -cell_id,
+    names_to = "parameter",
+    values_to = "cluster"
+  ) %>%
+  mutate(
+    nf = as.numeric(gsub(".*nf(\\d+)_.*", "\\1", parameter)),
+    pc = as.numeric(gsub(".*pc(\\d+)_.*", "\\1", parameter)),
+    k = as.numeric(gsub(".*k(\\d+)_.*", "\\1", parameter)),
+    res = as.numeric(gsub(".*res(\\d+\\.\\d+).*", "\\1", parameter))
+  ) %>% 
+  group_by(parameter) %>% 
+  mutate(
+    n_clusts = max(as.numeric(cluster))
+  ) %>%
+  select(-parameter)
+
+ggplot(paramscan_long %>% 
+        select(-cell_id, -cluster) %>% 
+        distinct, aes(x = factor(pc), 
+        y = n_clusts, 
+        fill = factor(k))) +
+  geom_bar(stat='identity') +
+  facet_grid(paste('k=',k) + paste('nf =',nf) ~ paste('resolution =',res)) +
+  scale_y_continuous(labels = scales::label_number()) +
+  scale_fill_manual(values = unname(donor_pal[c(1,6,11)])) +
+  labs(
+      title = "Number of clusters Across Parameters",
+      x = "Clustering resolution + nPCs",
+      y = "Number of clusters",
+      fill = "k param") +
+  theme_minimal(base_size = 12) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+
+```
+
+Take a close look at the results. When we modulate nfeatures or nPCs, we don't directly see changes in the number of celltypes found. But, like we saw in the previous sessions, modulating the k.param and the clustering resolution have outsized effects on the number of clusters found.
+
+But if we're looking for a rare celltype, we must include more information, right? It makes most sense to increase both the nfeatures, nPCs, AND clustering resolution to find that celltype - because we need to make sure we are including the genes that define the celltype, and making small enough clusters to be able to find it. 
+
+So let's take a closer look at what changes in the PCA latent spaces. Maybe the information we need is there. 
+
+### Comparing high and low parameterized PCA spaces
+
+Here we will compare latent spaces between a low-parameter PCA and a high-parameter PCA. In the low, 2000 features and 20 PCs. In the high, 5000 features and 50 PCs. To keep a rational mind about the subject, let's time our processing runs to see how much more resources the high-param method needs.
+
+
+```{r}
+tic()
+se <- se %>%
+    FindVariableFeatures(
+            method = "vst",
+            nfeatures = 2000,
+            verbose = FALSE) %>%
+        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+        RunPCA(
+            npcs = 20,
+            verbose = FALSE
+        )
+toc()
+
+latent_l <- se@reductions$pca@cell.embeddings
+loadings_l <- se@reductions$pca@feature.loadings
+var_l <- se@reductions$pca@stdev
+t_l <- se@reductions$pca@misc$total.variance
+
+tic()
+se <- se %>%
+    FindVariableFeatures(
+            method = "vst",
+            nfeatures = 5000,
+            verbose = FALSE) %>%
+        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+        RunPCA(
+            npcs = 50,
+            verbose = FALSE
+        )
+toc()
+
+latent_h <- se@reductions$pca@cell.embeddings
+loadings_h <- se@reductions$pca@feature.loadings
+var_h <- se@reductions$pca@stdev
+t_h <- se@reductions$pca@misc$total.variance
+
+var_l_df <- data.frame(PC = 1:length(var_l), Variance = var_l^2 / t_l, Set = "2000 Features")
+var_h_df <- data.frame(PC = 1:length(var_h), Variance = var_h^2 / t_h, Set = "5000 Features")
+
+# Calculate cumulative variance explained
+var_l_df$CumulativeVariance <- cumsum(var_l_df$Variance)
+var_h_df$CumulativeVariance <- cumsum(var_h_df$Variance)
+
+# Combine the datasets
+combined_variance <- bind_rows(var_l_df, var_h_df)
+
+# Plotting the variance explained and cumulative variance
+ggplot(combined_variance, aes(x = PC)) +
+    geom_line(aes(y = CumulativeVariance, color = Set), size = 1.2) +
+    geom_point(aes(y = CumulativeVariance, color = Set), size = 2) +
+    scale_color_manual(values = c("blue", "red")) +
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    theme_minimal() +
+    labs(title = "Cumulative Variance Explained",
+         x = "Principal Component",
+         y = "Proportion of Variance Explained") +
+    guides(color = guide_legend(title = "Parameter Set"), 
+           linetype = guide_legend(title = "Variance Type"))
+
+```
+
+Superficially, it looks like we are capturing more of the variance with our 2k features + 20PCs! But keep in mind if we only include 2000 features, we have much lower total variance. What we can see here is that the elbow comes sooner with the higher-parameterized set.
+
+```{r}
+# Ensure both matrices have the same genes in the same order
+common_genes <- intersect(rownames(loadings_l), rownames(loadings_h))
+loadings_l_aligned <- loadings_l[common_genes, , drop = FALSE]
+loadings_h_aligned <- loadings_h[common_genes, , drop = FALSE]
+
+# Determine high loadings
+cutoff_l <- quantile(abs(as.matrix(loadings_l_aligned)), 0.95)
+cutoff_h <- quantile(abs(as.matrix(loadings_h_aligned)), 0.95)
+
+high_loadings_l <- apply(abs(loadings_l_aligned), 1, max) > cutoff_l
+high_loadings_h <- apply(abs(loadings_h_aligned), 1, max) > cutoff_h
+
+# Identify features that are high in _h but not high in _l
+target_features <- names(which(high_loadings_h & !high_loadings_l))
+
+# Prepare loadings of these target features for plotting
+target_loadings <- loadings_h_aligned[target_features, , drop = FALSE]
+
+# Convert to long format for ggplot using pivot_longer
+loadings_long <- as.data.frame(target_loadings) %>%
+  tibble::rownames_to_column("Feature") %>%
+  pivot_longer(
+    cols = -Feature,
+    names_to = "PC",
+    values_to = "Loading"
+  )
+
+compare_pca_loadings <- function(loadings1, loadings2, top_n = 20, cell_type_markers = NULL,
+                                  loadings1_name = deparse(substitute(loadings1)), 
+                                  loadings2_name = deparse(substitute(loadings2))) {
+    all_genes <- union(rownames(loadings1), rownames(loadings2))
+
+    # Initialize matrices to store aligned loadings with genes set to 0 by default
+    loadings1_aligned <- matrix(0, nrow = length(all_genes), ncol = ncol(loadings1), 
+                                dimnames = list(all_genes, colnames(loadings1)))
+    loadings2_aligned <- matrix(0, nrow = length(all_genes), ncol = ncol(loadings2), 
+                                dimnames = list(all_genes, colnames(loadings2)))
+
+    # Fill in the existing values from each matrix
+    loadings1_aligned[rownames(loadings1), ] <- loadings1
+    loadings2_aligned[rownames(loadings2), ] <- loadings2
+
+    # Check for zero values immediately after filling in values
+    loadings1_zero <- apply(loadings1_aligned, 1, function(x) all(x == 0))
+    loadings2_zero <- apply(loadings2_aligned, 1, function(x) all(x == 0))
+
+    outlines <- character(length(all_genes))
+    outlines[loadings1_zero] <- "orange"
+    outlines[loadings2_zero] <- "blue"
+    # outlines[loadings1_zero & loadings2_zero] <- "white" # Both are zero
+
+    max_loadings1 <- apply(abs(loadings1_aligned), 1, max)
+    max_loadings2 <- apply(abs(loadings2_aligned), 1, max)
+
+    # Calculate the differences between the maximum absolute loadings across all PCs
+    loadings_difference <- max_loadings2 - max_loadings1
+
+    # Determine the direction of the difference
+    directionality <- ifelse(loadings_difference > 0, paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
+
+    fillpal <- c('steelblue','salmon')
+    names(fillpal) = c(paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
+
+    # Create a data frame for plotting
+    genes_differences_df <- data.frame(
+        Feature = rownames(loadings1_aligned),  # Assuming both matrices have the same rownames
+        Difference = loadings_difference,
+        Direction = directionality,
+        Outline = outlines[match(rownames(loadings1_aligned), all_genes)]
+    )
+
+    genes_differences_df <- genes_differences_df %>% mutate(
+                MaxAbsLoadings1 = ifelse(Direction == names(fillpal)[1], -max_loadings1, max_loadings1),
+                MaxAbsLoadings2 = ifelse(Direction == names(fillpal)[2], -max_loadings2, max_loadings2))
+
+    if (!is.null(cell_type_markers)) {
+        marker_genes <- unlist(cell_type_markers, use.names = FALSE)
+        genes_differences_df <- genes_differences_df %>%
+            dplyr::filter(Feature %in% marker_genes) %>%
+            dplyr::mutate(CellType = NA)  # Assign NA initially
+
+        for (cell_type in names(cell_type_markers)) {
+            genes_differences_df$CellType[genes_differences_df$Feature %in% cell_type_markers[[cell_type]]] <- cell_type
+        }
+        
+        
+        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
+            geom_col() +
+            coord_flip() +
+            theme_minimal() +
+            scale_fill_manual(values = fillpal) +
+            labs(title = "Gene Loadings Differences by Cell Type",
+                 subtitle = paste("Comparing", loadings1_name, "and", loadings2_name),
+                 x = "Gene",
+                 y = "Difference in Loadings") +
+            guides(fill = guide_legend(title = "Where Loadings are Higher")) +
+            facet_wrap(~CellType, scales = "free_y", ncol = 1, drop = TRUE)
+    } else {
+        genes_differences_df <- genes_differences_df %>%
+            dplyr::arrange(desc(Difference)) %>%
+            dplyr::slice(1:top_n)
+
+        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
+            geom_col(show.legend = FALSE) +
+            scale_color_manual(name = "Outline Color", values = c("green" = "green", "blue" = "blue", "purple" = "purple"), labels = c(paste("Zero in", loadings1_name), paste("Zero in", loadings2_name), "Zero in Both")) +
+            coord_flip() +
+            theme_minimal() +
+            scale_fill_manual(values = fillpal) +
+            labs(title = paste("Top", top_n, "Genes with Greatest Differences in Loadings"),
+                subtitle = paste("Comparing", loadings1_name, "and", loadings2_name),
+                x = "Gene",
+                y = "Difference in Loadings") +
+            guides(fill = guide_legend(title = "Where Loadings are Higher"))
+    }
+
+    return(plot)
+}
+
+# Example usage:
+compare_pca_loadings(loadings_l, loadings_h, top_n = 40)
+
+```
+
+Many of these genes are trained immunity genes. At this point we could keep some rare positive-control celltype in mind, like ILC3s or something else we might expect to find in this dataset
+
+```{r}
+# Define a list of cell type markers
+cell_type_markers <- list(
+  ILC3s = c("IL7RA", "PTGDR2", "NCR2", "CCR6", "RORC"),
+  NKTfh = c("CD1D", "CXCR5", "PDCD1", "ICOS", "BCL6"),
+  Plasmablasts = c("CD38" = "CD38", "CD27" = "CD27", "CD319" = "CD319", "IRF4" = "IRF4", "XBP1" = "XBP1"),
+  MDSCs = c("CD33" = "CD33", "CD11b" = "ITGAM", "S100A8" = "S100A8", "S100A9" = "S100A9", "ARG1" = "ARG1")
+)
+
+compare_pca_loadings(loadings_l, loadings_h, cell_type_markers = cell_type_markers)
+```
+
+## Comparison to subclustering
+
+To do this we will focus on the T cell compartment.
+
+```{r}
+tse <- se[, se$annotation_lvl1 == "T cells"]
+```
+
+First let's process our object with the HVG obtained from the whole dataset
+```{r}
+tse_full <- tse %>%
+    NormalizeData() %>%
+    ScaleData(
+        verbose = FALSE,
+        features = hvg_full) %>% 
+    RunPCA(
+        features = hvg_full,
+        npcs = 20,
+        verbose = FALSE) %>%
+    FindNeighbors() %>%
+    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2))
+
+# Visualize these clusters
+DimPlot(
+    tse_full,
+    reduction = 'umap',
+    group.by = c("RNA_snn_res.0.05", "RNA_snn_res.0.1",
+                 "RNA_snn_res.0.15", "RNA_snn_res.0.2"))
+
+dim_full <- DimPlot(
+    tse_full,
+    reduction = 'umap',
+    group.by = "RNA_snn_res.0.15")
+```
+
+Now let's recompute the HVG for the 
+```{r}
+tse_sub <- tse %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+    RunPCA(
+        npcs = 20,
+        verbose = FALSE
+    ) %>%
+    FindNeighbors() %>%
+    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2)) %>%
+    RunUMAP(dims = 1:20)
+
+# Visualize these clusters
+DimPlot(
+    tse_sub,
+    reduction = 'umap',
+    group.by = c("RNA_snn_res.0.05", "RNA_snn_res.0.1",
+                 "RNA_snn_res.0.15", "RNA_snn_res.0.2"))
+
+dim_sub <- DimPlot(
+    tse_sub,
+    reduction = 'umap',
+    group.by = "RNA_snn_res.0.15")
+```
+
+Right off the bat, how do these UMAPs compare to each other
+```{r fig.width=12, fig.height=5}
+dim_full + dim_sub
+```
+
+What you're probably wondering first is, hey would I have found these clusters if I had just increased the number of clusters I used? 
+```{r}
+data_alluvial <- data.frame(
+    bc = colnames(tse_full),
+    full_hvg = tse_full$RNA_snn_res.0.15,
+    sub_hvg = tse_sub[, colnames(tse_full)]$RNA_snn_res.0.15) %>% 
+    dplyr::count(full_hvg, sub_hvg)
+
+ggplot(data = data_alluvial,
+       aes(axis1 = full_hvg, axis2 = sub_hvg, y = n)) +
+    geom_alluvium(aes(fill = full_hvg), width = 0.1) +
+    geom_stratum(width = 0.1) +
+    geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+    theme_minimal() +
+    labs(title = "Alluvial plot of Clustering using full data HVG or  subcluster HVG",
+         x = "Cluster assignment",
+         y = "N")
+
+```
+
+Both clustering resolutions seem to be very similar but using specific HVG we are able to detect one more cluster at the same resolution and, *in theory*, the clusters should be more specific.
+
+If we check for example the overlap of highly variable features between the two methods, we'll find there are very few overlapping
+
+```{r}
+table(VariableFeatures(tse_sub) %in% hvg_full)
+head(setdiff(VariableFeatures(tse_sub),  hvg_full), n = 50)
+```
+
+We can see how by recomputing the HVG we replace 33% of the HVG genes which capture the variability present in the T cell subset. 
+
+### Annotation playground
+
+Let's find the marker genes of this new clustering
+```{r}
+Idents(tse_sub) <- tse_sub$RNA_snn_res.0.15
+mgs <- FindAllMarkers(
+    tse_sub,
+    logfc.threshold = 0.25,
+    only.pos = TRUE,
+    min.pct = 0.25)
+
+DT::datatable(mgs, filter = "top")
+```
+
+Do you think you can annotate these new clusters....
+
+#### Cluster 1
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    tse_sub,
+    features = c("CD3D", "CD3E", "TRAC",
+                 "TRBC1", "TRBC2", "TRDC",
+                 "TRGC1", "TRGC2"),
+    ncol = 3) +
+    dim_sub
+
+VlnPlot(
+    tse_sub,
+    features = c("CD3D", "CD3E", "TRAC",
+                 "TRBC1", "TRBC2", "TRDC",
+                 "TRGC1", "TRGC2"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_sub
+```
+
+
+....
+
+
+#### Annotate
+```{r}
+tse_sub@meta.data <- tse_sub@meta.data %>%
+  dplyr::mutate(
+    annotation_lvl2 = dplyr::case_when(
+      RNA_snn_res.0.15 == 0 ~ "",
+      RNA_snn_res.0.15 == 1 ~ "",
+      RNA_snn_res.0.15 == 2 ~ "",
+      RNA_snn_res.0.15 == 3 ~ "",
+      RNA_snn_res.0.15 == 4 ~ "",
+      RNA_snn_res.0.15 == 5 ~ "",
+      RNA_snn_res.0.15 == 6 ~ "",
+      RNA_snn_res.0.15 == 7 ~ ""
+      )
+  )
+
+DimPlot(tse_sub, group.by = "annotation_lvl2")
+```
+
+
+
+## Session Info
+```{r}
+sessionInfo()
+```
