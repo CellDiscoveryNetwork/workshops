@@ -209,7 +209,7 @@ In clustering, the goal is not to see how many clusters you can pull apart but i
 After clustering, we'll review some cluster validation techniques to qualitatively and quantitatively check the quality of the clustering results.
 
 ```{r message=FALSE}
-se <- ?FindClusters(
+se <- FindClusters(
       object = se,
       resolution = c(0.01, 0.05, 0.1, 0.15, 0.2,0.25),
       algorithm = 1) 
