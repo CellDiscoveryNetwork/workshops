@@ -384,7 +384,7 @@ Let's look at genes that are differentially expressed
 ```{r fig.height=10, fig.width=15}
 FeaturePlot(
     se,
-    features = c("CD3D", "CD3D", "TRAC", "TRBC2", "CD8B", "CD4"),
+    features = c("CD3D", "CD3E", "TRAC", "TRBC2", "CD8B", "CD4"),
     ncol = 3) +
     dim_plt
 
@@ -541,7 +541,7 @@ dplot_genes <- c(
     "MS4A1", "CD79A", "CD79B", "IGHD", "IGHM",
     # Platelets
     "PF4", "GP9", "PPBP",
-    # RBS
+    # RBC
     "HBA1", "HBA2", "HBB", "HBD",
     #pDCs
     "LILRA4", "CLEC4C", "IL3RA", "IRF4"
@@ -620,7 +620,7 @@ hm_ls[[1]] + hm_ls[[2]] + hm_ls[[3]] + hm_ls[[4]] + hm_ls[[5]] + hm_ls[[6]]
 
 Lastly let's see if our Manual annotation agrees with the reference annotation:
 
-```{r fig.width=12, fig.height=9}
+```{r fig.width=12, fig.height=5}
 DimPlot(
     se,
     group.by = c("annotation_lvl1", "predicted.id", "Celltype"),
