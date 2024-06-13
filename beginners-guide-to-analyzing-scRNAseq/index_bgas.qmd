@@ -44,7 +44,7 @@ editor_options:
         -   What parameters do we need to look at and how to interpret them
         -   Computing doublet scores
         -   Tips and tricks during the QC process
-    -   [Clustering](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/6-Clustering.html) [recording]()
+    -   [Clustering](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/6-Clustering.html) [recording](https://drive.google.com/file/d/1nuY2Tnr7w3aLKY3yU0J1rC5szFa5FTkh/view?usp=sharing)
         -   How to cluster sc-RNAseq data
         -   What algorithms can we use
         -   How to assess if a clustering resolution is good
