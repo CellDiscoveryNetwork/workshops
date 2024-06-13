@@ -149,7 +149,7 @@ celltype_pca
 
 ### Construct the kNN graph with `FindNeighbors()`:
 
-`FindNeighbors()` is the Seurat function that calculates the k-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the `k.param` parameter with a default value of 30. It computes pairwise distances between cells based on their gene expression using algorithms such as: euclidean distance, manhattan distance, Pearson correlation distance, or cosine similarity. 
+`FindNeighbors()` is the Seurat function that calculates the k-nearest neighbors of each cell in PCA space. The number of neighbors used for this calculation is controlled by the `k.param` parameter with a default value of 30. It computes pairwise distances between cells based on their gene expression using algorithms such as: euclidean distance, manhattan distance, Pearson correlation distance, or cosine similarity.
 
 From [BioStars](https://www.biostars.org/p/9572463/):
 
@@ -158,8 +158,8 @@ From [BioStars](https://www.biostars.org/p/9572463/):
 The default values of `FindNeighbors()` are:
 
 <img src="../data/FindNeighbors.png" width="200"/>
-*See `?FindNeighbors` for more information.*
-Let's modify these to fit our analysis:
+
+*See `?FindNeighbors` for more information.* Let's modify these to fit our analysis:
 
 ```{r}
 se <- se %>%
@@ -184,8 +184,7 @@ The resolution parameter controls the granularity of the clustering. Higher valu
 
 From BioStars:\
 
-*`FindClusters()` is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.*  
-
+*`FindClusters()` is a function used for clustering data points into groups or clusters based on their similarity. It uses a graph-based clustering approach and a Louvain algorithm. Clustering is an unsupervised learning technique where the algorithm groups similar cells together without any predefined labels. The goal is to find patterns and structure in your data. The number of clusters and the algorithm used can vary based on the problem and data characteristics. Common clustering algorithms include K-means, hierarchical clustering, and DBSCAN.*
 
 <img src="../data/FindClusters.png" width="200"/>\
 *where 'algorithm' =*
@@ -213,7 +212,6 @@ se <- FindClusters(
       object = se,
       resolution = c(0.01, 0.05, 0.1, 0.15, 0.2,0.25),
       algorithm = 1) 
-# Find clusters based on nearest neighbors at a resolution of 0.5
 ```
 
 ```{r}
@@ -223,7 +221,7 @@ colnames(se@meta.data)[str_detect(colnames(se@meta.data), "RNA_snn_res")]
 
 #### KNN vs SNN
 
-Subset seurat object to visualize KNN and SNN
+Subset Seurat object to visualize KNN and SNN
 
 ```{r}
 se_sub <- se[, sample(colnames(se), 1000)] # Subset to 1000 cells
@@ -316,7 +314,7 @@ psnn13 <- ggraph(graph_snn, layout = 'manual', x = PC_1, y = PC_3) +
 pknn13 | psnn13
 ```
 
-We can see that by looking at the SNN graphs we prune connections between extreme points and, therefore, improve the robustness of our clustering.  
+We can see that by looking at the SNN graphs we prune connections between extreme points and, therefore, improve the robustness of our clustering.
 
 #### RunUMAP
 
@@ -369,7 +367,7 @@ We see how in this case it follows a pretty good hierarchical splitting across h
 
 #### Different Resolutions
 
-0.01 vs 0.05 Resolution
+0.05 vs 0.1 Resolution
 
 ```{r, fig.width=18, fig.height=5}
 DimPlot(
@@ -603,7 +601,7 @@ ggplot(
         legend.position = "None")
 ```
 
-The dashed red lines shows the average silhouette width across all clusters. Clusters 1 and 5 stick out here and we can look at their distribution on a UMAP for more context.  
+The dashed red lines shows the average silhouette width across all clusters. Clusters 1 and 5 stick out here and we can look at their distribution on a UMAP for more context.
 
 So let's look at silhouette scores on a UMAP
 
@@ -632,10 +630,10 @@ FeaturePlot(
 Cluster 5 seems to have a specifically poor silhouette score. This potentially means these cells are not clustered correctly. This could be due to this cluster being under-clustered - leading to multiple cell types/states ending up within it. Let's check if there is heterogeneity within cluster 5. In the next notebook we will take a closer look on what might be going on
 
 ## Save Seurat object
+
 ```{r}
 saveRDS(se, file = "../data/clustered_se.rds")
 ```
-
 
 ## Extra: More on Clustering Algorithms
 
