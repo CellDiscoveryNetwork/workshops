@@ -39,21 +39,21 @@ editor_options:
 
 -   **Where**: Karp 11 Conference Room
 -   **Course Material**:
-    -   [Quality Control](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/5-QC.html) [recording](https://drive.google.com/file/d/1Z2argdBOsFG0P0o7w-h-vNvDzfvorvh7/view?usp=sharing)
+    -   [Quality Control](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/5-QC.html) [[recording](https://drive.google.com/file/d/1Z2argdBOsFG0P0o7w-h-vNvDzfvorvh7/view?usp=sharing)]
         -   How to carry out QC analysis
         -   What parameters do we need to look at and how to interpret them
         -   Computing doublet scores
         -   Tips and tricks during the QC process
-    -   [Clustering](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/6-Clustering.html) [recording]()
+    -   [Clustering](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/6-Clustering.html) [[recording]()]
         -   How to cluster sc-RNAseq data
         -   What algorithms can we use
         -   How to assess if a clustering resolution is good
-    -   [Differential Gene Expression & Level 1 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/7-dge-annotlvl1.html) [recording](https://drive.google.com/file/d/1-nnnlAKk4BqQCCJQ9xKRwBSuF_Gb37E2/view?usp=sharing)
+    -   [Differential Gene Expression & Level 1 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/7-dge-annotlvl1.html) [[recording](https://drive.google.com/file/d/1-nnnlAKk4BqQCCJQ9xKRwBSuF_Gb37E2/view?usp=sharing)]
         -   How to compute differentially expressed genes between clusters
         -   How to evaluate differential expression statistics
         -   Reference-based cell type annotation
         -   Manual cell type annotation
-    -   [Subclustering & Level 2 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/8-Subclustering.html) [recording](https://drive.google.com/file/d/1vUe86Gdk-80A73FZKJMyAQhScHaxaNvG/view?usp=sharing)
+    -   [Subclustering & Level 2 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/8-Subclustering.html) [[recording]()]
         -   What does level 2 annotation mean and why we need it
         -   How to iteratively annotate a dataset
 
