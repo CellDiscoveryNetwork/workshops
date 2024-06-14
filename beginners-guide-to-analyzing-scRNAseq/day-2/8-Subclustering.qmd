@@ -12,7 +12,7 @@ format:
     embed-resources: true
     self-contained-math: true
 editor_options: 
-  chunk_output_type: console
+  chunk_output_type: inline
 ---
 
 ```{r setup, include=FALSE}
@@ -105,6 +105,11 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 
 ```{r message=FALSE, warning=FALSE, output=FALSE}
 se <- readRDS("../data/se_lvl1.rds")
+```
+
+Subset T cell compartment for downstream analysis
+```{r}
+tse <- se[, se$annotation_lvl1 == "T cells"]
 ```
 
 ### Color palette
@@ -212,306 +217,11 @@ Take a close look at the results. When we modulate nfeatures or nPCs, we don't d
 
 But if we're looking for a rare celltype, we must include more information, right? It makes most sense to increase both the nfeatures, nPCs, AND clustering resolution to find that celltype - because we need to make sure we are including the genes that define the celltype, and making small enough clusters to be able to find it. 
 
-So let's take a closer look at what changes in the PCA latent spaces. Maybe the information we need is there. 
 
-### Comparing high and low parameterized PCA spaces
-
-Here we will compare latent spaces between a low-parameter PCA and a high-parameter PCA. In the low, 2000 features and 20 PCs. In the high, 5000 features and 50 PCs. To keep a rational mind about the subject, let's time our processing runs to see how much more resources the high-param method needs.
-
-
-```{r}
-tic()
-se <- se %>%
-    FindVariableFeatures(
-            method = "vst",
-            nfeatures = 2000,
-            verbose = FALSE) %>%
-        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
-        RunPCA(
-            npcs = 20,
-            verbose = FALSE
-        )
-toc()
-
-latent_l <- se@reductions$pca@cell.embeddings
-loadings_l <- se@reductions$pca@feature.loadings
-var_l <- se@reductions$pca@stdev
-t_l <- se@reductions$pca@misc$total.variance
-
-tic()
-se <- se %>%
-    FindVariableFeatures(
-            method = "vst",
-            nfeatures = 5000,
-            verbose = FALSE) %>%
-        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
-        RunPCA(
-            npcs = 50,
-            verbose = FALSE
-        )
-toc()
-
-latent_h <- se@reductions$pca@cell.embeddings
-loadings_h <- se@reductions$pca@feature.loadings
-var_h <- se@reductions$pca@stdev
-t_h <- se@reductions$pca@misc$total.variance
-
-var_l_df <- data.frame(PC = 1:length(var_l), Variance = var_l^2 / t_l, Set = "2000 Features")
-var_h_df <- data.frame(PC = 1:length(var_h), Variance = var_h^2 / t_h, Set = "5000 Features")
-
-# Calculate cumulative variance explained
-var_l_df$CumulativeVariance <- cumsum(var_l_df$Variance)
-var_h_df$CumulativeVariance <- cumsum(var_h_df$Variance)
-
-# Combine the datasets
-combined_variance <- bind_rows(var_l_df, var_h_df)
-
-# Plotting the variance explained and cumulative variance
-ggplot(combined_variance, aes(x = PC)) +
-    geom_line(aes(y = CumulativeVariance, color = Set), size = 1.2) +
-    geom_point(aes(y = CumulativeVariance, color = Set), size = 2) +
-    scale_color_manual(values = c("blue", "red")) +
-    scale_linetype_manual(values = c("solid", "dashed")) +
-    theme_minimal() +
-    labs(title = "Cumulative Variance Explained",
-         x = "Principal Component",
-         y = "Proportion of Variance Explained") +
-    guides(color = guide_legend(title = "Parameter Set"), 
-           linetype = guide_legend(title = "Variance Type"))
-
-```
-
-Superficially, it looks like we are capturing more of the variance with our 2k features + 20PCs! But keep in mind if we only include 2000 features, we have much lower total variance. What we can see here is that the elbow comes sooner with the higher-parameterized set.
-
-```{r}
-# Ensure both matrices have the same genes in the same order
-common_genes <- intersect(rownames(loadings_l), rownames(loadings_h))
-loadings_l_aligned <- loadings_l[common_genes, , drop = FALSE]
-loadings_h_aligned <- loadings_h[common_genes, , drop = FALSE]
-
-# Determine high loadings
-cutoff_l <- quantile(abs(as.matrix(loadings_l_aligned)), 0.95)
-cutoff_h <- quantile(abs(as.matrix(loadings_h_aligned)), 0.95)
-
-high_loadings_l <- apply(abs(loadings_l_aligned), 1, max) > cutoff_l
-high_loadings_h <- apply(abs(loadings_h_aligned), 1, max) > cutoff_h
-
-# Identify features that are high in _h but not high in _l
-target_features <- names(which(high_loadings_h & !high_loadings_l))
-
-# Prepare loadings of these target features for plotting
-target_loadings <- loadings_h_aligned[target_features, , drop = FALSE]
-
-# Convert to long format for ggplot using pivot_longer
-loadings_long <- as.data.frame(target_loadings) %>%
-  tibble::rownames_to_column("Feature") %>%
-  pivot_longer(
-    cols = -Feature,
-    names_to = "PC",
-    values_to = "Loading"
-  )
-
-compare_pca_loadings <- function(loadings1, loadings2, top_n = 20, cell_type_markers = NULL,
-                                  loadings1_name = deparse(substitute(loadings1)), 
-                                  loadings2_name = deparse(substitute(loadings2))) {
-    all_genes <- union(rownames(loadings1), rownames(loadings2))
-
-    # Initialize matrices to store aligned loadings with genes set to 0 by default
-    loadings1_aligned <- matrix(0, nrow = length(all_genes), ncol = ncol(loadings1), 
-                                dimnames = list(all_genes, colnames(loadings1)))
-    loadings2_aligned <- matrix(0, nrow = length(all_genes), ncol = ncol(loadings2), 
-                                dimnames = list(all_genes, colnames(loadings2)))
-
-    # Fill in the existing values from each matrix
-    loadings1_aligned[rownames(loadings1), ] <- loadings1
-    loadings2_aligned[rownames(loadings2), ] <- loadings2
-
-    # Check for zero values immediately after filling in values
-    loadings1_zero <- apply(loadings1_aligned, 1, function(x) all(x == 0))
-    loadings2_zero <- apply(loadings2_aligned, 1, function(x) all(x == 0))
-
-    outlines <- character(length(all_genes))
-    outlines[loadings1_zero] <- "orange"
-    outlines[loadings2_zero] <- "blue"
-    # outlines[loadings1_zero & loadings2_zero] <- "white" # Both are zero
-
-    max_loadings1 <- apply(abs(loadings1_aligned), 1, max)
-    max_loadings2 <- apply(abs(loadings2_aligned), 1, max)
-
-    # Calculate the differences between the maximum absolute loadings across all PCs
-    loadings_difference <- max_loadings2 - max_loadings1
-
-    # Determine the direction of the difference
-    directionality <- ifelse(loadings_difference > 0, paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
-
-    fillpal <- c('steelblue','salmon')
-    names(fillpal) = c(paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
-
-    # Create a data frame for plotting
-    genes_differences_df <- data.frame(
-        Feature = rownames(loadings1_aligned),  # Assuming both matrices have the same rownames
-        Difference = loadings_difference,
-        Direction = directionality,
-        Outline = outlines[match(rownames(loadings1_aligned), all_genes)]
-    )
-
-    genes_differences_df <- genes_differences_df %>% mutate(
-                MaxAbsLoadings1 = ifelse(Direction == names(fillpal)[1], -max_loadings1, max_loadings1),
-                MaxAbsLoadings2 = ifelse(Direction == names(fillpal)[2], -max_loadings2, max_loadings2))
-
-    if (!is.null(cell_type_markers)) {
-        marker_genes <- unlist(cell_type_markers, use.names = FALSE)
-        genes_differences_df <- genes_differences_df %>%
-            dplyr::filter(Feature %in% marker_genes) %>%
-            dplyr::mutate(CellType = NA)  # Assign NA initially
-
-        for (cell_type in names(cell_type_markers)) {
-            genes_differences_df$CellType[genes_differences_df$Feature %in% cell_type_markers[[cell_type]]] <- cell_type
-        }
-        
-        
-        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
-            geom_col() +
-            coord_flip() +
-            theme_minimal() +
-            scale_fill_manual(values = fillpal) +
-            labs(title = "Gene Loadings Differences by Cell Type",
-                 subtitle = paste("Comparing", loadings1_name, "and", loadings2_name),
-                 x = "Gene",
-                 y = "Difference in Loadings") +
-            guides(fill = guide_legend(title = "Where Loadings are Higher")) +
-            facet_wrap(~CellType, scales = "free_y", ncol = 1, drop = TRUE)
-    } else {
-        genes_differences_df <- genes_differences_df %>%
-            dplyr::arrange(desc(Difference)) %>%
-            dplyr::slice(1:top_n)
-
-        plot <- ggplot(genes_differences_df, aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
-            geom_col(show.legend = FALSE) +
-            scale_color_manual(name = "Outline Color", values = c("green" = "green", "blue" = "blue", "purple" = "purple"), labels = c(paste("Zero in", loadings1_name), paste("Zero in", loadings2_name), "Zero in Both")) +
-            coord_flip() +
-            theme_minimal() +
-            scale_fill_manual(values = fillpal) +
-            labs(title = paste("Top", top_n, "Genes with Greatest Differences in Loadings"),
-                subtitle = paste("Comparing", loadings1_name, "and", loadings2_name),
-                x = "Gene",
-                y = "Difference in Loadings") +
-            guides(fill = guide_legend(title = "Where Loadings are Higher"))
-    }
-
-    return(plot)
-}
-
-# Example usage:
-compare_pca_loadings(loadings_l, loadings_h, top_n = 40)
-
-```
-
-Many of these genes are trained immunity genes. At this point we could keep some rare positive-control celltype in mind, like ILC3s or something else we might expect to find in this dataset
-
-```{r}
-# Define a list of cell type markers
-cell_type_markers <- list(
-  ILC3s = c("IL7RA", "PTGDR2", "NCR2", "CCR6", "RORC"),
-  NKTfh = c("CD1D", "CXCR5", "PDCD1", "ICOS", "BCL6"),
-  Plasmablasts = c("CD38" = "CD38", "CD27" = "CD27", "CD319" = "CD319", "IRF4" = "IRF4", "XBP1" = "XBP1"),
-  MDSCs = c("CD33" = "CD33", "CD11b" = "ITGAM", "S100A8" = "S100A8", "S100A9" = "S100A9", "ARG1" = "ARG1")
-)
-
-compare_pca_loadings(loadings_l, loadings_h, cell_type_markers = cell_type_markers)
-```
-
-## Comparison to subclustering
-```{r}
-se <- se %>%
-    FindVariableFeatures(
-            method = "vst",
-            nfeatures = 2000,
-            verbose = FALSE) %>%
-        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
-        RunPCA(
-            npcs = 20,
-            verbose = FALSE
-        ) %>%
-        FindNeighbors() %>%
-        FindClusters(resolution = 0.05) %>%
-        RunUMAP(dims = 1:20)
-tse <- subset(se, idents = 0)
-tse <- tse %>% 
-    FindVariableFeatures(
-            method = "vst",
-            nfeatures = 2000,
-            verbose = FALSE) %>%
-        ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
-        RunPCA(
-            npcs = 20,
-            verbose = FALSE
-        ) %>%
-    FindNeighbors() %>%
-    FindClusters(resolution = 0.05) %>%
-    RunUMAP(dims = 1:20)
-DimPlot(tse, reduction='umap')
-```
-
-What you're probably wondering first is, hey would I have found these clusters if I had just increased the number of clusters I used? 
-```{r}
-tse_barcodes <- colnames(tse)
-# subset paramscan to only subclustering cells
-paramscan_subset <- paramscan[rownames(paramscan) %in% tse_barcodes, ]
-# Select the relevant columns
-paramscan_relevant <- paramscan_subset %>%
-    select(nf5000_pc50_k10_res0.5, nf2000_pc20_k10_res0.5) %>%
-    mutate(seurat_clusters = tse@meta.data[rownames(paramscan_subset),]$seurat_clusters,
-    Celltype = tse@meta.data[rownames(paramscan_subset),]$Celltype)
-# Reshape data for plotting
-data_alluvial <- pivot_longer(paramscan_relevant,
-                              cols = c("nf5000_pc50_k10_res0.5", "nf2000_pc20_k10_res0.5"),
-                              names_to = "parameter",
-                              values_to = "cluster")
-data_alluvial <- data_alluvial %>% rename(subcluster = seurat_clusters,
-                                          paramcluster = cluster) %>%
-                                    count(parameter,subcluster,paramcluster,Celltype)
-ggplot(data = data_alluvial,
-       aes(axis1 = paramcluster, axis2 = subcluster, axis3 = Celltype, y = n)) +
-    geom_alluvium(aes(fill = subcluster), width = 0.1) +
-    geom_stratum(width = 0.1) +
-    geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
-    theme_minimal() +
-    facet_wrap(. ~ parameter) +
-    labs(title = "Alluvial plot of parameter scans vs Seurat clusters",
-         x = "Parameter combination",
-         y = "Cluster assignment")
-```
-
-And it's true, you would have. But the path to getting there is different. 
-
-If we check for example the overlap of highly variable features between the two methods, we'll find there are very few overlapping
-
-```{r}
-nh <- setdiff(VariableFeatures(se), VariableFeatures(tse)) %>% length
-paste('Number of genes in 5k variable features not in the T cell subset:', nh)
-paste('Number of genes in 2k variable features in the T cell subset:', 
-setdiff(VariableFeatures(tse), VariableFeatures(se)) %>% length)
-```
-
-And if we compare their PCAs, we see that the greatest differences in the PCAs towards the T cell subset are genes very important to T cell subset status 
-```{r}
-loadings_t_subclustering <- tse@reductions$pca@feature.loadings
-var_t <- tse@reductions$pca@stdev
-loadings_nf2k_20pcs <- loadings_l
-compare_pca_loadings(loadings_t_subclustering, loadings_nf2k_20pcs, top_n = 40)
-loadings_nf5k_50pcs <- loadings_h
-compare_pca_loadings(loadings_t_subclustering, loadings_nf5k_50pcs, top_n = 40)
-```
-
-## Comparing subclustering by a second method - using full dataset HVGs within only the subset
+## Comparing subclustering  - using full dataset HVGs within only the subset
 To do this we will focus on the T cell compartment.
 
-```{r}
-tse <- se[, se$annotation_lvl1 == "T cells"]
-```
-
-First let's process our object with the HVG obtained from the whole dataset
+First let's process our T cell subset object with the HVG obtained from the whole dataset - `hvg_full`:
 ```{r}
 tse_full <- tse %>%
     NormalizeData() %>%
@@ -538,7 +248,7 @@ dim_full <- DimPlot(
     group.by = "RNA_snn_res.0.15")
 ```
 
-Now let's recompute the HVG for the 
+Now let's recompute the HVG for the T cell subset to capture the variability within that subset:
 ```{r}
 tse_sub <- tse %>%
     FindVariableFeatures(
@@ -599,9 +309,151 @@ If we check for example the overlap of highly variable features between the two 
 ```{r}
 table(VariableFeatures(tse_sub) %in% hvg_full)
 head(setdiff(VariableFeatures(tse_sub),  hvg_full), n = 50)
+intersect(VariableFeatures(tse_sub),  hvg_full)
 ```
 
 We can see how by recomputing the HVG we replace 33% of the HVG genes which capture the variability present in the T cell subset. 
+
+It looks like UMAP_1 is clearly separating 2 populations... let's look at some QC metrics to see what might be going on by looking at the `predicted.id`
+```{r}
+DimPlot(
+    tse_sub,
+    dims = c(1, 2),
+    reduction = "pca",
+    group.by = "predicted.id",
+    label = TRUE)
+```
+
+It appears that we have some myeloid and B cells within our T cell subset.... Let's check the PCA loadings
+```{r}
+# Examine and visualize PCA results a few different ways
+print(tse_sub[["pca"]], dims = 1:10, nfeatures = 15)
+```
+
+Some interesting PCs are the following:
+
+-   PC1 contains a lot of proliferation related genes
+-   PC5 contains a lot of B cell related genes in the negative loadings
+-   PC8 contains a lot of myeloid genes with high loadings
+
+```{r}
+DimPlot(
+    tse_sub,
+    dims = c(1, 5),
+    reduction = "pca",
+    group.by = "predicted.id",
+    label = TRUE) | DimPlot(
+    tse_sub,
+    dims = c(1, 8),
+    reduction = "pca",
+    group.by = "predicted.id",
+    label = TRUE)
+```
+
+Let's check some QC metrics to assess if we have potential doublets
+```{r}
+VlnPlot(
+    tse_sub,
+    features = c("pANN", "nCount_RNA", "nFeature_RNA"),
+    group.by = "RNA_snn_res.0.15",
+    pt.size = 0
+)
+```
+
+Clusters 6 & 7 have elevated pANN scores while cluster 3 has slightly elevated library complexity. Let's check some cell type genes to determine what might be going on:
+
+```{r}
+ct_genes <- c(
+    # Proliferating genes
+    "MKI67", "TOP2A", "STMN1",
+    # B cell genes
+    "CD79A", "CD79B", "MS4A1", 
+    # Myeloid genes
+    "S100A8", "S100A9", "CD14",
+    "FCGR3A", "LYZ", "VCAN",
+    # T cell genes
+    "CD3D", "CD3E", "CD8B",
+    "TRAC", "TRBC1", "TRDC",
+    # NK genes
+    "NCR1", "NCR2", "NCR3",
+    "KLRF1", "KLRC2"
+)
+
+Seurat::DotPlot(
+  object = tse_sub,
+  features = ct_genes,
+  group.by = "RNA_snn_res.0.15",
+  col.min = 0,
+  dot.min = 0) +
+  ggplot2::scale_x_discrete(
+    breaks = ct_genes) +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 60, hjust = 1)) +
+  ggplot2::labs(x = "", y = "")
+```
+
+Clusters 6 and 7 seem to be proliferating cells. 6 appeard to have a mix of T and myeloid cells and 7 are B cells. Moreover, cluster 3 is simultaneously expressing Myeloid and T cell genes which could be an indication that these are doublets. Let's double check these cells are in fact doublets:
+
+```{r}
+# Scale gene expression of genes of interest
+tse_sub <- ScaleData(tse_sub, features = ct_genes)
+DoHeatmap(
+    tse_sub,
+    features = ct_genes,
+    group.by = "RNA_snn_res.0.15")
+```
+
+Effectively, cluster 3 are doublets!
+
+### T cell clean up 
+
+The whole purpose of iterative subclustering is to capture the biological variability of a specific cell type. Clearly, our level 1 annotation of T cells included more than just T cells, for the prupose of this notebook let's simulate a level-3 annotation where we removed clusters not of interest and focus on T cells!
+
+```{r}
+# Keep only clusters 0, 1, 2, 4, 5
+tse_sub <- tse_sub[, tse_sub$RNA_snn_res.0.15 %in% c(0, 1, 2, 4, 5)]
+```
+
+Reprocess it -
+```{r}
+tse_sub <- tse_sub %>%
+    FindVariableFeatures(
+        method = "vst",
+        nfeatures = 3000,
+        verbose = FALSE) %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+    RunPCA(
+        npcs = 50,
+        verbose = FALSE
+    )
+
+# Save HVG for T cells only
+hvg_t <- VariableFeatures(tse_sub)
+
+# Look at the elbow plot
+ElbowPlot(tse_sub, ndims = 50)
+
+tse_sub <- tse_sub %>% 
+    FindNeighbors(dims = 1:30, verbose = FALSE) %>%
+    FindClusters(resolution = c(0.15, 0.2, 0.25, 0.3), verbose = FALSE) %>%
+    RunUMAP(dims = 1:30, verbose = FALSE)
+```
+
+Let's take a look at these clusters
+```{r fig.width=12, fig.height=10}
+DimPlot(
+    tse_sub,
+    reduction = 'umap',
+    group.by = c(
+        "RNA_snn_res.0.15", "RNA_snn_res.0.2",
+        "RNA_snn_res.0.25",  "RNA_snn_res.0.3"))
+
+dim_sub <- DimPlot(
+    tse_sub,
+    reduction = 'umap',
+    group.by = c("RNA_snn_res.0.15"))
+```
+
+As showcased in the clustering algorithm a data-drive way to guide the decision making of the right clustering would be to run the Silhouette Analysis. For the prupose of this notebook we are going to move forward with 0.15.
 
 ### Annotation playground
 
@@ -623,41 +475,83 @@ Do you think you can annotate these new clusters....
 
 Let's look at genes that are differentially expressed
 
-```{r fig.height=10, fig.width=15}
+```{r fig.height=12, fig.width=15}
+c1 <- c(
+    "KLRF1", "FCER1G", "FCGR3A",
+    "TRDC", "GZMB", "GNLY")
 FeaturePlot(
     tse_sub,
-    features = c("CD3D", "CD3E", "TRAC",
-                 "TRBC1", "TRBC2", "TRDC",
-                 "TRGC1", "TRGC2"),
+    features = c(c1),
     ncol = 3) +
     dim_sub
 
 VlnPlot(
     tse_sub,
-    features = c("CD3D", "CD3E", "TRAC",
-                 "TRBC1", "TRBC2", "TRDC",
-                 "TRGC1", "TRGC2"),
-    group.by = "RNA_snn_res.0.05") +
+    features = c(c1),
+    group.by = "RNA_snn_res.0.15") +
     dim_sub
 ```
 
+#### Cluster 4
+```{r fig.height=12, fig.width=15}
+c4 <- c(
+    "KLRF1", "FCER1G", "FCGR3A",
+    "TIGIT", "CX3CR1", "KLRC2")
 
-....
+FeaturePlot(
+    tse_sub,
+    features = c(c4),
+    ncol = 3) +
+    dim_sub
+
+VlnPlot(
+    tse_sub,
+    features = c(c4),
+    group.by = "RNA_snn_res.0.15",
+    pt.size = 0) +
+    dim_sub
+
+```
+
+#### Cluster 7
+
+This cluster seems to be expressin Hemoglobin and MHC2 genes....
+```{r fig.height=15, fig.width=15}
+c7 <- c(
+    "KLRF1", "FCER1G", "FCGR3A",
+    "HBB", "HBA1", "HBA2",
+    "HLA-DQA1", "HLA-DQA2")
+
+FeaturePlot(
+    tse_sub,
+    features = c(c7),
+    ncol = 3) +
+    dim_sub
+
+VlnPlot(
+    tse_sub,
+    features = c(c7),
+    group.by = "RNA_snn_res.0.15",
+    pt.size = 0) +
+    dim_sub
+
+```
 
 
 #### Annotate
-```{r}
+```{r eval=FALSE}
 tse_sub@meta.data <- tse_sub@meta.data %>%
   dplyr::mutate(
     annotation_lvl2 = dplyr::case_when(
-      RNA_snn_res.0.15 == 0 ~ "",
+      RNA_snn_res.0.15 == 0 ~ "NK",
       RNA_snn_res.0.15 == 1 ~ "",
       RNA_snn_res.0.15 == 2 ~ "",
       RNA_snn_res.0.15 == 3 ~ "",
-      RNA_snn_res.0.15 == 4 ~ "",
+      RNA_snn_res.0.15 == 4 ~ "NK TIGIT+/CX3CR1+/KLRC2+",
       RNA_snn_res.0.15 == 5 ~ "",
       RNA_snn_res.0.15 == 6 ~ "",
-      RNA_snn_res.0.15 == 7 ~ ""
+      RNA_snn_res.0.15 == 7 ~ "Doublets",
+      RNA_snn_res.0.15 == 8 ~ ""
       )
   )
 
@@ -665,6 +559,218 @@ DimPlot(tse_sub, group.by = "annotation_lvl2")
 ```
 
 
+### Comparing PCA
+
+Lastly, lets compare the PC spaces between using HVG selected from the whole data or from the cleaned up T cell subset
+
+So let's take a closer look at what changes in the PCA latent spaces. Maybe the information we need is there. 
+
+```{r}
+latent_full <- tse_full@reductions$pca@cell.embeddings
+loadings_full <- tse_full@reductions$pca@feature.loadings
+var_full <- tse_full@reductions$pca@stdev
+t_full <- tse_full@reductions$pca@misc$total.variance
+
+
+latent_sub <- tse_sub@reductions$pca@cell.embeddings
+loadings_sub <- tse_sub@reductions$pca@feature.loadings
+var_sub <- tse_sub@reductions$pca@stdev
+t_sub <- tse_sub@reductions$pca@misc$total.variance
+
+var_full_df <- data.frame(
+    PC = 1:length(var_full),
+    Variance = var_full^2 / t_full,
+    Set = "Full HVG")
+var_sub_df <- data.frame(
+    PC = 1:length(var_sub),
+    Variance = var_sub^2 / t_sub,
+    Set = "Clean HVG")
+
+# Calculate cumulative variance explained
+var_full_df$CumulativeVariance <- cumsum(var_full_df$Variance)
+var_sub_df$CumulativeVariance <- cumsum(var_sub_df$Variance)
+
+# Combine the datasets
+combined_variance <- bind_rows(var_full_df, var_sub_df)
+
+# Plotting the variance explained and cumulative variance
+ggplot(combined_variance, aes(x = PC)) +
+    geom_line(aes(y = CumulativeVariance, color = Set), size = 1.2) +
+    geom_point(aes(y = CumulativeVariance, color = Set), size = 2) +
+    scale_color_manual(values = c("blue", "red")) +
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    theme_minimal() +
+    labs(title = "Cumulative Variance Explained",
+         x = "Principal Component",
+         y = "Proportion of Variance Explained") +
+    guides(color = guide_legend(title = "Parameter Set"), 
+           linetype = guide_legend(title = "Variance Type"))
+
+```
+
+Both seem to be very similar, and it makes sense, since they are gene sets obtained by selecting the most variable genes from their respective spaces. However, the biological variance they capture is very different! We can look at that by comparing how the PC loadings of genes of interest change.
+
+```{r}
+# Function to compare PC loadings between 2 embeddings, it basically compares the difference between the max value of each gene between both PC spaces
+compare_pca_loadings <- function(loadings1, loadings2, top_n = 20, cell_type_markers = NULL,
+                                  loadings1_name = deparse(substitute(loadings1)), 
+                                  loadings2_name = deparse(substitute(loadings2))) {
+    all_genes <- union(rownames(loadings1), rownames(loadings2))
+
+    # Initialize matrices to store aligned loadings with genes set to 0 by default
+    loadings1_aligned <- matrix(0, nrow = length(all_genes), ncol = ncol(loadings1), 
+                                dimnames = list(all_genes, colnames(loadings1)))
+    loadings2_aligned <- matrix(0, nrow = length(all_genes), ncol = ncol(loadings2), 
+                                dimnames = list(all_genes, colnames(loadings2)))
+
+    # Fill in the existing values from each matrix
+    loadings1_aligned[rownames(loadings1), ] <- loadings1
+    loadings2_aligned[rownames(loadings2), ] <- loadings2
+
+    # Check for zero values immediately after filling in values
+    loadings1_zero <- apply(loadings1_aligned, 1, function(x) all(x == 0))
+    loadings2_zero <- apply(loadings2_aligned, 1, function(x) all(x == 0))
+
+    outlines <- character(length(all_genes))
+    outlines[loadings1_zero] <- "orange"
+    outlines[loadings2_zero] <- "blue"
+    # outlines[loadings1_zero & loadings2_zero] <- "white" # Both are zero
+
+    max_loadings1 <- apply(abs(loadings1_aligned), 1, max)
+    max_loadings2 <- apply(abs(loadings2_aligned), 1, max)
+
+    # Calculate the differences between the maximum absolute loadings across all PCs
+    loadings_difference <- max_loadings2 - max_loadings1
+
+    # Determine the direction of the difference
+    directionality <- ifelse(loadings_difference > 0, paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
+
+    fillpal <- c('steelblue','salmon')
+    names(fillpal) = c(paste("Higher in", loadings2_name), paste("Higher in", loadings1_name))
+
+    # Create a data frame for plotting
+    genes_differences_df <- data.frame(
+        Feature = rownames(loadings1_aligned),  # Assuming both matrices have the same rownames
+        Difference = loadings_difference,
+        Direction = directionality,
+        Outline = outlines[match(rownames(loadings1_aligned), all_genes)]
+    )
+
+    genes_differences_df <- genes_differences_df %>% mutate(
+                MaxAbsLoadings1 = ifelse(Direction == names(fillpal)[1], -max_loadings1, max_loadings1),
+                MaxAbsLoadings2 = ifelse(Direction == names(fillpal)[2], -max_loadings2, max_loadings2))
+
+    if (!is.null(cell_type_markers)) {
+        marker_genes <- unlist(cell_type_markers, use.names = FALSE)
+        genes_differences_df <- genes_differences_df %>%
+            dplyr::filter(Feature %in% marker_genes) %>%
+            dplyr::mutate(CellType = NA)  # Assign NA initially
+
+        for (cell_type in names(cell_type_markers)) {
+            genes_differences_df$CellType[genes_differences_df$Feature %in% cell_type_markers[[cell_type]]] <- cell_type
+        }
+        
+        
+        plot <- ggplot(
+            genes_differences_df,
+            aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
+            geom_col() +
+            coord_flip() +
+            theme_minimal() +
+            scale_fill_manual(values = fillpal) +
+            labs(title = "Gene Loadings Differences by Cell Type",
+                 subtitle = paste("Comparing", loadings1_name, "and", loadings2_name),
+                 x = "Gene",
+                 y = "Difference in Loadings") +
+            guides(fill = guide_legend(title = "Where Loadings are Higher")) +
+            facet_wrap(~CellType, scales = "free_y", ncol = 1, drop = TRUE)
+    } else {
+        genes_differences_df <- genes_differences_df %>%
+            dplyr::arrange(desc(Difference)) %>%
+            dplyr::slice(1:top_n)
+
+        plot <- ggplot(
+            genes_differences_df,
+            aes(x = reorder(Feature, Difference), y = Difference, fill = Direction)) +
+            geom_col(show.legend = FALSE) +
+            scale_color_manual(
+                name = "Outline Color",
+                values = c("green" = "green", "blue" = "blue", "purple" = "purple"),
+                labels = c(paste("Zero in", loadings1_name),
+                           paste("Zero in", loadings2_name),
+                           "Zero in Both")) +
+            coord_flip() +
+            theme_minimal() +
+            scale_fill_manual(values = fillpal) +
+            labs(
+                title = paste("Top", top_n, "Genes with Greatest Differences in Loadings"),
+                subtitle = paste("Comparing", loadings1_name, "and", loadings2_name),
+                x = "Gene",
+                y = "Difference in Loadings") +
+            guides(fill = guide_legend(title = "Where Loadings are Higher"))
+    }
+
+    return(plot)
+}
+```
+
+Let's compare which genes change the most between the full HVG and clean HVG
+```{r fig.width=6, fig.height=9}
+# Ensure both matrices have the same genes in the same order
+common_genes <- intersect(rownames(loadings_full), rownames(loadings_sub))
+loadings_full_aligned <- loadings_full[common_genes, , drop = FALSE]
+loadings_sub_aligned <- loadings_sub[common_genes, , drop = FALSE]
+
+# Determine high loadings
+cutoff_l <- quantile(abs(as.matrix(loadings_full_aligned)), 0.95)
+cutoff_h <- quantile(abs(as.matrix(loadings_sub_aligned)), 0.95)
+
+high_loadings_full <- apply(abs(loadings_full_aligned), 1, max) > cutoff_l
+high_loadings_sub <- apply(abs(loadings_sub_aligned), 1, max) > cutoff_h
+
+# Identify features that are high in _h but not high in _l
+target_features <- names(which(high_loadings_sub & !high_loadings_full))
+
+# Prepare loadings of these target features for plotting
+target_loadings <- loadings_sub_aligned[target_features, , drop = FALSE]
+
+# Convert to long format for ggplot using pivot_longer
+loadings_fullong <- as.data.frame(target_loadings) %>%
+  tibble::rownames_to_column("Feature") %>%
+  pivot_longer(
+    cols = -Feature,
+    names_to = "PC",
+    values_to = "Loading"
+  )
+
+# Example usage:
+compare_pca_loadings(loadings_full, loadings_sub, top_n = 40)
+
+```
+
+Many of these genes are trained immunity genes. At this point we could keep some rare positive-control celltype in mind, like ILC3s or something else we might expect to find in this dataset
+
+```{r}
+# Define a list of cell type markers
+cell_type_markers <- list(
+    Tcell = c("TRAC", "TRBC1", "TRBC2", "CD3D", "CD3E"),
+    CD8cyto = c("CD8A", "CD8B", "GZMA", "NKG7", "GZMK"),
+    CD4 = c("CD4"),
+    Trespone = c("CD40LG", "CD28"),
+    Naive = c("CCR7", "LEF1", "TCF7"),
+    Treg = c("FOXP3", "CTLA4", "IL2RA"),
+    NK = c("NCR1", "NCR2", "NCR3", "KLRF1", "KLRC2"),
+    Myeloid = c("S100A8", "S100A9", "CD14", "FCGR3A", "LYZ", "VCAN"),
+    Bcell = c("CD79A", "CD79B", "MS4A1")
+)
+
+compare_pca_loadings(loadings_full, loadings_sub, cell_type_markers = cell_type_markers)
+```
+
+And if we compare the loadings for genes of interest
+```{r fig.width=6, fig.height=9}
+compare_pca_loadings(loadings_full, loadings_sub, cell_type_markers = cell_type_markers)
+```
 
 ## Session Info
 ```{r}
