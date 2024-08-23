@@ -170,7 +170,42 @@ parameter_df <- expand.grid(
   res = c(0.5, 0.8, 1.2)
 )
 
+seurat_parameter_scan <- function(srobj, nf, pc, k, res) {
+  srobj <- srobj %>%
+    NormalizeData() %>%
+    FindVariableFeatures(selection.method = "vst", nfeatures = nf) %>%
+    ScaleData(features = head(VariableFeatures(object = .), nf)) %>%
+    RunPCA(npcs = pc, verbose = FALSE) %>%
+    FindNeighbors(dims = 1:pc, k.param = k) %>%
+    FindClusters(resolution = res)
+
+  # Extract Idents and name the output vector
+  idents <- Idents(srobj)
+  names(idents) <- paste("nf", nf, "pc", pc, "k", k, "res", res, sep="_")
+  
+  return(idents)
+}
+
+# Apply the function to each row of parameter_df and combine results into a single data frame
+paramscan <- lapply(seq_len(nrow(parameter_df)), function(i) {
+  params <- parameter_df[i, ]
+  idents_vector <- seurat_parameter_scan(se, params$nf, params$pc, params$k, params$res)
+  return(idents_vector)
+})
+
+# name cluster columns after parameters used to obtain them
+names(paramscan) <- parameter_df %>%
+  mutate(params = pmap_chr(., function(...) {
+    cols <- colnames(parameter_df)
+    values <- list(...)
+    paste0(cols, values, collapse = "_")
+  })) %>%
+  pull(params)
+
+saveRDS(paramscan, '../data/covid_flu_srobj_clusters_paramscan.rds')
+
 paramscan <- readRDS('../data/covid_flu_srobj_clusters_paramscan.rds')
+
 paramscan <- bind_cols(paramscan)
 
 row.names(paramscan) <- colnames(se)
