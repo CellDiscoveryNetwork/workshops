@@ -37,7 +37,7 @@
         -   How to evaluate differential expression statistics
         -   Reference-based cell type annotation
         -   Manual cell type annotation
-    -   [Subclustering & Level 2 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/8-Subclustering.html) [[recording](https://drive.google.com/drive/folders/17euASv5X3spHizKzqUbK58b4MaD3DwDP)]
+    -   [Subclustering & Level 2 Annotation](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq/day-2/8-Subclustering.html) [[recording](https://drive.google.com/file/d/1vUe86Gdk-80A73FZKJMyAQhScHaxaNvG/view?usp=sharing)]
         -   What does level 2 annotation mean and why we need it
         -   How to iteratively annotate a dataset
 
