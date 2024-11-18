@@ -1,0 +1,765 @@
+---
+title: "7 - Differential Gene Expression & Level 1 Annotation"
+author: "CDN team"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+In this notebook we are going to pick up from the clustering notebook and focus on how to annotate a single-cell dataset. We're briefly going to touch on how to carry out differential expression between clusters but for a more in depth explanation visit our [notebook](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/2-cluster-comparison.html) from a previous workshop. Annotating single-cell data is the most laborious part of the analysis. It requires in depth knowledge of the cell types making up your biological system and multiple rounds of iterative clustering and subsetting to get to a fine grained annotation. Luckily, there are some tools, like label transfer, that can be used to help speed up this process. These tools rely on using a relevant and previously annotated reference to help automate this annotation process. These automated methods work great for coarse cell type labels but don't perform quite as well when annotating fine grained cell states that may be not be found in our reference. Therefore, an approach combining both methodologies is usually used. A good resource going over this process is the paper by [Luecken, M, *et al.*](https://www.embopress.org/doi/full/10.15252/msb.20188746).
+
+### Key Takeaways
+
+**Differential Gene Expression**
+
+-   To annotate our clusters we need to determine which genes are differentially expressed in each one.
+
+-   Differentially expressed genes depend on which cell types we are comparing. The same cell type will have different differentially expressed genes if we change the other cell types in the dataset.
+
+-   We can quantify these differentially expressed genes using effect size and discriminatory power metrics such as log2FC and AUC.
+
+-   P values obtained from carrying out DGE analysis between clusters are inflated and should not be used.
+
+**Annotation**
+
+-   Annotation is a laborious process that uses automated and manual approach in which we use automated methods to coarsely label cells and manual annotation to identify unique cell states.
+
+-   Automated annotation requires relevant reference data that has been previously annotated. We will only be able to identify cell types that were annotated in the reference.
+
+-   Manual annotation is based on literature knowledge and digging through previous annotation efforts or field-relevant papers describing cell types of interest using other methods - bulk RNAseq, FACS...
+
+### Useful Annotation Literature
+
+**T cells**
+
+-   [Interpretation of T cell states from single-cell transcriptomics data using reference atlases](https://www.nature.com/articles/s41467-021-23324-4)
+-   [Single-cell atlas of healthy human blood unveils age-related loss of NKG2C+GZMB−CD8+ memory T cells and accumulation of type 2 memory T cells](https://pubmed.ncbi.nlm.nih.gov/37963457/)
+-   [Single-cell transcriptomics of human T cells reveals tissue and activation signatures in health and disease](https://www.nature.com/articles/s41467-019-12464-3)
+-   [Single-Cell Transcriptomics of Regulatory T Cells Reveals Trajectories of Tissue Adaptation](https://www.cell.com/immunity/pdfExtended/S1074-7613(19)30001-9)
+-   [CD8 + T cell differentiation and dysfunction in cancer](https://doi.org/10.1038/s41577-021-00574-3)\
+-   [CD8 + T cell states in human cancer: insights from single-cell analysis](https://doi.org/10.1038/s41568-019-0235-4)\
+
+**B cells**
+
+-   [An atlas of cells in the human tonsil](https://doi.org/10.1016/j.immuni.2024.01.006)
+-   [Single-cell analysis of human B cell maturation predicts how antibody class switching shapes selection dynamics](https://pubmed.ncbi.nlm.nih.gov/33579751/)
+
+**Monocyte-Macrophages**
+
+-   [Tissue-resident macrophages provide a pro-tumorigenic niche to early NSCLC cells](https://pubmed.ncbi.nlm.nih.gov/34135508/)
+-   [Single cell RNA sequencing identifies unique inflammatory airspace macrophage subsets](https://doi.org/10.1172/jci.insight.126556)
+
+**Neutrophils**
+
+-   [The neutrotime transcriptional signature defines a single continuum of neutrophils across biological compartments](https://pubmed.ncbi.nlm.nih.gov/34001893/)
+-   [Cellular and transcriptional dynamics of human neutrophils at steady state and upon stress](https://pubmed.ncbi.nlm.nih.gov/36138183/)
+-   [Single-cell transcriptome profiling reveals neutrophil heterogeneity in homeostasis and infection](https://pubmed.ncbi.nlm.nih.gov/32719519/)
+
+**NKs**
+
+-   [Single-cell transcriptome reveals the novel role of T-bet in suppressing the immature NK gene signature](https://elifesciences.org/articles/51339) - Suppl. 1
+-   [Functionally distinct subsets of human NK cells and monocyte/DC-like cells identified by coexpression of CD56, CD7, and CD4](10.1182/blood-2009-04-216374)
+-   [Immune Circuits to Shape Natural Killer Cells in Cancer](https://doi.org/10.3390/cancers13133225)
+
+**DCs**
+
+-   [Cross-Presenting XCR1+ Dendritic Cells as Targets for Cancer Immunotherapy](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC7140519/)
+-   [Transcriptional Basis of Mouse and Human Dendritic Cell Heterogeneity](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC6838684/)
+
+**Endothelial**
+
+-   [Tumor-associated high endothelial venules mediate lymphocyte entry into tumors and predict response to PD-1 plus CTLA-4 combination immunotherapy](https://www.sciencedirect.com/science/article/pii/S1535610822000046?via%3Dihub#app2)
+-   [Single cell transcriptomic analysis of murine lung development on hyperoxia-induced damage](https://www.nature.com/articles/s41467-021-21865-2)
+
+## Libraries
+
+```{r message=FALSE, warning=FALSE}
+### Make sure all the packages are installed
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages("Seurat")
+
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages("tidyverse")
+
+if (!requireNamespace("colorBlindness", quietly = TRUE))
+    install.packages("colorBlindness")
+
+if (!requireNamespace("RColorBrewer", quietly = TRUE))
+    install.packages("RColorBrewer")
+
+if (!requireNamespace("DT", quietly = TRUE))
+    install.packages("DT")
+
+if (!requireNamespace("ComplexHeatmap", quietly = TRUE))
+    BiocManager::install("ComplexHeatmap")
+
+if (!requireNamespace("openxlsx", quietly = TRUE))
+    BiocManager::install("openxlsx")
+
+if (!requireNamespace("presto", quietly = TRUE))
+    devtools::install_github("immunogenomics/presto")
+
+if (!requireNamespace("SeuratData", quietly = TRUE))
+    devtools::install_github('satijalab/seurat-data')
+
+if (!requireNamespace("ggalluvial", quietly = TRUE))
+    install.packages("ggalluvial")
+
+### Load all the necessary libraries
+library(Seurat)
+library(tidyverse)
+library(colorBlindness)
+library(RColorBrewer)
+library(DT)
+library(ComplexHeatmap)
+library(SeuratData)
+library(openxlsx)
+library(ggalluvial)
+
+set.seed(687)
+```
+
+## Load data
+
+We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
+
+```{r message=FALSE, warning=FALSE, output=FALSE}
+# Download the data in data/ directory
+# download.file(
+#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+#     destfile = "../data/workshop-data.rds",
+#     method = "wget",
+#     extra = "-r -p --random-wait")
+# We can also use the CLI with the wget command below
+# wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
+
+# se <- readRDS("../data/Covid_Flu_Seurat_Object.rds")
+se <- readRDS(file = "../data/clustered_se.rds")
+```
+
+Generate a color palette for our cell types
+
+```{r}
+# https://www.datanovia.com/en/blog/easy-way-to-expand-color-palettes-in-r/
+pal <- paletteMartin
+names(pal) <- sort(unique(se$Celltype))
+```
+
+## Analysis
+
+The seurat object already comes pre-processed from the previous step! We can go right in to annotate the clusters.
+
+Check how the clusters look on the UMAP
+```{r fig.width=12, fig.height=10}
+se$sample_id <- se$`Sample ID`
+DimPlot(
+    se,
+    group.by = c(
+        "RNA_snn_res.0.01", "RNA_snn_res.0.05",
+        "RNA_snn_res.0.1", "RNA_snn_res.0.25"),
+    label = TRUE)
+
+dim_plt <- DimPlot(
+    se,
+    group.by = c("RNA_snn_res.0.05"),
+    label = TRUE)
+```
+
+And the original cell type labels + the sample IDs
+
+```{r fig.width=12, fig.height=5}
+DimPlot(
+    se,
+    group.by = c("Celltype", "sample_id"),
+    label = FALSE)
+```
+
+For the purpose of this tutorial we're going to go forward with resolution 0.05!
+
+### DGE Wilcoxon
+
+The different implementations Seurat incorporates provides in `FindAllMarkers` compare the gene expression between 2 groups of cells. This one vs all strategy is very quick and returns the `avg_log2FC`. This `avg_log2FC` is computed as detailed [here](https://github.com/satijalab/seurat/issues/741) & [here](https://github.com/satijalab/seurat/issues/467). Since we're working with normalized data the log2FC can be directly computed by subtracting the average expression between both groups - $log_{2}(\frac{exp1}{exp2})=log_{2}(Avg\_exp1)-log_{2}(Avg\_exp2)$
+
+```{r}
+Idents(se) <- se$RNA_snn_res.0.05
+mgs <- FindAllMarkers(
+    se,
+    test.use = "wilcox",
+    slot = "data",
+    only.pos = TRUE,
+    logfc.threshold = 0.5,
+    min.pct = 0.25)
+```
+
+Look at the results in a dynamic table:
+
+```{r}
+DT::datatable(mgs, filter = "top")
+```
+
+Look at the results in a heatmap
+
+```{r fig.width=20, fig.height=20}
+top10 <- mgs %>%
+    arrange(cluster, desc(avg_log2FC)) %>% 
+    group_by(cluster) %>%
+    dplyr::filter(avg_log2FC > 1) %>%
+    slice_head(n = 10) %>%
+    ungroup()
+
+DoHeatmap(se, features = top10$gene) + NoLegend()
+```
+
+Save marker genes to a spreadsheet
+
+```{r}
+mgs_ls <- lapply(unique(mgs$cluster), function(i) {
+    mgs %>% dplyr::filter(cluster == i)
+    })
+
+# Set names which will be the sheet name
+names(mgs_ls) <- unique(mgs$cluster)
+
+# Save marker genes to spreadsheet
+openxlsx::write.xlsx(mgs_ls, file = "../data/lvl1_mgs.xlsx")
+```
+
+##### P-value interpretation
+
+More details can be obtained in [OSCA](https://bioconductor.org/books/3.17/OSCA.advanced/marker-detection-redux.html#p-value-invalidity).
+
+P values obtained from DGE analysis are inflated and, therefore invalid in their interpretation. We can't use p-values to reject the Null Hypothesis since we are carrying out **data snooping**. This means that we are dividing the clusters based on their gene expression, and then computing p-values for the genes that are differentially expressed, even though we know these clusters have different gene expression patterns since we clustered the data based on them being different.
+
+A way to show this is by looking at how skewed the distributions of the p-values obtained is:
+
+```{r fig.width=9, fig.width=9, eval=TRUE}
+# Compute the p-values without he thresholds
+mgs2 <- FindAllMarkers(
+    se,
+    test.use = "wilcox",
+    only.pos = TRUE,
+    logfc.threshold = 0,
+    min.pct = 0,
+    return.thresh = 1,
+    max.cells.per.ident = 100 # use 100 cells per cell type for speed
+    )
+
+ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
+    # geom_histogram(alpha = 0.3, position = "identity") +
+    geom_density(alpha = 0.3) +
+    theme_minimal()
+
+ggplot(mgs2, aes(x = p_val, fill = cluster, color = cluster)) +
+    geom_histogram(alpha = 0.3, position = "identity") +
+    facet_wrap(~cluster, scales = "free") +
+    theme_minimal()
+```
+
+### Annotation
+
+There are two main ways to annotate your single cell dataset which are usually used together to aid in the process:
+
+-   **Automatic Cell Type Annotation**: typically requires a reference dataset representative of the samples we are trying to annotate. Some commonly used tools in R are `SingleR` which has very good [documentation](https://bioconductor.org/books/release/SingleRBook/introduction.html) and `Seurat`'s reference mapping either through their [Azimuth server](https://azimuth.hubmapconsortium.org/) or following their reference mapping [vignette](https://satijalab.org/seurat/articles/integration_mapping.html) which performs remarkably well.
+
+-   **Manual Cell Type Annotation**: is based on prior biological knowledge of marker genes and literature review of the markers that are differentially expressed in each cluster. Good marker genes for a population are those that have a high log2FC, a high pct.1 (expressed in many cells in that group) and low pct.2 (expression absent in other groups).
+
+#### Azimuth
+
+We can use [Azimuth](https://azimuth.hubmapconsortium.org/) online app to manually use a reference dataset to annotate our dataset.
+
+To do so we need to save the counts matrix as an RDS file.
+
+```{r}
+saveRDS(
+    # subsample our data to 20% for a quick example
+    object = se[, sample(colnames(se), .2 * ncol(se))]@assays$RNA$counts,
+    file = "../data/counts.rds")
+```
+
+#### Reference Mapping
+
+We are going to download a reference human PBMC data using the `SeuratData` package. You can use whichever reference suits your data best.
+
+```{r}
+# SeuratData::AvailableData()
+# SeuratData::InstallData("pbmcsca", force.reinstall = TRUE)
+SeuratData::InstalledData()
+ref <- LoadData("pbmcsca")
+```
+
+Look at the data
+
+```{r fig.width=12, fig.height=5}
+table(ref$CellType)
+```
+
+Preprocess data - Normalize, identify HVG and look at the Elbow plot. We start by normalizing the data just to make sure both datasets are processed the same way. We then use the union of the HVG to make sure we capture the biological variability of both datasets. Next we compute the UMAP, it is necessary to specify `return.model=TRUE`! Lastly, we look at the Elbow plot to assess how many dimensions to use in downstream analysis.
+
+```{r}
+# Renormalize data and find HVG to make sure both objects are pre-processed equally
+se <- NormalizeData(se) %>%
+    FindVariableFeatures(method = "vst", nfeatures = 3000)
+
+ref <- NormalizeData(ref) %>%
+    FindVariableFeatures(method = "vst", nfeatures = 3000) %>%
+    ScaleData() %>%
+    RunPCA()
+
+ElbowPlot(ref, ndims = 30)
+
+# Make sure to return.model=TRUE here! It is necessary for the following steps
+ref <- ref %>%
+    Seurat::RunUMAP(reduction = "pca", dims = 1:30, return.model = TRUE)
+
+# Use the union of HVG
+hvg <- union(VariableFeatures(se), VariableFeatures(ref))
+length(hvg)
+```
+
+Reference mapping - there is very good explanation in the documentation of `?FindTransferAnchors`. Basically what we are doing here is embedding the cells into the same latent space. Anchors - defined as pairs of cells contained within each other's k-neighborhood - are identified. Lastly, with `TransferData` the shared nearest neighbors overlap between the anchors and the cells is used to obtain the that cell's predicted label.
+
+```{r}
+# Find anchors in reference dataers
+anchors <- FindTransferAnchors(
+    reference = ref,
+    query = se,
+    dims = 1:30,
+    reference.reduction = "pca",
+    features = hvg,
+    normalization.method = "LogNormalize")
+
+# Extract the predictions
+predictions <- TransferData(
+    anchorset = anchors,
+    refdata = ref$CellType,
+    dims = 1:30)
+
+head(predictions)
+```
+
+Let's add these predictions to our seurat object
+
+```{r}
+# colnames(predictions)
+se <- AddMetaData(
+    se,
+    metadata = predictions[, c("predicted.id", "prediction.score.max", "prediction.score.Unassigned")])
+```
+
+Look at the label transfer
+
+```{r fig.width=12, fig.height=5}
+DimPlot(se, group.by = c("Celltype", "predicted.id"))
+```
+
+Since we also got a confidence value for each cell we can visualize it
+
+```{r fig.width=12, fig.height=5}
+FeaturePlot(se, features = c("prediction.score.max", "prediction.score.Unassigned"))
+```
+
+#### Manual Annotation
+
+##### Cluster 0 & 5
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    se,
+    features = c("CD3D", "CD3E", "TRAC", "TRBC2", "CD8B", "CD4"),
+    ncol = 3) +
+    dim_plt
+
+VlnPlot(
+    se,
+    features = c("CD3D", "CD3D", "TRAC", "TRBC2", "CD8B", "CD4"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_plt
+```
+
+Clusters 0 & 5 seem to have a lot of expression of T cell related genes so at this level 1 we are going to label them as T cells.
+
+##### Cluster 1, 4 & 6
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    se,
+    features = c("CD14", "FCGR3A", "S100A8", "VCAN", "LYZ"),
+    ncol = 3) +
+    dim_plt
+
+VlnPlot(
+    se,
+    features = c("CD14", "FCGR3A", "S100A8", "VCAN", "LYZ"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_plt
+```
+
+Cluster 1, 4 & 6 express a lot of monocyte-like genes, at this level 1 we are going to label them as monocytes.
+
+##### Cluster 2
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    se,
+    features = c("MS4A1", "CD79A", "CD79B", "IGHD", "IGHM"),
+    ncol = 3) +
+    dim_plt
+
+VlnPlot(
+    se,
+    features = c("MS4A1", "CD79A", "CD79B", "IGHD", "IGHM"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_plt
+```
+
+Cluster 2 is expressing B cells genes
+
+##### Cluster 3
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    se,
+    features = c("PF4", "GP9", "PPBP"),
+    ncol = 2) +
+    dim_plt
+
+VlnPlot(
+    se,
+    features = c("PF4", "GP9", "PPBP"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_plt
+```
+
+Cluster 3 is expressing platelet genes
+
+##### Cluster 7
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    se,
+    features = c("HBA1", "HBA2", "HBB", "HBD"),
+    ncol = 3) +
+    dim_plt
+
+VlnPlot(
+    se,
+    features = c("HBA1", "HBA2", "HBB", "HBD"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_plt
+```
+
+Cluster 7 is expressing hemoglobin genes so they are likely RBC
+
+##### Cluster 8
+
+Let's look at genes that are differentially expressed
+
+```{r fig.height=10, fig.width=15}
+FeaturePlot(
+    se,
+    features = c("SHD", "SHC", "LILRA4", "CLEC4C", "IL3RA", "IRF4"),
+    ncol = 3) +
+    dim_plt
+
+VlnPlot(
+    se,
+    features = c("SHD", "SHC", "LILRA4", "CLEC4C", "IL3RA", "IRF4"),
+    group.by = "RNA_snn_res.0.05") +
+    dim_plt
+```
+
+Cluster 8 is expressing genes predominantly expressed by pDCs.
+
+## Annotate
+
+According to the markers observed we can make a first general annotation
+
+```{r}
+se@meta.data <- se@meta.data %>%
+  dplyr::mutate(
+    annotation_lvl1 = dplyr::case_when(
+      RNA_snn_res.0.05 == 0 ~ "T cells",
+      RNA_snn_res.0.05 == 1 ~ "Monocytes",
+      RNA_snn_res.0.05 == 2 ~ "B cells",
+      RNA_snn_res.0.05 == 3 ~ "Platelets",
+      RNA_snn_res.0.05 == 4 ~ "Monocytes",
+      RNA_snn_res.0.05 == 5 ~ "T cells",
+      RNA_snn_res.0.05 == 6 ~ "Monocytes",
+      RNA_snn_res.0.05 == 7 ~ "RBC",
+      RNA_snn_res.0.05 == 8 ~ "pDCs"
+      )
+  )
+
+DimPlot(se, group.by = "annotation_lvl1")
+```
+
+### Summary genes
+
+We can visualize this as a dotplot
+
+```{r fig.width=9, fig.height=3}
+order <- c("T cells", "Monocytes", "B cells", "Platelets", "RBC", "pDCs")
+
+se$annotation_lvl1_ord <- factor(
+  x = se$annotation_lvl1,
+  levels = order)
+
+## Genes for DOTPLOT
+dplot_genes <- c(
+    # T cell genes
+    "CD3D", "CD3E", "TRAC", "TRBC1", "TRBC2", "CD8A", "CD8B", "CD4",
+    # Monocytes
+    "CD14", "FCGR3A", "S100A8", "VCAN", "LYZ", "MS4A6A",
+    # B cells
+    "MS4A1", "CD79A", "CD79B", "IGHD", "IGHM",
+    # Platelets
+    "PF4", "GP9", "PPBP",
+    # RBC
+    "HBA1", "HBA2", "HBB", "HBD",
+    #pDCs
+    "LILRA4", "CLEC4C", "IL3RA", "IRF4"
+  )
+
+Seurat::DotPlot(
+  object = se,
+  features = dplot_genes,
+  group.by = "annotation_lvl1_ord",
+  col.min = 0,
+  dot.min = 0) +
+  ggplot2::scale_x_discrete(
+    breaks = dplot_genes) +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 60, hjust = 1)) +
+  ggplot2::labs(x = "", y = "")
+```
+
+We can also visualize this as a heatmap using Seurat's `DoHeatmap` function:
+
+```{r fig.width=12, fig.height=9}
+Seurat::DoHeatmap(
+    se,
+    features = dplot_genes,
+    group.by = "annotation_lvl1_ord")
+```
+
+Or with `pheatmap`
+
+```{r fig.width=15, fig.height=8}
+# Cell types in the order the gdotplot genes are set
+ct_vec <- c("T cells", "Monocytes", "B cells", "Platelets", "RBC", "pDCs")
+
+lvl1_pal <- c("purple", "orange", "forestgreen", "lightblue", "darkred", "black")
+names(lvl1_pal) <- ct_vec
+# Subset to 30% of the dataset
+se_30 <- se[, sample(colnames(se), 0.5 * ncol(se))]
+
+hm_ls <- lapply(ct_vec, function(i) {
+    se_sub <- se_30[, se_30$annotation_lvl1 == i]
+    # Extract Gene Expression Matrix from Seurat Object
+    gene_expr <- GetAssayData(se_sub, assay = "RNA", slot = "scale.data")
+    
+    # Subset the genes intersecting between gene expression and genes of interest
+    g_int <- dplot_genes[dplot_genes %in% rownames(gene_expr)]
+    
+    # Subset expression matrix to only genes of interest
+    gene_expr <- gene_expr[g_int, ]
+    
+    # Add the score of the signature as annotation in the heatmap
+    colAnn <- ComplexHeatmap::HeatmapAnnotation(
+        df = se_sub@meta.data[, c("Celltype", "annotation_lvl1"), drop = FALSE],
+        # name = "Celltype",
+        which = 'column',
+        col = list("Celltype" = pal, "annotation_lvl1" = lvl1_pal),
+        show_annotation_name = FALSE)
+    
+    # Visualize the Heatmap with the genes and signature 
+    ComplexHeatmap::Heatmap(
+        as.matrix(gene_expr),
+        name = "Scaled Gene Expression",
+        # col = expr_cols,
+        cluster_rows = FALSE,
+        cluster_columns = TRUE,
+        # column_title = sig_name,
+        column_names_gp = gpar(fontsize = 14),
+        show_column_names = FALSE,
+        top_annotation = colAnn,
+        )
+})
+
+# Return ComplexHeatmap
+hm_ls[[1]] + hm_ls[[2]] + hm_ls[[3]] + hm_ls[[4]] + hm_ls[[5]] + hm_ls[[6]]
+```
+
+### Annotation agreement
+
+Lastly let's see if our Manual annotation agrees with the reference annotation:
+
+```{r fig.width=12, fig.height=5}
+DimPlot(
+    se,
+    group.by = c("annotation_lvl1", "predicted.id", "Celltype"),
+    ncol = 2)
+```
+
+We can also check the overlap between manual and automatic annotation as follows:
+
+```{r}
+se@meta.data %>%
+    # Count the instances each combination of annotations happen
+    dplyr::count(annotation_lvl1, predicted.id) %>%
+    ggplot(aes(x = annotation_lvl1, y = predicted.id, fill = n, color = n, label = n)) +
+    geom_tile(color = "lightgrey") +
+    geom_text(color = "lightgrey") +
+    scale_fill_viridis_c() +
+    theme_classic() +
+    theme(legend.position = "none")
+```
+
+Check the overlap between manual and the author provided annotation:
+
+```{r}
+se@meta.data %>%
+    # Count the instances each combination of annotations happen
+    dplyr::count(annotation_lvl1, Celltype) %>%
+    ggplot(aes(x = annotation_lvl1, y = Celltype, fill = n, color = n, label = n)) +
+    geom_tile(color = "lightgrey") +
+    geom_text(color = "lightgrey") +
+    scale_fill_viridis_c() +
+    theme_classic() +
+    theme(legend.position = "none")
+```
+
+Now with an alluvial plot
+
+```{r fig.width=15, fig.height=9}
+se@meta.data %>%
+    dplyr::count(annotation_lvl1, predicted.id, Celltype) %>% 
+
+    ggplot(
+        aes(axis1 = annotation_lvl1, axis2 = predicted.id, axis3 = Celltype,
+            y = n)) +
+    scale_x_discrete(limits = c("annotation_lvl1", "predicted.id", "Celltype"), expand = c(.2, .05)) +
+    geom_alluvium(aes(fill = Celltype), alpha = 0.9, aes.bind = TRUE) +
+    geom_stratum() +
+    geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+    labs(
+        title = "Cell type annotation lables across strategies",
+        x = "Annotations") +
+    theme_minimal() +
+    theme(
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(colour = "darkgrey")) +
+    scale_fill_manual(values = pal)
+```
+
+## Save objects
+
+```{r}
+saveRDS(object = se, file = "../data/se_lvl1.rds")
+```
+
+## Playground with cluster 5
+
+Cluster 5 seems to have a particularly low Silhouette analysis. This potentially means these cells are not clustered correctly. This could be due to this cluster being under-clustered - leading to multiple cell types/states ending up within it. Let's check if there is heterogeneity within cluster 5.
+
+```{r message=FALSE, eval=FALSE}
+Idents(se) <- se$RNA_snn_res.0.05
+se <- FindSubCluster(se, cluster = 5, resolution = c(0.1), graph.name = "RNA_snn")
+
+se_5 <- se[, se$RNA_snn_res.0.05 == 5]
+DimPlot(se_5, group.by = "sub.cluster")
+
+## It looks like it has found 5 subclusters on SNN embedding space
+Idents(se_5) <- se_5$sub.cluster
+mgs <- FindAllMarkers(
+    se_5,
+    only.pos = TRUE,
+    logfc.threshold = 0.5,
+    min.pct = 0.25)
+DT::datatable(mgs, filter = "top")
+```
+
+Lastly, we should look at cells that might be between cell types or proliferating. These are often cells in transition and can be clustered across the UMAP.
+```{r fig.width=18, fig.height = 25, eval=FALSE}
+FeaturePlot(
+  se_5,
+  features = c(
+      # T cell genes
+      "TRDC", "TRGC1", "TRGC2",
+      "TRAC", "TRBC1", "TRBC2",
+      # Proliferation genes
+      "TOP2A", "MKI67", "STMN1",
+      # Myeloid genes
+      "S100A8", "S100A9", "HBB",
+      # B cell genes
+      "JCHAIN", "CD79A", "MS4A1",
+      "IGHA1", "MZB1", "IGHG1", "IGHG3",
+      # NK genes
+      "FCGR3A", "KLRF1", "KLRC2",
+      "NCR1", "NCR2", "NCR3"),
+  ncol = 3
+)
+```
+
+## Extra!!!
+
+See below how the `avg_log2FC` calculation is done! Code extracted from [Seurat's codebase](https://github.com/satijalab/seurat/blob/41d19a8a55350bff444340d6ae7d7e03417d4173/R/differential_expression.R#L1114-L1117).
+
+```{r, eval=FALSE}
+features <- rownames(se) == "MS4A1"
+cells.1 <- se$Celltype == "B cell, IgG+"
+cells.2 <- se$Celltype != "B cell, IgG+"
+data.use <- GetAssayData(object = se, assay.type = "RNA", slot = "data")
+pseudocount.use <- 1
+base <- 2
+
+# Calculate fold change
+mean.fxn <- function(x) {
+    return(log(x = (rowSums(x = expm1(x = x)) + pseudocount.use)/NCOL(x), base = base))
+  }
+
+data.1 <- mean.fxn(data.use[features, cells.1, drop = FALSE])
+data.2 <- mean.fxn(data.use[features, cells.2, drop = FALSE])
+
+# Look at log2FC
+(fc <- (data.1 - data.2))
+```
+
+Check if its equal to the `avg_log2FC` obtained from `FindAllMarkers`:
+
+```{r eval=FALSE}
+fc == mgs[mgs$cluster == "B cell, IgG+" & mgs$gene == "MS4A1", "avg_log2FC"]
+```
+
+## Session Info
+
+```{r}
+sessionInfo()
+```

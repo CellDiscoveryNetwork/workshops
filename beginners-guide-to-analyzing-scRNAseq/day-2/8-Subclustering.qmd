@@ -203,7 +203,9 @@ names(paramscan) <- parameter_df %>%
   pull(params)
 
 saveRDS(paramscan, '../data/covid_flu_srobj_clusters_paramscan.rds')
+```
 
+```{r}
 paramscan <- readRDS('../data/covid_flu_srobj_clusters_paramscan.rds')
 
 paramscan <- bind_cols(paramscan)
@@ -245,8 +247,8 @@ ggplot(paramscan_long %>%
       fill = "k param") +
   theme_minimal(base_size = 12) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
-
 ```
+
 
 Take a close look at the results. When we modulate nfeatures or nPCs, we don't directly see changes in the number of celltypes found. But, like we saw in the previous sessions, modulating the k.param and the clustering resolution have outsized effects on the number of clusters found.
 
