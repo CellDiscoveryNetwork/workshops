@@ -11,3 +11,8 @@ All materials used in workshops will be stored here.
 - **When**: June 4th & 11th 2024 1-5pm.
 - **Where**: Karp 11 Conference Room
 - **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.
+
+## [A Beginner's Guide to Analyzing scRNA-seq - 2nd Edition](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq-2nd-edition/index_bgas.html)
+- **When**: Dec 3rd & 10th 2024 1-5pm.
+- **Where**: Karp 6 Conference Room
+- **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.

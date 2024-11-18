@@ -1,4 +1,4 @@
-# A Beginner's Guide to Analyzing scRNA-seq
+# A Beginner's Guide to Analyzing scRNA-seq - 2nd Edition
 
 ## Day 1: Dec 3rd 2024
 
