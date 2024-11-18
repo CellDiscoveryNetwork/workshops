@@ -67,3 +67,6 @@ rsconnect/
 *.rds
 *.Rds
 *.RDS
+
+# data folder
+data/
