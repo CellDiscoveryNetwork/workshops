@@ -14,7 +14,7 @@
     -   [Normalization & HVG selection](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq-2nd-edition/day-1/3-norm-hvg.html)[[Recording]()]
         -   Why and how to normalize sc-RNAseq data
         -   Why and how to select highly variable genes
-    -   [Quality Control](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq-2nd-edition/day-2/5-QC.html) [[recording]()]
+    -   [Quality Control](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq-2nd-edition/day-2/4-QC.html) [[recording]()]
         -   How to carry out QC analysis
         -   What parameters do we need to look at and how to interpret them
         -   Computing doublet scores
