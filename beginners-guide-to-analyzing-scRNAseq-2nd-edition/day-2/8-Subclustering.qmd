@@ -162,7 +162,7 @@ For many of us, our first idea for finding rare celltypes is to modulate the par
 - `FindNeighbors` k.param, 
 - `FindClusters` resolution
 
-```{r fig.width=9, fig.height=9}
+```{r fig.width=9, fig.height=9, eval=FALSE}
 parameter_df <- expand.grid(
   nf = c(2000, 3000, 5000),
   pc = c(20, 30, 50),
@@ -177,7 +177,7 @@ seurat_parameter_scan <- function(srobj, nf, pc, k, res) {
     ScaleData(features = head(VariableFeatures(object = .), nf)) %>%
     RunPCA(npcs = pc, verbose = FALSE) %>%
     FindNeighbors(dims = 1:pc, k.param = k) %>%
-    FindClusters(resolution = res)
+    FindClusters(resolution = res, verbose = FALSE)
 
   # Extract Idents and name the output vector
   idents <- Idents(srobj)
@@ -205,7 +205,7 @@ names(paramscan) <- parameter_df %>%
 saveRDS(paramscan, '../data/covid_flu_srobj_clusters_paramscan.rds')
 ```
 
-```{r}
+```{r fig.width=12, fig.height=12}
 paramscan <- readRDS('../data/covid_flu_srobj_clusters_paramscan.rds')
 
 paramscan <- bind_cols(paramscan)
@@ -270,7 +270,7 @@ tse_full <- tse %>%
         npcs = 20,
         verbose = FALSE) %>%
     FindNeighbors() %>%
-    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2))
+    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2), verbose = FALSE)
 
 # Visualize these clusters
 DimPlot(
@@ -298,8 +298,8 @@ tse_sub <- tse %>%
         verbose = FALSE
     ) %>%
     FindNeighbors() %>%
-    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2)) %>%
-    RunUMAP(dims = 1:20)
+    FindClusters(resolution = c(0.05, 0.1, 0.15, 0.2), verbose = FALSE) %>%
+    RunUMAP(dims = 1:20, verbose = FALSE)
 
 # Visualize these clusters
 DimPlot(

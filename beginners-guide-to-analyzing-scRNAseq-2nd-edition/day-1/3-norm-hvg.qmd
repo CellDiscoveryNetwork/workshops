@@ -90,11 +90,11 @@ We're going to be working with a dataset from the paper - [Immunophenotyping of 
 
 ```{r message=FALSE, warning=FALSE, output=FALSE}
 # Download the data in data/ directory
-# download.file(
-#     url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
-#     destfile = "../data/workshop-data.rds",
-#     method = "wget",
-#     extra = "-r -p --random-wait")
+download.file(
+    url = "https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds",
+    destfile = "../data/workshop-data.rds",
+    method = "auto",
+    extra = "-r -p --random-wait")
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
@@ -205,7 +205,7 @@ ggplot(mapping = aes(x = raw_mn, y = raw_sd)) +
     )
 ```
 
-As we can observe, in general there is this relationship between the mean and the sd of the genes. If we normalize the data we can see how this relationship is greatly mitigated.
+As we can observe, in general there is this relationship between the mean and the sd of the genes. If we log-normalize the data we can see how this relationship is greatly mitigated.
 
 ```{r fig.width=9, fig.height=6}
 se@assays$RNA$data

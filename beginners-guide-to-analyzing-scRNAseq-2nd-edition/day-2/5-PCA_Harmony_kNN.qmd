@@ -1,5 +1,5 @@
 ---
-title: "4 - PCA, Harmony Integration, and kNN Graphs"
+title: "5 - PCA, Harmony Integration, and kNN Graphs"
 author: "CDN team"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 format:
@@ -599,8 +599,13 @@ Even with a smaller k, we are finding multiple clusters within the authors' over
 If we make an Alluvial plot, we can see the differences between our clusters and the author labels
 
 ```{r}
-se <- FindNeighbors(se, k.param =5)
-se <- FindClusters(se, resolution = 0.05) # let's use a very small resolution for simplicity's sake
+se <- se %>%
+    FindNeighbors(k.param = 5) %>%
+    FindClusters(resolution = 0.05) %>% # let's use a very small resolution for simplicity's sake
+    RunUMAP(
+        reduction = 'pca',
+        dims = 1:30,
+        reduction.name = 'pca_umap')
 
 metadata <- se@meta.data
 plot_data <- as.data.frame(table(metadata$seurat_clusters, metadata$Celltype))
@@ -635,7 +640,7 @@ So we have a good distribution of samples across our normal celltypes, and we pr
 
 We can get the best idea of what's going on there with a differential expression, but let's save that for later.
 
-## Integration with Harmony
+## Assessing Harmony integration
 
 Switching gears a little bit before we get ahead of ourselves making clusters, let's double check we don't have any batch effects at play that may cause batch-specific clustering. 
 
@@ -693,7 +698,6 @@ We don't really have any metadata that are correlating with our PCs. So it seems
 
 ## Integration with Harmony
 ```{r}
-
 se <- se %>% 
     RunHarmony(
         group.by.vars = 'donor_id',
@@ -701,6 +705,8 @@ se <- se %>%
     ) %>%
     FindNeighbors(reduction = 'harmony', k.param =5) %>%
     FindClusters(resolution = 0.05)
+
+se <- RunUMAP(se, reduction = "pca", dims = 1:30, reduction.name = "harmony_umap")
 
 h1_2 <- DimPlot(se,
         reduction = 'harmony',
@@ -743,6 +749,29 @@ plot_batch_effect_heatmap(
     metadata_columns_to_include = c('Age', 'sex', "donor_id", "Number of UMI",
                                     "disease", "Severity"),
     plot_title = "Correlation Heatmap of Metadata and Harmony latent variables")
+```
+
+I like to immediately plot the distribution of samples per celltype to make sure we are getting useful clusters in our data. 
+```{r}
+plt1 <- DimPlot(
+    se,
+    reduction = 'pca_umap',
+    group.by = c('donor_id')) + 
+    scale_color_manual(values = donor_pal) | DimPlot(
+        se,
+        reduction = 'pca_umap',
+        group.by = c('Celltype'))
+
+plt2 <- DimPlot(
+    se,
+    reduction = 'harmony_umap',
+    group.by = c('donor_id')) + 
+    scale_color_manual(values = donor_pal) | DimPlot(
+        se,x
+        reduction = 'harmony_map',
+        group.by = c('Celltype'))
+
+plt1 / plt2
 ```
 
 ## Session Info
