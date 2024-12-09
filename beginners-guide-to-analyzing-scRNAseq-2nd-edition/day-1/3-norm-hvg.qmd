@@ -98,7 +98,7 @@ download.file(
 # We can also use the CLI with the wget command below
 # wget https://datasets.cellxgene.cziscience.com/d8e35450-de43-451a-9979-276eac688bce.rds
 
-se <- readRDS("../data/d8e35450-de43-451a-9979-276eac688bce.rds")
+se <- readRDS("../data/workshop-data.rds")
 ```
 
 Generate a color palette for our cell types

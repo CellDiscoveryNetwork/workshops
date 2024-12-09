@@ -373,7 +373,7 @@ Some interesting PCs are the following:
 -   PC5 contains a lot of B cell related genes in the negative loadings
 -   PC8 contains a lot of myeloid genes with high loadings
 
-```{r}
+```{r fig.width=12, fig.height=5}
 DimPlot(
     tse_sub,
     dims = c(1, 5),
@@ -490,7 +490,38 @@ dim_sub <- DimPlot(
     group.by = c("RNA_snn_res.0.15"))
 ```
 
-As showcased in the clustering algorithm a data-drive way to guide the decision making of the right clustering would be to run the Silhouette Analysis. For the prupose of this notebook we are going to move forward with 0.15.
+As showcased in the clustering algorithm a data-driven way to guide the decision making of the right clustering would be to run the Silhouette Analysis. For the purpose of this notebook we are going to move forward with 0.15.
+
+```{r fig.width=12, fig.height=5}
+dim_full + dim_sub
+```
+
+Let's compare the clusters with those obtained with the original full HVG genes
+```{r}
+temp_df <- tse_sub@meta.data %>%
+    rownames_to_column("bc") %>%
+    dplyr::select(bc, RNA_snn_res.0.15) %>%
+    dplyr::rename(sub_hvg = RNA_snn_res.0.15)
+    
+
+data_alluvial2 <- tse_full@meta.data %>%
+    rownames_to_column("bc") %>%
+    dplyr::rename(full_hvg = RNA_snn_res.0.15) %>%
+    left_join(temp_df, by = "bc") %>%
+    mutate(sub_hvg = if_else(is.na(sub_hvg), "removed", sub_hvg)) %>%
+    dplyr::count(full_hvg, sub_hvg)
+
+ggplot(data = data_alluvial2,
+       aes(axis1 = full_hvg, axis2 = sub_hvg, y = n)) +
+    geom_alluvium(aes(fill = sub_hvg), width = 0.1) +
+    geom_stratum(width = 0.1) +
+    geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+    theme_minimal() +
+    scale_fill_brewer(palette = "Dark2")
+    labs(title = "Alluvial plot of Clustering using full data HVG or  subcluster HVG",
+         x = "Cluster assignment",
+         y = "N")
+```
 
 ### Annotation playground
 
@@ -550,6 +581,13 @@ VlnPlot(
 
 ```
 
+We can see how TIGIT is a gene uniquely expressed in cluster 4 which has come off of 0. How would this look like in the embedding with the full dataset
+```{r fig.width=6, fig.height=5}
+FeaturePlot(
+    tse_full,
+    features = "TIGIT")
+```
+
 #### Cluster 7
 
 This cluster seems to be expressin Hemoglobin and MHC2 genes....
@@ -587,7 +625,7 @@ tse_sub@meta.data <- tse_sub@meta.data %>%
       RNA_snn_res.0.15 == 4 ~ "NK TIGIT+/CX3CR1+/KLRC2+",
       RNA_snn_res.0.15 == 5 ~ "",
       RNA_snn_res.0.15 == 6 ~ "",
-      RNA_snn_res.0.15 == 7 ~ "Doublets",
+      RNA_snn_res.0.15 == 7 ~ "Doublets/lowQ",
       RNA_snn_res.0.15 == 8 ~ ""
       )
   )

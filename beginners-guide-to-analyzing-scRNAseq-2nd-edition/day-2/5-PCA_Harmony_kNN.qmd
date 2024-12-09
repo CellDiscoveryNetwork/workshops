@@ -767,8 +767,8 @@ plt2 <- DimPlot(
     reduction = 'harmony_umap',
     group.by = c('donor_id')) + 
     scale_color_manual(values = donor_pal) | DimPlot(
-        se,x
-        reduction = 'harmony_map',
+        se,
+        reduction = 'harmony_umap',
         group.by = c('Celltype'))
 
 plt1 / plt2

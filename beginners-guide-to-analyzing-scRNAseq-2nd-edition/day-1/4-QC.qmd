@@ -426,7 +426,7 @@ Doublet detection and removal is sensitive because you don't want to remove any 
 4.  On the k-nearest neighbor graph each cell has k most-similar neighbors. pANN is the proportion of each cell's neighbors that are "fake doublets".
 5.  A high pANN value indicates that a larger proportion of the cells around a specific cell in the kNN graph are "fake doublets" suggesting that the cell has a transcriptome similar to a doublet.
 
-Cells in transitioning states or cells with mixed phenotpyes can be mistaken for doublets. It is important not to disregard cells just because they have a large doublet score (pANN value), there might be interesting biological information in these cells!
+Cells in transitioning states or cells with mixed phenotypes can be mistaken for doublets. It is important not to disregard cells just because they have a large doublet score (pANN value), there might be interesting biological information in these cells!
 
 `DoubletFinder` allows you to set a threshold and will give each cell a categorical result of 'Singlet' or 'Doublet'. We suggest looking at the raw pANN values to understand the distribution of these cells and make threshold adjustments accordingly.
 
