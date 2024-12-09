@@ -28,7 +28,7 @@ options(width = 1200)
 
 This notebook reviews the quality control steps recommended at the beginning and at each subsequent annotation step when analyzing scRNA-seq. To clean up the cell by gene matrix, we aim to remove technical artifacts such as doublets or empty droplets. In this notebook, we will look at UMI and gene counts, filter out cells with high mitochondrial levels, investigate potential doublets (using `DoubletFinder`), and compare the cell by gene distribution before and after filtering.
 
-<img src="../data/quality_control.jpeg" width="600"/>\
+![](../data/quality_control.jpeg){width="600"}\
 
 ### Key Takeaways
 
@@ -50,7 +50,7 @@ There is a disproportionate number of mitochondrial-high cells because cells upr
 
 From **Orchestrating single-cell analysis with Bioconductor**:
 
-*"High proportions* (of mitochondria) *are indicative of poor-quality cells (Islam et al. [2014](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-islam2014quantitative); Ilicic et al. [2016](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-ilicic2016classification)), presumably because of loss of cytoplasmic RNA from perforated cells. The reasoning is that, in the presence of modest damage, the holes in the cell membrane permit efflux of individual transcript molecules but are too small to allow mitochondria to escape, leading to a relative enrichment of mitochondrial transcripts."*
+*"High proportions* (of mitochondria) *are indicative of poor-quality cells (Islam et al. [2014](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-islam2014quantitative); Ilicic et al. [2016](https://bioconductor.org/books/3.13/OSCA.basic/quality-control.html#ref-ilicic2016classification)), presumably because of loss of cytoplasmic RNA from perforated cells. The reasoning is that, in **the presence of modest damage, the holes in the cell membrane permit efflux of individual transcript molecules but are too small to allow mitochondria to escape**, leading to a relative enrichment of mitochondrial transcripts."*
 
 ### Glossary
 
@@ -189,7 +189,7 @@ ggplot(se@meta.data, aes(x = nFeature_RNA)) +
   scale_color_manual(values = pal)
 ```
 
-A cell with a very high high number of genes per cell could be indicative of doublets or large cells. Cells on the left side of the distribution with low gene counts could be low quality cells or just RBCs or platelets.
+A cell with a very high number of genes per cell could be indicative of doublets or large cells. Cells on the left side of the distribution with low gene counts could be low quality cells or just RBCs or platelets.
 
 ### Percentage of mitochondrial genes
 
@@ -382,7 +382,7 @@ We can clearly see how RBCs sit in the bottom right blob showing high percentage
 
 ## Add Batch Information
 
-Preprocessed Seurat object's will often contain batch and sample information. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified as "Uncategorized". Because they did not include the doublet information in the metadata, we will add it in this section.
+Preprocessed Seurat objects will often contain batch and sample information. From the paper for this dataset, the batch information is found in a supplementary table and the authors claimed most doublets were classified as "Uncategorized". Because they did not include the doublet information in the metadata, we will add it in this section.
 
 Packages to find doublets in both R and Python run one batch at a time as doublets are only introduced as a technical error at the 10X GEM run level during the encapsulation of cells within oil droplets. We imported the batch information so we could subset the larger object and filter out doublets per batch. Doublet detection algorithms must be run by 10X GEM run!
 
@@ -421,9 +421,9 @@ Doublet detection and removal is sensitive because you don't want to remove any 
 ### How it Works
 
 1.  DoubletFinder combines random cell's gene expression profiles to create "fake doublets."
-2.  Artificial doublets are inserted into the data
+2.  Artificial doublets are inserted into the data.
 3.  Dimensionality reduction and a KNN graph is built with our cells and the fake doublets.
-4.  On the k-nearest neighbor graph each cell has k most-similar neighbors. pANN is the proportion of each cell's neighbors that are "fake doublets".
+4.  On the k-nearest neighbor graph, each cell has k most-similar neighbors. **pANN is the proportion of each cell's neighbors that are "fake doublets".**
 5.  A high pANN value indicates that a larger proportion of the cells around a specific cell in the kNN graph are "fake doublets" suggesting that the cell has a transcriptome similar to a doublet.
 
 Cells in transitioning states or cells with mixed phenotypes can be mistaken for doublets. It is important not to disregard cells just because they have a large doublet score (pANN value), there might be interesting biological information in these cells!

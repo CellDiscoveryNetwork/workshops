@@ -102,7 +102,7 @@ for (j in 1:5) {
 
 x <- c("Where", "are", "my", "mice?")
 for (i in x) {
-    print(i, "!")
+  print(paste(i, "!"))
 }
 
 # If statements
