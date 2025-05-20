@@ -29,7 +29,7 @@ In this notebook we are going to pick up from the clustering notebook and focus 
 
 **Differential Gene Expression**
 
--   To annotate our clusters we need to determine which genes are differentially expressed in each one.
+-   To annotate our clusters, we need to determine which genes are differentially expressed in each one.
 
 -   Differentially expressed genes depend on which cell types we are comparing. The same cell type will have different differentially expressed genes if we change the other cell types in the dataset.
 
@@ -167,6 +167,7 @@ names(pal) <- sort(unique(se$Celltype))
 The seurat object already comes pre-processed from the previous step! We can go right in to annotate the clusters.
 
 Check how the clusters look on the UMAP
+
 ```{r fig.width=12, fig.height=10}
 se$sample_id <- se$`Sample ID`
 DimPlot(
@@ -707,6 +708,7 @@ DT::datatable(mgs, filter = "top")
 ```
 
 Lastly, we should look at cells that might be between cell types or proliferating. These are often cells in transition and can be clustered across the UMAP.
+
 ```{r fig.width=18, fig.height = 25, eval=FALSE}
 FeaturePlot(
   se_5,

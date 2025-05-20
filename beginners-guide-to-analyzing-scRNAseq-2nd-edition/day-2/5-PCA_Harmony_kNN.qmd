@@ -13,6 +13,9 @@ format:
     self-contained-math: true
 editor_options: 
   chunk_output_type: console
+editor: 
+  markdown: 
+    wrap: sentence
 ---
 
 ```{r setup, include=FALSE}
@@ -21,69 +24,77 @@ knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center',
 options(width = 1200)
 ```
 
-
 ## Introduction
 
-This vignette is a hands-on guide to understanding and applying principal component analysis (PCA), k-nearest neighbors (kNN) graph creation, and harmony integration in the context of scRNAseq data analysis. PCA and Harmony are two common methods for creating a dimensionality-reduced "latent space" from scRNAseq cell x gene matrices. "Latent space" is the term used to describe any matrix that can be calculated with a reduced size while still preserving the relationships between samples of the original matrix. PCA creates the latent space by deriving the combinations of genes that describe the greatest variance across samples in the dataset. Harmony creates a latent space that reduces a batch effect by reducing differences between batches within cluster or latent space variables separately. We calculate the final kNN graph of relationships between cells based on a latent space, because the process of creating the graph scales multiplicatively with number of input features. 
+This vignette is a hands-on guide to understanding and applying principal component analysis (PCA), k-nearest neighbors (kNN) graph creation, and harmony integration in the context of scRNAseq data analysis.
+PCA and Harmony are two common methods for creating a dimensionality-reduced "latent space" from scRNAseq cell x gene matrices.
+"Latent space" is the term used to describe any matrix that can be calculated with a reduced size while still preserving the relationships between samples of the original matrix.
+PCA creates the latent space by deriving the combinations of genes that describe the greatest variance across samples in the dataset.
+Harmony creates a latent space that reduces a batch effect by reducing differences between batches within cluster or latent space variables separately.
+We calculate the final kNN graph of relationships between cells based on a latent space, because the process of creating the graph scales multiplicatively with number of input features.
 
 ### Vocabulary
 
-**Latent Space** 
+**Latent Space**
 
-Any matrix that can be calculated from a data matrix with a reduced size while still preserving the relationships between samples of the original matrix. *Latent* means "existing as potential", as in "latent abilities" - so a *latent space* is a hidden set of dimensions in the data that could be useful in ways the raw data is not.
+Any matrix that can be calculated from a data matrix with a reduced size while still preserving the relationships between samples of the original matrix.
+*Latent* means "existing as potential", as in "latent abilities" - so a *latent space* is a hidden set of dimensions in the data that could be useful in ways the raw data is not.
 
 **Feature**
 
-A variable in a sample x variable matrix. In a cell x gene matrix, the gene is the feature. In PCA, the principal components are the features. 
+A variable in a sample x variable matrix.
+In a cell x gene matrix, the gene is the feature.
+In PCA, the principal components are the features.
 
-**Dimensionality Reduction** 
+**Dimensionality Reduction**
 
-The computational process of reducing a large data matrix to fewer features. For example, in scRNAseq, PCA is the most popular dimensionality reduction technique. With it we can reduce our features from ~30,000 genes to ~30 principal components, reducing the computational workload of complex analysis tasks, like creating the nearest neighbors graph.
+The computational process of reducing a large data matrix to fewer features.
+For example, in scRNAseq, PCA is the most popular dimensionality reduction technique.
+With it we can reduce our features from \~30,000 genes to \~30 principal components, reducing the computational workload of complex analysis tasks, like creating the nearest neighbors graph.
 
-**Embeddings** 
+**Embeddings**
 
-This is another term for a *latent space*, but used to refer to what we have done to the cells. The two terms are most often interchangeable. This term implies the "embedding" or placement of the cells in a different feature space.  
+This is another term for a *latent space*, but used to refer to what we have done to the cells.
+The two terms are most often interchangeable.
+This term implies the "embedding" or placement of the cells in a different feature space.
 
 **Loadings**
 
-This is the term used to describe the feature translation matrix. Which genes are in which PC? The Loadings matrix shows the weights of each gene in each PC. A negative value in this matrix means expression of the gene pushes cells in the negative direction of the PC, a positive value pushes the cell in the positive direction.
+This is the term used to describe the feature translation matrix.
+Which genes are in which PC?
+The Loadings matrix shows the weights of each gene in each PC.
+A negative value in this matrix means expression of the gene pushes cells in the negative direction of the PC, a positive value pushes the cell in the positive direction.
 
 ## Additional Reading
 
 ### Principal Component Analysis (PCA)
 
-- [A short synopsis of PCA by Josh Starmer, aka StatQuest](https://www.youtube.com/watch?v=HMOI_lkzW08) - This video uses scRNAseq data to explain some ideas behind PCA
-- [Understanding PCA](https://setosa.io/ev/principal-component-analysis/) by Victor Powell - a visually interactive explanation of the algorithm behind PCA.
-- Jolliffe, I.T., & Cadima, J. (2016). Principal component analysis: a review and recent developments. *Philosophical Transactions of the Royal Society A*, 374(2065), 20150202. [read here](https://royalsocietypublishing.org/doi/full/10.1098/rsta.2015.0202)
+-   [A short synopsis of PCA by Josh Starmer, aka StatQuest](https://www.youtube.com/watch?v=HMOI_lkzW08) - This video uses scRNAseq data to explain some ideas behind PCA
+-   [Understanding PCA](https://setosa.io/ev/principal-component-analysis/) by Victor Powell - a visually interactive explanation of the algorithm behind PCA.
+-   Jolliffe, I.T., & Cadima, J. (2016). Principal component analysis: a review and recent developments. *Philosophical Transactions of the Royal Society A*, 374(2065), 20150202. [read here](https://royalsocietypublishing.org/doi/full/10.1098/rsta.2015.0202)
 
 ### Harmony Integration
 
-- [Harmony's Reference Website](https://portals.broadinstitute.org/harmony/)
-- [Harmony Github](https://github.com/immunogenomics/harmony).
-- Korsunsky, I., Millard, N., Fan, J., et al. (2019). Fast, sensitive and accurate integration of single-cell data with Harmony. *Nature Methods*, 16, 1289–1296. [read here](https://www.nature.com/articles/s41592-019-0619-0)
-- [A detailed walkthrough of the harmony algorithm](https://portals.broadinstitute.org/harmony/advanced.html)
+-   [Harmony's Reference Website](https://portals.broadinstitute.org/harmony/)
+-   [Harmony Github](https://github.com/immunogenomics/harmony).
+-   Korsunsky, I., Millard, N., Fan, J., et al. (2019). Fast, sensitive and accurate integration of single-cell data with Harmony. *Nature Methods*, 16, 1289–1296. [read here](https://www.nature.com/articles/s41592-019-0619-0)
+-   [A detailed walkthrough of the harmony algorithm](https://portals.broadinstitute.org/harmony/advanced.html)
 
 ### k-Nearest Neighbors (kNN) Graphs
 
-- A nice introduction to kNN graphs can be found at [kNN Visualization](https://www.sc-best-practices.org/cellular_structure/clustering.html). We recommend this site in general for learning about algorithms in the context of single-cell RNA sequencing!
+-   A nice introduction to kNN graphs can be found at [kNN Visualization](https://www.sc-best-practices.org/cellular_structure/clustering.html). We recommend this site in general for learning about algorithms in the context of single-cell RNA sequencing!
 
 ## Key Takeaways
 
-- **PCA** and other latent-space algorithms are essential in the scRNAseq workflow for dimensionality reduction. PCA is especially useful because it helps to visualize and interpret major trends and variability in the data. 
-    **PCA output**:
-    - a Cell x PC matrix; a new set of variables that combine the most covarying sets of genes in the dataset, for example M phase vs. G1 phase, Immune vs. Epithelial, Sick vs. Healthy. 
-    - a PC x Gene matrix; the *loadings* or weights of each gene's importance in each PC
-    - a Variance Explained list; the standard deviation in the dataset captured by each PC
-
-- **kNN graphs** define neighborhoods of cells based on similarity. This is the ultimate goal of scRNAseq data processing, because it allows us to identify clusters of cells.
-    **kNN output**:
-    - a Neighborhood x Cell matrix; A matrix showing which cells are in which neighborhoods
-
-- **Harmony integration** minimizes batch effects by regularizing batches in any specified latent space. [In benchmarking studies, it is often highlighted as the best integration method, balancing the removal of technical noise with the maintenance of known biological signals, like cell cycle](https://theislab.github.io/scib-reproducibility/). Like PCA, Harmony creates a latent space that can be visualized.
-    **Harmony output**: 
-    - a matrix of harmony integrated PCs per cell
-
-- These methods are not only relevant in single-cell analysis but also applicable across various fields of data science and can be useful for analysis of any complex dataset. 
+-   **PCA** and other latent-space algorithms are essential in the scRNAseq workflow for dimensionality reduction. PCA is especially useful because it helps to visualize and interpret major trends and variability in the data. **PCA output**:
+    -   a Cell x PC matrix; a new set of variables that combine the most covarying sets of genes in the dataset, for example M phase vs. G1 phase, Immune vs. Epithelial, Sick vs. Healthy.
+    -   a PC x Gene matrix; the *loadings* or weights of each gene's importance in each PC
+    -   a Variance Explained list; the standard deviation in the dataset captured by each PC
+-   **kNN graphs** define neighborhoods of cells based on similarity. This is the ultimate goal of scRNAseq data processing, because it allows us to identify clusters of cells. **kNN output**:
+    -   a Neighborhood x Cell matrix; A matrix showing which cells are in which neighborhoods
+-   **Harmony integration** minimizes batch effects by regularizing batches in any specified latent space. [In benchmarking studies, it is often highlighted as the best integration method, balancing the removal of technical noise with the maintenance of known biological signals, like cell cycle](https://theislab.github.io/scib-reproducibility/). Like PCA, Harmony creates a latent space that can be visualized. **Harmony output**:
+    -   a matrix of harmony integrated PCs per cell
+-   These methods are not only relevant in single-cell analysis but also applicable across various fields of data science and can be useful for analysis of any complex dataset.
 
 ## Libraries
 
@@ -100,6 +111,7 @@ if (!requireNamespace("devtools", quietly = TRUE))
 
 if (!requireNamespace("harmony", quietly = TRUE))
     devtools::install_github("immunogenomics/harmony")
+    # or install.pacakges("harmony")
 
 if (!requireNamespace("colorBlindness", quietly = TRUE))
     install.packages("colorBlindness")
@@ -159,7 +171,7 @@ set.seed(687)
 We're going to be working with a dataset from the paper - [Immunophenotyping of COVID-19 and influenza highlights the role of type I interferons in development of severe COVID-19](https://doi.org/10.1126/sciimmunol.abd1554) Download data from the [cellxgene](https://cellxgene.cziscience.com/collections/4f889ffc-d4bc-4748-905b-8eb9db47a2ed) portal.
 
 ```{r message=FALSE, warning=FALSE, output=FALSE}
-se <- readRDS("../data/Covid_Flu_Seurat_Object.rds")
+se <- readRDS("data/Covid_Flu_Seurat_Object.rds")
 ```
 
 ### Color palette
@@ -194,7 +206,9 @@ se <- se %>%
 ## Analysis
 
 ### PCA
-When we run PCA on our Seurat object using the Seurat package's implementation, PCA is calculated on the scaled, highly variable genes. The resulting PCA latent space is placed in the *reductions* slot.
+
+When we run PCA on our Seurat object using the Seurat package's implementation, PCA is calculated on the scaled, highly variable genes.
+The resulting PCA latent space is placed in the *reductions* slot.
 
 ```{r}
 se <- se %>% 
@@ -209,9 +223,11 @@ se@reductions$pca
 ```
 
 #### Accessing PCA results
+
 The PC x Cell latent space is stored in the cell.embeddings slot.
-The Gene x PC matrix of gene weights per PC is stored in the feature.loadings slot. 
+The Gene x PC matrix of gene weights per PC is stored in the feature.loadings slot.
 The variance explained per PC is placed in the stdev slot
+
 ```{r}
 DT::datatable(se@reductions$pca@cell.embeddings)
 
@@ -221,7 +237,10 @@ DT::datatable(se@reductions$pca@feature.loadings)
 ```
 
 #### Using PCA to understand variance in your data
-By visualizing the top 2 principal components, we can start to understand the major axes of variance of our data. Seurat has built-in functions to graph the PCs and loadings
+
+By visualizing the top 2 principal components, we can start to understand the major axes of variance of our data.
+Seurat has built-in functions to graph the PCs and loadings
+
 ```{r}
 se@meta.data$nCount_RNA <- as.numeric(se@meta.data$nCount_RNA)
     
@@ -260,11 +279,11 @@ donor_pca <- DimPlot(
 donor_pca
 ```
 
-Based on our DimPlot of the first 2 PCs, we can see the major axes of variation in the data are 
+Based on our DimPlot of the first 2 PCs, we can see the major axes of variation in the data are
 
-- PC1: myeloid (negative) vs. lymphoid (positive)
+-   PC1: myeloid (negative) vs. lymphoid (positive)
 
-- PC2: erythroid (positive) vs. immune 
+-   PC2: erythroid (positive) vs. immune
 
 By visualizing loadings of these PCs, we can see which genes are driving the differences between these groups of cells
 
@@ -279,12 +298,18 @@ VizDimLoadings(
 
 And indeed, we can see that known myeloid genes S100A8, CST, LYZ are in the negative direction of PC_1, and erythroid markers like PF4 are in positive direction of PC_2
 
-#### What if I used 10, 30, 50, or even 100 PCs? 
-So far we haven't even looked beyond PC's 1 and 2. The PCA algorithm decides on the first PCs first, then moves down to the next. If we recalculate PCA, asking for 10 PCs, we will see that PC_1 and PC_2 are the same, except sometimes when the directions are flipped. The directions of PCs are randomly chosen at the beginning of the algorithm. 
+#### What if I used 10, 30, 50, or even 100 PCs?
 
-If you asked for 100 PCs, you would see the same again for PCs 1 and 2. 
+So far we haven't even looked beyond PC's 1 and 2.
+The PCA algorithm decides on the first PCs first, then moves down to the next.
+If we recalculate PCA, asking for 10 PCs, we will see that PC_1 and PC_2 are the same, except sometimes when the directions are flipped.
+The directions of PCs are randomly chosen at the beginning of the algorithm.
 
-The maximum number of PCs is the total number of samples -1. so in this case, it would be nCells - 1. As we increase the number of PCs, we increase the total variance explained by the PCA in the output matrices. 
+If you asked for 100 PCs, you would see the same again for PCs 1 and 2.
+
+The maximum number of PCs is the total number of samples -1.
+so in this case, it would be nCells - 1.
+As we increase the number of PCs, we increase the total variance explained by the PCA in the output matrices.
 
 ```{r, fig.width = 12, fig.height = 32}
 se <- se %>% 
@@ -301,14 +326,17 @@ VizDimLoadings(
     balanced = TRUE)
 ```
 
-
-But what if we think we are missing out on some of the data by using too few PCs? Seurat has two methods for deciding the number of PCs.
+But what if we think we are missing out on some of the data by using too few PCs?
+Seurat has two methods for deciding the number of PCs.
 
 ### Deciding the number of Principal Components
 
-The most popular method, the Elbow plot method, is the qualitative choice of nPCs based on deminishing returns on percent variance explained by increasing nPCs. 
+The most popular method, the Elbow plot method, is the qualitative choice of nPCs based on deminishing returns on percent variance explained by increasing nPCs.
 
-By default, the `ElbowPlot` shows the standard deviation of each PC. The standard deviation is the square-root of the variance. The total variance in the dataset is stored in ```se@reductions$pca@misc$total.variance``` - to obtain the percent variance explained by each PC, we can take the square of the stdev and divide it by the total variance
+By default, the `ElbowPlot` shows the standard deviation of each PC.
+The standard deviation is the square-root of the variance.
+The total variance in the dataset is stored in `se@reductions$pca@misc$total.variance` - to obtain the percent variance explained by each PC, we can take the square of the stdev and divide it by the total variance
+
 ```{r}
 ElbowPlot(se, ndims = 50)
 
@@ -324,15 +352,21 @@ ggplot(varExplained,
     theme_classic() +
     ylab('percent variance explained per PC')
 ```
+
 For the purposes of the elbow plot, we can see that the stdev is roughly equivalent to the variance explained per PC.
 
-The Elbow plot is the simplest way to view deminishing returns on variance explained per PC. 
+The Elbow plot is the simplest way to view deminishing returns on variance explained per PC.
 
-Then we simply cut the nPCs off at that point to prevent our PCA from being overly complex, or overfitting the data. One way we can quickly show what noise looks like in our scRNA data is by injecting noise into our dataset.
+Then we simply cut the nPCs off at that point to prevent our PCA from being overly complex, or overfitting the data.
+One way we can quickly show what noise looks like in our scRNA data is by injecting noise into our dataset.
 
-In standard data science workflows, PCs are included until some threshold of variance explained is reached, often 85%. But if we calculate the total variance explained by each PC up to the cutoff we chose by ElbowPlot, we can see it's only 20%. This is because scRNAseq data are highly noisy with a great deal of unique variance per cell. We would have to include 100s of PCs to reach 85% variance explained.
+In standard data science workflows, PCs are included until some threshold of variance explained is reached, often 85%.
+But if we calculate the total variance explained by each PC up to the cutoff we chose by ElbowPlot, we can see it's only 20%.
+This is because scRNAseq data are highly noisy with a great deal of unique variance per cell.
+We would have to include 100s of PCs to reach 85% variance explained.
 
 And, keep in mind this total variance is calculated based only on the highly variable genes we chose.
+
 ```{r}
 varExplained <- data.frame(
     varExplained = se@reductions$pca@stdev^(2) / se@reductions$pca@misc$total.variance,
@@ -352,6 +386,7 @@ ggplot(varExplained,
 ```
 
 ### Practicing PCA on a subset of the data
+
 For those curious about just how many PC's we would need to reach that threshold of 85% variance explained, we need to subset our dataset to make visualization and comparisons reasonable.
 
 ```{r}
@@ -378,8 +413,6 @@ ggplot(varExplainedsub,
     ggtitle('If we really wanted to include 85% of the variance in our data\n how many PCs would we need?',subtitle = 'in a subset of 1000 cells')
 
 ```
-
-
 
 ```{r, eval = FALSE, include = FALSE}
 # Draft chunk - not used in the end
@@ -443,10 +476,10 @@ ggplot(plot_data,
 
 ```
 
-
 ### kNN + sNN graphs
 
-Because these data objects can be large, the nearest neighbors graphs are normally stored in the "graphs" slot of the seurat object in a highly compact form that is not readable. We can optionally add these graphs as sets of matrices using the "return.neighbor" parameter:
+Because these data objects can be large, the nearest neighbors graphs are normally stored in the "graphs" slot of the seurat object in a highly compact form that is not readable.
+We can optionally add these graphs as sets of matrices using the "return.neighbor" parameter:
 
 ```{r}
 se <- FindNeighbors(
@@ -459,11 +492,9 @@ se <- FindNeighbors(
 # Now we can print which cells are closest to one another as a matrix
 se@neighbors$RNA.nn@nn.idx[1:10, 1:10]
 ```
-The nearest neighbors graphs are stored in the neighbors slot of the seurat object, and are stored as two matrices:
-    - ```se@neighbors$RNA.nn@nn.dist```; the matrix of distances between each cell (rows) and its closest k.param neighbors (columns)
-    - ```se@neighbors$RNA.nn@nn.idx```; the matrix of which cell those closest k.param cells are.
-    But because these are matrices, it also stores a list of the cell names for index <-> cellname translation
-    - ```se@neighbors$RNA.nn@cell.names```
+
+The nearest neighbors graphs are stored in the neighbors slot of the seurat object, and are stored as two matrices: - `se@neighbors$RNA.nn@nn.dist`; the matrix of distances between each cell (rows) and its closest k.param neighbors (columns) - `se@neighbors$RNA.nn@nn.idx`; the matrix of which cell those closest k.param cells are.
+But because these are matrices, it also stores a list of the cell names for index \<-\> cellname translation - `se@neighbors$RNA.nn@cell.names`
 
 ```{r}
 
@@ -473,9 +504,11 @@ se <- FindNeighbors(
 )
 ```
 
-You can imagine that if we try to display 30 lines from each cell connecting to other cells on a dataset of 60,000 cells, we would be trying to view >1,000,000 lines! This not only isn't computationally feasible for many computers, but it's also just not readable to the eye.
+You can imagine that if we try to display 30 lines from each cell connecting to other cells on a dataset of 60,000 cells, we would be trying to view \>1,000,000 lines!
+This not only isn't computationally feasible for many computers, but it's also just not readable to the eye.
 
 For educational purposes let's visualize this graph on a subset of 1000 cells:
+
 ```{r}
 seSub <- subset(se, downsample = 1000) %>%
         NormalizeData() %>%
@@ -490,7 +523,8 @@ seSub <- FindNeighbors(
               ) 
 ```
 
-Here we write a function that takes in a `Seurat` object with a KNN-graph in ```se@neighbors$RNA.nn@nn.idx``` and returns a plot with the edges between cells.
+Here we write a function that takes in a `Seurat` object with a KNN-graph in `se@neighbors$RNA.nn@nn.idx` and returns a plot with the edges between cells.
+
 ```{r, include = FALSE, echo = FALSE}
 process_and_graph_connectivity <- function(sr) {
     all_cell_names <- colnames(sr)
@@ -524,14 +558,16 @@ process_and_graph_connectivity <- function(sr) {
 ```
 
 We've included a function here to graph the kNN graph
+
 ```{r}
 process_and_graph_connectivity(seSub) + 
     labs(title = "K=30 Cell Connectivity in PCA Space", x = "PC_1", y = "PC_2")
 ```
 
-We can see here that most cells are connected to those in their immediate vicinity, but cells that are more extreme along the x and y axes are also connected to more distant cells. If we decrease our k.param, this will be less pronounced.
+We can see here that most cells are connected to those in their immediate vicinity, but cells that are more extreme along the x and y axes are also connected to more distant cells.
+If we decrease our k.param, this will be less pronounced.
 
-These nearest neighbors are based on the whole PCA latent space - the distances are decided based on the "euclidean distance" between cells in ALL of the dimensions of the PCA. 
+These nearest neighbors are based on the whole PCA latent space - the distances are decided based on the "euclidean distance" between cells in ALL of the dimensions of the PCA.
 
 ```{r}
 seSub <- FindNeighbors(
@@ -544,9 +580,13 @@ process_and_graph_connectivity(seSub) +
     labs(title = "K=5 Cell Connectivity in PCA Space", x = "PC_1", y = "PC_2")
 ```
 
-Clusters are then calculated based on the shared nearest-neighbor SNN graph. The shared-nearest neighbor graph is a graph where the distances are replaced with the number of shared nearest neighbors between each cell and its nearest neighbors. So the  ```se@neighbors$RNA.snn@nn.idx``` matrix is the same, showing which cells are the nearest neighbors, but the ```se@neighbors$RNA.snn@nn.dist`` would be an integer number, the number of neighbors that are the same between each pair of cells. The SNN graph is used to make the clustering more robust to outliers.
+Clusters are then calculated based on the shared nearest-neighbor SNN graph.
+The shared-nearest neighbor graph is a graph where the distances are replaced with the number of shared nearest neighbors between each cell and its nearest neighbors.
+So the `se@neighbors$RNA.snn@nn.idx` matrix is the same, showing which cells are the nearest neighbors, but the \``se@neighbors$RNA.snn@nn.dist` would be an integer number, the number of neighbors that are the same between each pair of cells.
+The SNN graph is used to make the clustering more robust to outliers.
 
 Let's see what happens to clusters when we modulate our k.param.
+
 ```{r, fig.width = 10, fig.height = 5}
 seSub <- FindNeighbors(
     seSub,
@@ -576,7 +616,11 @@ knn5 <- DimPlot(
 (knn5 + knn20)
 ```
 
-As we can see, with a higher k.param, there are fewer clusters. This is because the neighborhoods are smaller when we ask for fewer neighbors! However, in random sub-samples of the data, these clusters will be less stable because the neighbors depend on who is kept in. With a smaller k, we might get spurious clusters. Therefore, choosing k is a balance of stability and resolution on rare cell types.
+As we can see, with a higher k.param, there are fewer clusters.
+This is because the neighborhoods are smaller when we ask for fewer neighbors!
+However, in random sub-samples of the data, these clusters will be less stable because the neighbors depend on who is kept in.
+With a smaller k, we might get spurious clusters.
+Therefore, choosing k is a balance of stability and resolution on rare cell types.
 
 ```{r, fig.width = 14, fig.height = 12}
 celltype_pca <- DimPlot(
@@ -594,7 +638,8 @@ donor_pca <- DimPlot(
 (knn5 + knn20) / (celltype_pca + donor_pca)
 ```
 
-Even with a smaller k, we are finding multiple clusters within the authors' overarching "classical monocyte" label. However, we see a reasonable distribution of donors across them.
+Even with a smaller k, we are finding multiple clusters within the authors' overarching "classical monocyte" label.
+However, we see a reasonable distribution of donors across them.
 
 If we make an Alluvial plot, we can see the differences between our clusters and the author labels
 
@@ -623,9 +668,11 @@ ggplot(plot_data,
     theme_minimal()
 ```
 
-Our low resolution clustering has captured the major cell types: 0 appears to be myeloid cells, 1 is T cells, 2 is NK, 3 is B, 4 is platelets, 6 and 7 are RBCs and one of the Uncategorized clusters. But 5 is a secondary myeloid celltype
+Our low resolution clustering has captured the major cell types: 0 appears to be myeloid cells, 1 is T cells, 2 is NK, 3 is B, 4 is platelets, 6 and 7 are RBCs and one of the Uncategorized clusters.
+But 5 is a secondary myeloid celltype
 
-I like to immediately plot the distribution of samples per celltype to make sure we are getting useful clusters in our data. 
+I like to immediately plot the distribution of samples per celltype to make sure we are getting useful clusters in our data.
+
 ```{r}
 se@meta.data %>%
     count(donor_id, seurat_clusters) %>% 
@@ -636,15 +683,18 @@ se@meta.data %>%
         scale_fill_manual(values = donor_pal)
 ```
 
-So we have a good distribution of samples across our normal celltypes, and we probably got all our RBCs from a single sick patient's bloody nose. In cluster 6, we have cells mostly from sick patients - these are probably some kind of activated cells.
+So we have a good distribution of samples across our normal celltypes, and we probably got all our RBCs from a single sick patient's bloody nose.
+In cluster 6, we have cells mostly from sick patients - these are probably some kind of activated cells.
 
 We can get the best idea of what's going on there with a differential expression, but let's save that for later.
 
 ## Assessing Harmony integration
 
-Switching gears a little bit before we get ahead of ourselves making clusters, let's double check we don't have any batch effects at play that may cause batch-specific clustering. 
+Switching gears a little bit before we get ahead of ourselves making clusters, let's double check we don't have any batch effects at play that may cause batch-specific clustering.
 
-Usually our batch effects will show up as some vector of variation across a metadata variable. This means they will usually show up in our PCA as a PC, so we can check for them by correlating our PCs with our metadata!
+Usually our batch effects will show up as some vector of variation across a metadata variable.
+This means they will usually show up in our PCA as a PC, so we can check for them by correlating our PCs with our metadata!
+
 ```{r, fig.width = 14, fig.height = 14}
 
 plot_batch_effect_heatmap <- function(
@@ -694,9 +744,13 @@ plot_batch_effect_heatmap(
 
 ```
 
-We don't really have any metadata that are correlating with our PCs. So it seems we've found a great dataset without much batch effect! Out of all of the PCs here, PC8 shows strongest correlations with datapoints that we probably don't want to include in scientific discourse - it's highly correlated with a single patient, and that likely causes a spurious correlation with the metadata this patient has. So, for educational purposes, let's see what happens when we integrate over patient_id to try to remove this effect.
+We don't really have any metadata that are correlating with our PCs.
+So it seems we've found a great dataset without much batch effect!
+Out of all of the PCs here, PC8 shows strongest correlations with datapoints that we probably don't want to include in scientific discourse - it's highly correlated with a single patient, and that likely causes a spurious correlation with the metadata this patient has.
+So, for educational purposes, let's see what happens when we integrate over patient_id to try to remove this effect.
 
 ## Integration with Harmony
+
 ```{r}
 se <- se %>% 
     RunHarmony(
@@ -738,7 +792,7 @@ pcs1_8 <- DimPlot(se,
 (pcs1_2 + pcs1_8) / (h1_2 + h1_8)
 ```
 
-By comparing the PCs directly, we can already see the Flu 1 effect has disappeared from PC_8. 
+By comparing the PCs directly, we can already see the Flu 1 effect has disappeared from PC_8.
 Typically we would next want to check the effects of this change on the correlation structure of our whole dataset.
 We can do this by plotting again the correlation of metadata covariates
 
@@ -751,7 +805,8 @@ plot_batch_effect_heatmap(
     plot_title = "Correlation Heatmap of Metadata and Harmony latent variables")
 ```
 
-I like to immediately plot the distribution of samples per celltype to make sure we are getting useful clusters in our data. 
+I like to immediately plot the distribution of samples per celltype to make sure we are getting useful clusters in our data.
+
 ```{r}
 plt1 <- DimPlot(
     se,
@@ -775,6 +830,7 @@ plt1 / plt2
 ```
 
 ## Session Info
+
 ```{r}
 sessionInfo()
 ```
