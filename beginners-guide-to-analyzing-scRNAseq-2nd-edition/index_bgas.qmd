@@ -39,7 +39,7 @@ editor_options:
 
 -   **Where**: Karp 6 Conference Room
 -   **Course Material**:
-    -   [PCA, Integration & KNN graphs](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq-2nd-edition/day-2/5-PCA_Harmony_kNN.html)[[Recording](https://drive.google.com/file/d/13qvJhqK-EwnEJ4F_QI6eoLlknAcoNs18/view?usp=sharing)](Request Access if needed)
+    -   [PCA, Integration & KNN graphs](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/beginners-guide-to-analyzing-scRNAseq-2nd-edition/day-2/5-PCA_Harmony_kNN.html)[[Recording](https://drive.google.com/file/d/13qvJhqK-EwnEJ4F_QI6eoLlknAcoNs18/view?usp=sharing)] - Request Access if needed
         -   Brief overview on PCA and how to use it for sc-RNAseq
         -   KNN-graph representation of the data
         -   Correcting batch effects with Harmony
