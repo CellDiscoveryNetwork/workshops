@@ -18,6 +18,16 @@ All materials used in workshops will be stored here.
 - **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.
 
 ## [HMS scRNA Workshop](https://github.com/CellDiscoveryNetwork/HMS-scRNA-workshop/blob/main/index-hms-scRNAseq-workshop.html)
-- **When**: 10-12 pm Feb 25th & 27th, March 4th and 6th
+- **When**: 10-12 am Feb 25th & 27th, March 4th and 6th 2025
 - **Where**: TMEC 333 Conference Room
 - **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.
+
+## [A Beginner's Guide to Analyzing scRNA-seq - GI Edition](https://github.com/CellDiscoveryNetwork/beginner-workshop-gi-5-25/blob/main/index_bgas.html)
+- **When**: May 27th & June 3rd 2025
+- **Where**: Karp 6 Conference Room
+- **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.
+
+## [Multiome Workshop with ATACseq and scRNAseq](workshop_CDN_2025)
+- **When**: June 9th & 16th 2025
+- **Where**: Karp 6 Conference Room
+- **What do we cover**: How to get started with ATACseq, the basic steps of the workflow, and the analysis alongside scRNAseq.
