@@ -2,6 +2,7 @@
 
 ## Day 1: March 18th 2024
 - **Where**: Center for Life Sciences 3 Rosen Conference Room
+- **Day 1 Recording**: [Recording](https://youtu.be/e9hCrVTypRo?si=0oVzn-MfuhUhxmmJ)
 - **Course Material**:
     - [Download data from SCP/cellxgene](http://htmlpreview.github.io/?https://github.com/CellDiscoveryNetwork/workshops/blob/main/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1/1-cellxgene_census.html)
         - Quick look into cellxgene platform
