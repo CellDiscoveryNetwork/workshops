@@ -17,7 +17,7 @@ All materials used in workshops will be stored here.
 - **Where**: Karp 6 Conference Room
 - **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.
 
-## [HMS scRNA Workshop](https://github.com/CellDiscoveryNetwork/HMS-scRNA-workshop/blob/main/index-hms-scRNAseq-workshop.html)
+## [A Beginner's Guide to Analyzing scRNA-seq - HMS Edition](https://github.com/CellDiscoveryNetwork/HMS-scRNA-workshop/blob/main/index-hms-scRNAseq-workshop.html)
 - **When**: 10-12 am Feb 25th & 27th, March 4th and 6th 2025
 - **Where**: TMEC 333 Conference Room
 - **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.
