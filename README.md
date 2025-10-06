@@ -27,7 +27,7 @@ All materials used in workshops will be stored here.
 - **Where**: Karp 6 Conference Room
 - **What do we cover**: How to get started with scRNAseq, the basic steps of the workflow, and the intuition behind each decision.
 
-## [Multiome Workshop with ATACseq and scRNAseq](https://github.com/CellDiscoveryNetwork/scATAC_workshop_2025)
+## [Multiome Workshop with ATACseq and scRNAseq](https://celldiscoverynetwork.github.io/scATAC_workshop_2025/)
 - **When**: June 9th & 16th 2025
 - **Where**: Karp 6 Conference Room
 - **What do we cover**: How to get started with ATACseq, the basic steps of the workflow, and the analysis alongside scRNAseq.
