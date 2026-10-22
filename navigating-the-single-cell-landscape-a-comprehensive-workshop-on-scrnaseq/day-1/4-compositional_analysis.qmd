@@ -117,7 +117,8 @@ library(sccomp)
 
 ## Load data
 ```{r}
-srobj <- readRDS('../data/d8e35450-de43-451a-9979-276eac688bce.rds')
+setwd("~/Desktop/workshops/navigating-the-single-cell-landscape-a-comprehensive-workshop-on-scrnaseq/day-1")
+srobj <- readRDS('../data/workshop-data.rds')
 genes <- read_csv('../data/cov_flu_gene_names_table.csv') # Load a provided gene conversion table to convert ENSG to readable gene symbols
 
 # Need to remake seurat object
@@ -155,8 +156,7 @@ celltypePercentagesDF <- srobj@meta.data %>%
 datatable(celltypePercentagesDF)
 
 celltypePercentagesDF %>% 
-    ggplot(aes(x = `Sample ID`, y = pct_celltype, fill = Celltype), 
-           color = 'white') + 
+    ggplot(aes(x = `Sample ID`, y = pct_celltype, fill = Celltype)) +  # , color = 'white'
     geom_bar(position='stack', stat='identity') + 
     scale_fill_manual(values = pal) + 
     ggtitle('Composition of each sample by celltype') +
