@@ -1,0 +1,810 @@
+---
+title: "Getting Started in scRNA-seq"
+author: "CDN team"
+date: last-modified
+date-format: "[Last compiled on] D MMMM, YYYY"
+format:
+  html:
+    toc: true
+    toc_float: true
+    toc-location: left
+    toc-depth: 4
+    html-math-method: katex
+    embed-resources: true
+    self-contained-math: true
+editor_options: 
+  chunk_output_type: inline
+editor: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, out.width = "100%", fig.align='center', 
+                      message = FALSE, warning = FALSE, cache = FALSE)
+options(width = 1200)
+```
+
+## Introduction
+
+![](/Users/rosehedderman/Desktop/CDN/BCRP_Beginner_1hr/presentations/fig_2_theis.png)
+
+Heumos, L., Schaar, A.C., Lance, C. et al. Best practices for
+single-cell analysis across modalities. Nat Rev Genet 24, 550–572
+(2023). https://doi.org/10.1038/s41576-023-00586-w
+
+In this notebook, we'll cover the following:
+
+1.  Load 10X data into a Seurat object
+2.  Quality Control
+3.  Preprocessing
+    -   Normalization
+    -   Highly variable feature selection
+    -   Dimensionality reduction
+4.  Integration
+5.  KNN and Clustering with Differentially Expressed Genes
+6.  Annotation
+
+## Install & Load Libraries
+
+```{r message=FALSE, warning=FALSE}
+### Make sure all the packages are installed
+# Required
+if (!requireNamespace("Seurat", quietly = TRUE))
+    install.packages("Seurat")
+if (!requireNamespace("tidyverse", quietly = TRUE))
+    install.packages("tidyverse")
+if (!requireNamespace("ggplot2", quietly = TRUE))
+    install.packages("ggplot2")
+
+# Optional
+if (!requireNamespace("harmony", quietly = TRUE))
+    install.packages("harmony")
+if (!requireNamespace("ggalluvial", quietly = TRUE))
+    install.packages("ggalluvial")
+```
+
+```{r}
+### Load all the necessary libraries
+library(Seurat)
+library(tidyverse)
+library(ggplot2)
+library(harmony)
+library(ggalluvial)
+```
+
+### Download data
+
+We're going to be working with a dataset from 4 donors from 10X data.\
+[Donor
+1](https://www.10xgenomics.com/datasets/5k_Human_Donor1_PBMC_3p_gem-x)
+[Donor
+2](https://www.10xgenomics.com/datasets/5k_Human_Donor2_PBMC_3p_gem-x)
+[Donor
+3](https://www.10xgenomics.com/datasets/5k_Human_Donor3_PBMC_3p_gem-x)
+[Donor
+4](https://www.10xgenomics.com/datasets/5k_Human_Donor4_PBMC_3p_gem-x)\
+Please download the data from the 10X website or provided zip file into
+/data folder in your workshop directory.
+
+NOTE: Before running this code, unzip the
+sample_filtered_feature_bc_matrix.gz files for each sample.
+
+## 1 - Load data
+
+```{r message=FALSE, warning=FALSE, output=FALSE}
+# getwd() output is /Users/rosehedderman/Desktop/CDN/BCRP_Beginner_1hr/
+base_dir <- "/Users/rosehedderman/Desktop/CDN/BCRP_Beginner_1hr/data"
+sample_dirs <- list.dirs(base_dir, recursive = FALSE)
+valid_dirs <- sample_dirs[
+  file.exists(file.path(sample_dirs, "sample_filtered_feature_bc_matrix"))
+]
+
+# Read 10X data
+data_list <- lapply(valid_dirs, function(dir) {
+  Read10X(data.dir = file.path(dir, "sample_filtered_feature_bc_matrix"))
+})
+names(data_list) <- basename(sample_dirs)
+
+# Create Seurat Objects
+seurat_list <- lapply(names(data_list), function(name) {
+  CreateSeuratObject(counts = data_list[[name]], project = name)
+})
+names(seurat_list) <- names(data_list)
+
+# Merge objects into one
+se <- merge(
+  x = seurat_list[[1]],
+  y = seurat_list[-1],
+  add.cell.ids = names(seurat_list)
+)
+se
+```
+
+Join counts layers into one using Seurat's JoinLayers.
+
+```{r}
+se <- JoinLayers(se)
+Layers(se)
+```
+
+Let's peek at the metadata after loading.
+
+```{r}
+# dim(se@meta.data)
+head(se@meta.data)
+```
+
+### Load Known Metadata
+
+To add more metadata, we can join other dataframes to se\@meta.data.
+Here, Donor 1 has automated cell type annotations that we can use as a
+reference.
+
+```{r}
+donor1_ct <- read_csv(paste0(base_dir, "/HealthyDonor1/cell_types/cell_types.csv"))
+# head(donor1_ct)
+```
+
+Fix barcodes in cell_types dataframe to merge to Seurat object metadata.
+
+```{r}
+donor1_ct <- donor1_ct %>%
+  mutate(barcode = paste0("HealthyDonor1_", barcode))
+donor1_ct %>% tail(3)
+```
+
+### Join Metadata
+
+```{r}
+se@meta.data <- se@meta.data %>%
+  rownames_to_column("barcode") %>%
+  rename(Donor = orig.ident) %>%
+  left_join(donor1_ct, by = "barcode") %>%
+  column_to_rownames("barcode")
+# head(se@meta.data)
+```
+
+The table view is helpful for smaller scale, complete comparisons.
+
+```{r}
+table(se@meta.data$coarse_cell_type, se@meta.data$Donor)
+```
+
+### Data exploration
+
+Mini Glossary:
+
+-   **Unique molecular identifier (UMI)**: unique molecular barcode
+    added to each transcript before PCR amplification to correct for
+    biases during that process.\
+-   **Library size**: total number of UMIs detected for each cell.\
+-   **Library complexity**: number of genes that have expression \> 0 in
+    each cell. The more genes detected in a cell the more complex a cell
+    is. Examples of low complexity cells are platelets and red blood
+    cells which can be confounded with low quality cells if not assessed
+    properly.
+
+The aim is to visualize the available data to catch potential library prep issues and batch effects.
+
+#### Library Size
+
+nCount_RNA is the number of UMIs per cell. This is a measure of the
+total number of transcripts detected in a cell and is the way to
+visualize library size.
+
+```{r, fig.width=4, fig.height=3}
+# Visualize the UMI counts across samples.
+ggplot(se@meta.data, aes(x = nCount_RNA, fill = Donor)) +
+    geom_density(alpha = 0.7) + # color = "#6abcb6", fill = "#6abcb6", 
+    scale_x_continuous(
+        transform = "log10",
+        labels = scales::unit_format(unit = "K", scale = 1e-3)) +
+    theme_classic()
+```
+
+#### Library Complexity
+
+nFeature_RNA is the number of genes detected in a cell. Cells with few genes and few UMIs are considered low quality.
+
+```{r, fig.width=4, fig.height=3}
+# Visualize the feature (gene) counts across samples.
+ggplot(se@meta.data, aes(x = nFeature_RNA, fill = Donor)) +
+    geom_density(alpha = 0.7) + # color = "#6abcb6", fill = "#6abcb6", 
+    scale_x_continuous(
+        labels = scales::unit_format(unit = "K", scale = 1e-3)) +
+    theme_classic()
+```
+
+## 2 - Quality Control
+
+QC is the process of filtering out “bad” data. This makes it a subjective process, making well-informed decisions is key to avoid removing biological signal. In this context, being conservative in what we call “poor quality” cells is best practice.
+
+The main pitfall in this step is to be too stringent. This may lead to removing true biological signal. Some examples of cells that might be filtered out during the QC process are neutrophils, platelets, and erythrocytes since they have low library size and complexity.
+
+Doublets can be confounded with transitioning cells or cells with mixed phenotypes. Therefore, it is very important that we are very careful when calling a cell a doublet! Otherwise, we might be removing very interesting biology.
+
+Add percentage of common features
+
+```{r}
+# Calculate the percentage of mitochondrial genes
+se <- PercentageFeatureSet(se, pattern = "^MT-", col.name = "perc.mt")
+# Calculate the percentage of ribosomal genes
+se <- PercentageFeatureSet(se, pattern = "^RPS|^RPL", col.name = "perc.ribo")
+# Calculate the percentage of hemoglobin genes
+se <- PercentageFeatureSet(se, pattern = "^HB[^(P)]", col.name = "perc.hb")
+```
+
+Visualize by sample
+
+```{r, fig.width=9, fig.height=4}
+# Plot features by Sample together
+VlnPlot(se,
+  group.by = "Donor",
+  features = c("perc.mt", "perc.ribo", "perc.hb"),
+  # log = TRUE,
+  pt.size = 0
+  ) &
+    NoLegend()
+```
+
+```{r, fig.width=10, fig.height=3}
+# Comparison of mitochondrial and hemoglobin genes
+p1 <- se@meta.data %>%
+  ggplot(., aes(x = perc.mt, y = perc.hb, color = Donor)) +
+    geom_point() +
+    # scale_color_manual(values = pal) +
+    theme_classic()
+p2 <- se@meta.data %>%
+  ggplot(., aes(x = perc.mt, y = perc.hb, color = `coarse_cell_type`)) +
+    geom_point() +
+    # scale_color_manual(values = donor_pal) +
+    theme_classic() 
+p1 | p2
+```
+
+### Feature Covariation
+
+Looking at how QC features covary between them gives us a better sense of what is going on and allows us to make better decisions.
+
+This covariation plot colors by a specified variable in order to see its prevalence across the data. 
+```{r}
+# Plot by cell type
+se@meta.data %>%
+  ggplot(., aes(x = nCount_RNA, y = nFeature_RNA, color = Donor)) +
+  geom_point() +
+  theme_classic()
+```
+
+Use facet_wrap() in ggplot to separate your plots by a specified variable.
+```{r}
+# UMIs per sample
+se@meta.data %>%
+  ggplot(., aes(x = nCount_RNA, y = nFeature_RNA, color = Donor)) +
+  geom_point() +
+  facet_wrap(~Donor) +
+  theme_classic()
+```
+
+Below, the distribution of mitochondrial percentage across the dataset is shown in relation to the library size and complexity.
+```{r, fig.width= 3, fig.height=2}
+# Percent Mitochondrial Genes
+se@meta.data %>%
+  ggplot(., aes(x = nCount_RNA, y = nFeature_RNA, color = perc.mt)) +
+    geom_point() +
+    theme_classic() +
+    scale_color_gradient(low = "yellow", high = "red")
+```
+
+```{r, fig.width= 5, fig.height=4}
+# Percent MT Genes per sample
+se@meta.data %>%
+  ggplot(., aes(x = nCount_RNA, y = nFeature_RNA, color = perc.mt)) +
+  geom_point() +
+  facet_wrap(~`Donor`) +
+  theme_classic() +
+  scale_color_gradient(low = "yellow", high = "red") +
+  scale_x_continuous(
+        labels = scales::unit_format(unit = "K", scale = 1e-3))
+```
+
+### Doublets!
+
+Doublet detection and removal is sensitive because you don’t want to remove any valuable outliers but still take into consideration the noisiness of the data.
+
+`DoubletFinder` uses a nearest neighbor approach to identify doublets. The package has a function called `doubletFinder` that takes in a Seurat object and returns a Seurat object with doublet information added in the metadata.
+
+**How it Works**
+
+1.  DoubletFinder combines random cell's gene expression profiles to create "fake doublets."
+2.  Artificial doublets are inserted into the data
+3.  Dimensionality reduction and a KNN graph is built with our cells and the fake doublets.
+4.  On the k-nearest neighbor graph each cell has k most-similar neighbors. pANN is the proportion of each cell's neighbors that are "fake doublets".
+5.  A high pANN value indicates that a larger proportion of the cells around a specific cell in the kNN graph are "fake doublets" suggesting that the cell has a transcriptome similar to a doublet.
+
+Cells in transitioning states or cells with mixed phenotpyes can be mistaken for doublets. It is important not to disregard cells just because they have a large doublet score (pANN value), there might be interesting biological information in these cells!
+
+`DoubletFinder` allows you to set a threshold and will give each cell a categorical result of 'Singlet' or 'Doublet'. We suggest looking at the raw pANN values to understand the distribution of these cells and make threshold adjustments accordingly.
+
+More information can be found in the CDN's QC notebook or other public resources.
+
+### Label cell quality
+
+For the sake of preserving valuable data, we label low quality cells early on and filter them out later in the analysis. 
+
+```{r}
+se@meta.data <- se@meta.data %>%
+  mutate(
+    quality = if_else(
+        nFeature_RNA > 200 & nCount_RNA > 500 & perc.mt < 15, "good quality", "bad quality"),
+    quality = factor(quality, levels = c("bad quality", "good quality"))
+    )
+```
+
+# 3 - Preprocessing
+
+1.  Normalization
+2.  Highly Variable Gene Selection
+3.  Dimensionality Reduction
+
+### A - Normalization
+
+TOFIX: According to the documentation, this function does the
+following - Feature counts for each cell are divided by the total counts
+for that cell and multiplied by the scale.factor. This is then
+natural-log transformed using log1p.
+
+```{r}
+se@assays$RNA$counts[15:25, 15:30]
+```
+
+```{r}
+se <- NormalizeData(se, normalization.method = "LogNormalize", scale.factor = 1e4)
+
+se@assays$RNA$data[15:25, 15:30]
+```
+
+### B - Highly Variable Gene Selection
+
+TOFIX: Subsetting our count matrix to highly variable genes is a key
+step for downstream analysis. We need to reduce the dimensions of the
+count matrix so that we can carry out downstream tasks such as PCA.
+
+The intutition behind selecting HVG is that those genes with highest
+variability capture high level biological variability in our datasets
+and can help us identify the populations present in our dataset.
+
+To do this we can use the vst method: - First, fits a line to the
+relationship of log(variance) and log(mean) using local polynomial
+regression (loess). - Then standardizes the feature values using the
+observed mean and expected variance (given by the fitted line). -
+Feature variance is then calculated on the standardized values after
+clipping to a maximum (see clip.max parameter).
+
+```{r}
+se <- FindVariableFeatures(se, nfeatures = 3000, selection.method = "vst")
+
+# Identify the 50 most highly variable genes
+top <- head(VariableFeatures(se), 100)
+
+# plot variable features with and without labels
+plot1 <- VariableFeaturePlot(se)
+plot2 <- LabelPoints(plot = plot1, points = top, repel = TRUE)
+plot2 +
+    geom_smooth(method = "loess", error = FALSE) +
+    scale_y_log10()
+```
+
+Once we have those annotated, we will proceed to subsetting our data to
+a cell type of interest and RECOMPUTING HVG so that they are updated and
+represent the biological variability in this new dataset!
+
+### C - Dimensionality Reduction
+
+Mini Glossary:
+
+-   **Dimensionality Reduction**: The computational process of reducing
+    a large data matrix to fewer features.
+-   **Latent Space/Embeddings**: A latent space is a hidden set of
+    dimensions in the data that could be useful in ways the raw data is
+    not.
+-   **Feature**: A variable in a sample x variable matrix. In a cell x
+    gene matrix, the gene is the feature. In PCA, the principal
+    components are the features.
+-   **Loadings**: This is the term used to describe the feature
+    translation matrix. Which genes are in which PC? The Loadings matrix
+    shows the weights of each gene in each PC.
+
+```{r}
+se <- se  %>%
+    ScaleData(verbose = FALSE, features = VariableFeatures(.)) %>% 
+    RunPCA(
+        npcs = 30,
+        ndims.print = 1:5,
+        nfeatures.print = 10
+    )
+
+# This is where latent spaces, aka dimensional reductions are stored. If we call it directly, we can see some information about the PCA.
+se@reductions$pca
+```
+
+#### Using PCA to understand variance in your data
+
+```{r, fig.height=4, fig.width=6}
+FeaturePlot(
+    se,
+    reduction = "pca",
+    features = 'nCount_RNA'
+    )
+```
+
+```{r, fig.height = 4, fig.width= 12}
+DimPlot(
+    se,
+    reduction = "pca",
+    group.by = 'coarse_cell_type',
+    split.by = "Donor" # ,
+    # dims = c(2,3)
+    ) 
+```
+
+```{r}
+# DT::datatable(se@reductions$pca@cell.embeddings)
+```
+
+```{r, fig.height=4, fig.width=6}
+VizDimLoadings(
+    se, 
+    dims = 1:2, 
+    reduction = "pca",
+    nfeatures =10,
+    # ncol = 3,
+    # By balanced = TRUE, we see top loadings in each direction of each PC
+    balanced = TRUE)
+```
+
+```{r, fig.height=3, fig.width=4}
+ElbowPlot(se, ndims = 50)
+```
+
+# 4 - INTEGRATION
+
+```{r}
+se <- se %>%
+  RunUMAP(
+    dims = 1:20,
+    reduction = "pca",
+    reduction.name = "pca_umap",
+    verbose = FALSE
+  ) %>%
+    RunHarmony(
+      group.by.vars = 'Donor',
+      reduction.uptest = 'pca',
+    ) %>%
+  RunUMAP(
+    dims = 1:20,
+    reduction = "harmony",
+    reduction.name = "harmony_umap",
+    verbose = FALSE
+  )
+```
+
+```{r, fig.height=4, fig.width=10}
+DimPlot(se, 
+        reduction = "pca_umap", 
+        group.by = "Donor") +
+  theme(legend.position = "none") + 
+  DimPlot(se, 
+        reduction = "harmony_umap", 
+        group.by = "Donor") +
+  theme(legend.position = "none")
+```
+
+```{r, fig.height=6, fig.width=8}
+DimPlot(se, 
+        reduction = "pca_umap", 
+        group.by = "fine_cell_type", 
+        label = TRUE) + NoLegend()
+```
+
+Compare clustering of good and bad quality cells.
+
+```{r, fig.height=4, fig.width=10}
+DimPlot(se, 
+        reduction = "pca_umap", 
+        group.by = "quality") +
+  theme(legend.position = "none") + 
+  DimPlot(se, 
+        reduction = "harmony_umap", 
+        group.by = "quality") +
+  theme(legend.position = "none")
+```
+
+# 5 - KNN and Clustering with Differentially Expressed Genes
+
+TODO: add link to other notebook. See portion of other KNN notebook.
+
+```{r}
+se <- se %>%
+    FindNeighbors( 
+        reduction = "pca",
+        dims = 1:20,
+        k.param = 20,
+        verbose = FALSE
+    )
+```
+
+```{r}
+# Look at the k-nearest neighbors (nn) and shared nearest neighbors (snn) graphs computed
+se@graphs
+```
+
+Calculate Clusters using the Leiden algorithm
+
+```{r}
+se <- FindClusters(
+      object = se,
+      resolution = c(0.01, 0.05, 0.1, 0.15, 0.2),
+      algorithm = 1,
+      verbose = FALSE) 
+```
+
+Visualize Clusters
+
+```{r, fig.height=6, fig.width=10}
+DimPlot(
+    se,
+    reduction = "pca_umap", # "pca_umap"
+    group.by = c(
+        "RNA_snn_res.0.01", "RNA_snn_res.0.05",
+        "RNA_snn_res.0.1", "RNA_snn_res.0.15",
+        "RNA_snn_res.0.2"),
+    label = TRUE
+) 
+```
+
+```{r}
+# install.packages("ggalluvial") 
+library(ggalluvial)
+se@meta.data %>%
+    dplyr::count(
+        coarse_cell_type, RNA_snn_res.0.01, RNA_snn_res.0.05,
+        RNA_snn_res.0.1, RNA_snn_res.0.2) %>% 
+    ggplot(
+        aes(axis1 = RNA_snn_res.0.01, axis2 = RNA_snn_res.0.05,
+            axis3 = RNA_snn_res.0.1, axis4 = RNA_snn_res.0.2,
+            y = n)) +
+    geom_alluvium(aes(fill = RNA_snn_res.0.01), width = 0.1) +
+    geom_stratum(width = 0.1) +
+    geom_text(stat = "stratum", aes(label = after_stat(stratum))) +
+    scale_x_discrete(
+        limits = c("RNA_snn_res.0.01", "RNA_snn_res.0.05",
+                   "RNA_snn_res.0.1", "RNA_snn_res.0.2"),
+        expand = c(0.15, 0.05)) +
+    scale_fill_brewer(palette = "Dark2") +
+    labs(title = "Compare Cluster Resolution of 0.01, 0.05, 0.1 and 0.2",
+         x = "Clusters",
+         y = "Count") +
+    theme_minimal()
+```
+
+### Differential Gene Expression via Wilcoxon
+
+```{r}
+Idents(se) <- se$RNA_snn_res.0.05
+mgs <- FindAllMarkers(
+    se,
+    test.use = "wilcox",
+    slot = "data",
+    only.pos = TRUE,
+    logfc.threshold = 0.5,
+    min.pct = 0.25)
+# write_csv(mgs, paste0(data_dir, "/marker_genes_res_005.csv))
+```
+
+```{r}
+DT::datatable(mgs, filter = "top")
+```
+
+```{r, fig.height=6, fig.width=12}
+top10 <- mgs %>%
+    arrange(cluster, desc(avg_log2FC)) %>% 
+    group_by(cluster) %>%
+    dplyr::filter(avg_log2FC > 1) %>%
+    slice_head(n = 5) %>%
+    ungroup()
+
+DoHeatmap(se, features = top10$gene) + NoLegend()
+```
+
+P-Value Interpretation in
+OSCA(https://bioconductor.org/books/3.17/OSCA.advanced/marker-detection-redux.html#p-value-invalidity)
+
+```{r}
+plot_batch_effect_heatmap <- function(
+                                     seurat_object, 
+                                     latent_space = 'pca', 
+                                     num_pcs = 20, 
+                                     metadata_columns_to_include = NULL,
+                                     plot_title = "Correlation Heatmap of Metadata and PCA Components") {
+    metadata <- seurat_object@meta.data
+    metadata <- metadata[, metadata_columns_to_include, drop = FALSE]
+    pca_data <- Embeddings(seurat_object, latent_space)[, 1:num_pcs] # pull the PCs we want to check
+
+    categorical_cols <- sapply(metadata, function(col) is.factor(col) || is.character(col))
+    
+    # convert character columns to factors for one-hot encoding
+    metadata[categorical_cols] <- lapply(metadata[categorical_cols], as.factor)
+
+    #1hot without removing redundant dummies
+    metadata_encoded <- fastDummies::dummy_cols(
+        metadata,
+        remove_first_dummy = FALSE,
+        remove_selected_columns = TRUE)
+
+    combined_data <- cbind(metadata_encoded, pca_data) # combine metadata and PCA data
+    
+    # calculate the correlation matrix
+    correlation_matrix <- cor(combined_data, use = "pairwise.complete.obs")
+
+    # Subset the correlation matrix to include only metadata and PCA components
+    metadata_columns <- colnames(metadata_encoded)
+    pca_columns <- colnames(pca_data)
+    subset_correlation_matrix <- correlation_matrix[metadata_columns, pca_columns, drop = FALSE]
+    
+    # Check for any NA values in the subset correlation matrix and replace them with 0
+    subset_correlation_matrix[is.na(subset_correlation_matrix)] <- 0
+    
+    # Create the heatmap using corrplot
+    corrplot(subset_correlation_matrix, method = "circle", tl.col = "black", tl.srt = 45,
+             number.cex = 0.7, tl.cex = 0.7,
+             main = plot_title)
+}
+
+plot_batch_effect_heatmap(
+    se, 
+    metadata_columns_to_include = c("nCount_RNA", "nFeature_RNA","Donor", "quality"))
+```
+# 6 - Annotation
+
+1 - Manual Annotation\
+2 - Automatic Annotation (Useful as a reference but depends on the
+breadth/depth/strength of the original.)
+
+### Common Cell Type Gene Markers
+
+```{r}
+markers <- c(
+  # Leukocyte
+  "PTPRC",
+  # T Cells
+  "CD3D", "CD3E", "CD4", "CD8A", "CD8B",
+  # B Cells
+  "MS4A1", "CD79A",
+  # NK Cells
+  "FCGR3A", "CD14", 
+  # Macrophage
+  "CD68",
+  # Monocyte
+  "LYZ", "LST1", "FCN1", 
+  # pDCs
+  "JCHAIN", "CLEC4C",
+  # Platelets
+  "PF4", "CD41", "PPBP", 
+  # Proliferating
+  "MKI67", "PCNA"
+)
+```
+
+```{r, fig.height=4, fig.width=6}
+DimPlot(
+    se,
+    reduction = "pca_umap", 
+    group.by = "RNA_snn_res.0.05",
+    label = TRUE
+)
+```
+
+```{r}
+se@meta.data %>%
+    count(Donor, RNA_snn_res.0.05) %>% 
+    group_by(RNA_snn_res.0.05) %>%
+    mutate(composition = n/sum(n)) %>%
+    ggplot(aes(x = RNA_snn_res.0.05, y = composition, fill = Donor)) + 
+        geom_bar(position = 'stack', stat = 'identity')
+```
+
+```{r, fig.width = 10, fig.height = 10}
+FeaturePlot(
+  se, 
+  reduction = "harmony_umap", 
+  features = markers
+)
+```
+
+Violin Plot of Annotation markers
+
+```{r, fig.width=10, fig.height=5}
+VlnPlot(se,
+        # C1QA non-classical monocytes
+        features = c("CD3D", "LYZ","MS4A1", "FCGR3A", "C1QA", "perc.mt", "JCHAIN", "PF4"), 
+        ncol = 4, 
+        pt.size = 0)
+```
+
+Assign Annotations
+
+```{r}
+se@meta.data <- se@meta.data %>%
+  dplyr::mutate(
+    annotation_lvl1 = dplyr::case_when(
+      RNA_snn_res.0.05 == 0 ~ "T cells",
+      RNA_snn_res.0.05 == 1 ~ "Monocytes",
+      RNA_snn_res.0.05 == 2 ~ "B cells",
+      RNA_snn_res.0.05 == 3 ~ "NK Cells",
+      RNA_snn_res.0.05 == 4 ~ "Monocytes",
+      RNA_snn_res.0.05 == 5 ~ "Low Quality",
+      RNA_snn_res.0.05 == 6 ~ "pDCs",
+      RNA_snn_res.0.05 == 7 ~ "Platelets"
+      )
+  )
+
+DimPlot(se, group.by = "annotation_lvl1", reduction = "harmony_umap")
+```
+
+Marker Gene Heat Map
+
+```{r, fig.height=4, fig.width =8}
+order <- c("T cells", "B cells", "NK Cells", "Monocytes", "pDCs", "Platelets", "Low Quality")
+
+se$annotation_lvl1_ord <- factor(
+  x = se$annotation_lvl1,
+  levels = order)
+
+Seurat::DotPlot(
+  object = se,
+  features = markers,
+  group.by = "annotation_lvl1_ord",
+  col.min = 0,
+  dot.min = 0) +
+  ggplot2::scale_x_discrete(
+    breaks = markers) +
+  ggplot2::theme(axis.text.x = ggplot2::element_text(angle = 60, hjust = 1)) +
+  ggplot2::labs(x = "", y = "")
+```
+
+Check Annotations with Donor 1's Automated Annotations  
+TODO: Add note on other automated cell type annotation services.
+
+```{r}
+table(se@meta.data$coarse_cell_type, se@meta.data$annotation_lvl1)
+```
+
+# Save Whole Object
+
+```{r}
+save_dir <- paste0(base_dir, "/annot_lvl1.rds")
+saveRDS(subset(se, subset = quality == "good quality"), save_dir)
+```
+
+### Split Object into Sub Types
+
+```{r}
+lymphocyte <- subset(se, subset = annotation_lvl1 %in% c("T Cells", "B Cells", "NK Cells"))
+# save lymphocyte object
+lymph_dir <- paste0(base_dir, "/annot_lvl1_lymphocyte.rds")
+saveRDS(lymphocyte, lymph_dir)
+```
+
+```{r}
+myeloid <- subset(se, subset = annotation_lvl1 %in% c("Monocytes","pDCs"))
+# save lymphocyte object
+myeloid_dir <- paste0(base_dir, "/annot_lvl1_myeloid.rds")
+saveRDS(myeloid, myeloid_dir)
+```
+
+# Session Info
+
+```{r}
+sessionInfo()
+```
